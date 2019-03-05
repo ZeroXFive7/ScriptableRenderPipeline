@@ -10,7 +10,7 @@
 * Volume Framework
   * [Volumes](Volumes)
   * [Volume Profiles](Volume-Profile)
-  * [Volume Component Overrides](Volume-Components)
+  * [Volume Overrides](Volume-Components)
 * Volume Components
   * [Visual Environment](Visual-Environment)
   * [Gradient Sky](Gradient-Sky)
@@ -47,6 +47,7 @@
   * [Environment Lighting](Environment-Lighting)
   * [Static Lighting Sky](Static-Lighting-Sky)
   * [Atmospheric Scattering](Atmospheric-Scattering)
+  * [Light Layers](Light-Layers.html)
   * [Shadows](Shadows)
   * [Volumetric Lighting](Volumetric-Lighting)
   * [Physical Light Units and Intensities](Physical-Light-Units)
