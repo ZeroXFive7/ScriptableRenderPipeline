@@ -35,11 +35,3 @@ To activate cascade visualization, click the **Visualize Cascades** button. You 
 
 - You can use the Scene view Camera to move around your Scene and quickly visualize the shadow maps of different areas.
 - You can use the Game view Camera to visualize the shadow maps from the point of view of the end user. You can use the **Visualize Cascades** feature while in Play Mode, which is useful if you have some method of controlling the Camera’s position and rotation and want to see the shadow maps from different points of view in your Project.
-
-|      |      |
-| ---- | ---- |
-|      |      |
-|      |      |
-|      |      |
-|      |      |
-|      |      |
