@@ -3,6 +3,7 @@
   * [Getting Started with HDRP](Getting-started-with-HDRP)
   * [Upgrading to HDRP](Upgrading-To-HDRP)
   * [Forward and Deferred Rendering](Forward-And-Deferred-Rendering)
+  * [Advanced Properties](Advanced-Properties)
   * Overviews
     * [Materials Overview](Materials-Shaders-Overview)
     * [Fog Overview](Fog-Overview)
@@ -16,9 +17,11 @@
   * [Gradient Sky](Gradient-Sky)
   * [HDRI Sky](HDRI-Sky)
   * [Procedural Sky](Procedural-Sky)
+  * [Exponential Fog](Exponential-Fog)
+  * [Linear Fog](Linear-Fog)
+  * [Volumetric Fog](Volumetric-Fog)
   * [HD Shadow Settings](HD-Shadow-Settings)
   * [Contact Shadows](Contact-Shadows)
-  * [Volumetric Fog](Volumetric-Fog)
   * [Indirect Lighting Controller](Indirect-Lighting-Controller)
   * [Volumetric Lighting Controller](Volumetric-Lighting-Controller)
 * Render Pipeline Settings
@@ -47,7 +50,7 @@
   * [Environment Lighting](Environment-Lighting)
   * [Static Lighting Sky](Static-Lighting-Sky)
   * [Atmospheric Scattering](Atmospheric-Scattering)
-  * [Light Layers](Light-Layers.html)
+  * [Light Layers](Light-Layers)
   * [Shadows](Shadows)
   * [Volumetric Lighting](Volumetric-Lighting)
   * [Physical Light Units and Intensities](Physical-Light-Units)
@@ -57,5 +60,6 @@
   * [Decal Projector](Decal-Projector)
 * Camera
   * [Multisampling Anti-Aliasing](MSAA)
+* [VR in HDRP](VR-in-HDRP)
 * [HDRP Glossary](Glossary)
 
