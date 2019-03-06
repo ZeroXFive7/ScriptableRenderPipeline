@@ -170,8 +170,6 @@ namespace UnityEngine.Rendering.LWRP
             lightOcclusionProbeChannel.x = occlusionProbeChannel == -1 ? 0f : occlusionProbeChannel;
             lightOcclusionProbeChannel.y = occlusionProbeChannel == -1 ? 1f : 0f;
 
-            Debug.Log($"{light.name} * (index, channel): ({light.bakingOutput.occlusionMaskChannel}, {light.bakingOutput.probeOcclusionLightIndex})");
-
             // TODO: Add support to shadow mask
             if (light != null && light.bakingOutput.mixedLightingMode == MixedLightingMode.Subtractive && light.bakingOutput.lightmapBakeType == LightmapBakeType.Mixed)
             {
