@@ -51,7 +51,7 @@
   * [Static Lighting Sky](Static-Lighting-Sky)
   * [Atmospheric Scattering](Atmospheric-Scattering)
   * [Light Layers](Light-Layers)
-  * [Shadows](Shadows)
+  * [Shadows](Shadows-in-HDRP)
   * [Volumetric Lighting](Volumetric-Lighting)
   * [Physical Light Units and Intensities](Physical-Light-Units)
 * Object Sorting

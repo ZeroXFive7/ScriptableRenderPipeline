@@ -2,7 +2,7 @@
 
 [High Definition Render Pipeline (HDRP)](index.html) uses [Shaders](https://docs.unity3d.com/Manual/class-Shader.html) and lighting units that are different with the built-in Unity rendering pipeline. As such, it’s best to create a new Project for HDRP rendering. This page shows you how to create a Scene that uses HDRP, and introduces you to key features to help you produce high fidelity visuals.
 
-To upgrade a Project that doesn’t use HDRP, you need to convert the Materials to make them compatible with HDRP. For more information, see [Upgrading to HDRP](Upgrading-to-HDRP). 
+To upgrade a Project that doesn’t use HDRP, you need to convert the Materials to make them compatible with HDRP. For more information, see [Upgrading to HDRP](Upgrading-to-HDRP.html). 
 
 ## Creating an HDRP Project
 
