@@ -108,7 +108,11 @@ Light GetMainLight()
 {
     Light light;
     light.direction = _MainLightPosition.xyz;
-    light.distanceAttenuation = unity_LightData.z;
+    #if defined(_MIXED_LIGHTING_SUBTRACTIVE) && defined(LIGHTMAP_ON)
+        light.distanceAttenuation = unity_LightData.z;
+    #else
+        light.distanceAttenuation = unity_ProbesOcclusion.x;
+    #endif
     light.shadowAttenuation = 1.0;
     light.color = _MainLightColor.rgb;
 
@@ -147,6 +151,23 @@ Light GetAdditionalLight(int i, float3 positionWS)
     light.distanceAttenuation = attenuation;
     light.shadowAttenuation = AdditionalLightRealtimeShadow(perObjectLightIndex, positionWS);
     light.color = _AdditionalLightsColor[perObjectLightIndex].rgb;
+
+    // In case we're using light probes, we can sample the attenuation from the `unity_ProbesOcclusion`
+#if !(defined(_MIXED_LIGHTING_SUBTRACTIVE) && defined(LIGHTMAP_ON))
+    // First find the probe channel from the light.
+    // Then sample `unity_ProbesOcclusion` for the baked occlusion.
+    // If the light is not baked, the channel is -1, and we need to apply no occlusion.
+    half4 lightOcclusionProbeInfo = _AdditionalLightsOcclusionProbes[perObjectLightIndex];
+
+    // probeChannel is the index in 'unity_ProbesOcclusion' that holds the proper occlusion value.
+    int probeChannel = lightOcclusionProbeInfo.x;
+
+    // lightProbeContribution is set to 0 if we are indeed using a probe, otherwise set to 1.
+    half lightProbeContribution = lightOcclusionProbeInfo.y;
+
+    half probeOcclusionValue = unity_ProbesOcclusion[probeChannel];
+    light.distanceAttenuation *= max(probeOcclusionValue, lightProbeContribution);
+#endif
 
     return light;
 }
