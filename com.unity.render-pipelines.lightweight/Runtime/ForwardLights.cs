@@ -161,7 +161,7 @@ namespace UnityEngine.Rendering.LWRP
             Light light = lightData.light;
 
             // Set the occlusion probe channel.
-            int occlusionProbeChannel = light.bakingOutput.occlusionMaskChannel;
+            int occlusionProbeChannel = light != null ? light.bakingOutput.occlusionMaskChannel : -1;
 
             // If we have baked the light, the occlusion channel is the index we need to sample in 'unity_ProbesOcclusion'
             // If we have not baked the light, the occlusion channel is -1.
