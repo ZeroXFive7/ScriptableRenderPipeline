@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Fixed occlusion mesh for VR not rendering before rendering opaques.
 - Enabling or disabling SRP Batcher in runtime works now.
 - Fixed video player recorder when post-processing is enabled.
+- Fixed light attenuation precision on mobile platforms.
 
 ## [6.4.0] - 2019-02-21
 
