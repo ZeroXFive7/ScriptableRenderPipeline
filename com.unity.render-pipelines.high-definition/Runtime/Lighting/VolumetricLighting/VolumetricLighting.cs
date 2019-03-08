@@ -225,6 +225,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             frameIndex &= 1;
 
             int d = ComputeVBufferSliceCount(preset);
+            d *= 2;
 
             return rtHandleSystem.Alloc(scaleFunc:         ComputeHistoryVBufferResolutionXY,
                 slices:            d,
@@ -247,6 +248,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             s_VisibleVolumeDataBuffer   = new ComputeBuffer(k_MaxVisibleVolumeCount, Marshal.SizeOf(typeof(DensityVolumeEngineData)));
 
             int d = ComputeVBufferSliceCount(preset);
+            d *= 2;
 
             m_DensityBufferHandle = RTHandles.Alloc(scaleFunc:         ComputeVBufferResolutionXY,
                     slices:            d,
@@ -527,7 +529,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     // Frustum cull on the CPU for now. TODO: do it on the GPU.
                     // TODO: account for custom near and far planes of the V-Buffer's frustum.
                     // It's typically much shorter (along the Z axis) than the camera's frustum.
-                    if (GeometryUtils.Overlap(obb, hdCamera.frustum, 6, 8))
+                    //if (GeometryUtils.Overlap(obb, hdCamera.frustum, 6, 8))
                     {
                         // TODO: cache these?
                         var data = volume.parameters.ConvertToEngineData();
@@ -578,7 +580,29 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 #endif
 
                 // Compose the matrix which allows us to compute the world space view direction.
-                Matrix4x4 transform = HDUtils.ComputePixelCoordToWorldSpaceViewDirectionMatrix(vFoV, lensShift, resolution, hdCamera.viewMatrix, false);
+
+                Matrix4x4[] transforms = new Matrix4x4[2];
+
+                if (hdCamera.camera.stereoEnabled)
+                {
+                    {
+                        var planes = hdCamera.projMatrixStereo[0].decomposeProjection;
+                        float vertFov = Math.Abs(planes.top) + Math.Abs(planes.bottom);
+
+                        transforms[0] = HDUtils.ComputePixelCoordToWorldSpaceViewDirectionMatrix(vertFov, lensShift, resolution, hdCamera.viewMatrixStereo[0], false);
+                    }
+
+                    {
+                        var planes = hdCamera.projMatrixStereo[1].decomposeProjection;
+                        float vertFov = Math.Abs(planes.top) + Math.Abs(planes.bottom);
+
+                        transforms[1] = HDUtils.ComputePixelCoordToWorldSpaceViewDirectionMatrix(vertFov, lensShift, resolution, hdCamera.viewMatrixStereo[1], false);
+                    }
+                }
+                else
+                {
+                    transforms[0] = HDUtils.ComputePixelCoordToWorldSpaceViewDirectionMatrix(vFoV, lensShift, resolution, hdCamera.viewMatrix, false);
+                }
 
                 // Compute texel spacing at the depth of 1 meter.
                 float unitDepthTexelSpacing = HDUtils.ComputZPlaneTexelSpacing(1.0f, vFoV, resolution.y);
@@ -613,7 +637,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 cmd.SetComputeTextureParam(m_VolumeVoxelizationCS, kernel, HDShaderIDs._VolumeMaskAtlas, volumeAtlas);
 
                 // TODO: set the constant buffer data only once.
-                cmd.SetComputeMatrixParam(m_VolumeVoxelizationCS, HDShaderIDs._VBufferCoordToViewDirWS,      transform);
+                cmd.SetComputeMatrixArrayParam(m_VolumeVoxelizationCS, HDShaderIDs._VBufferCoordToViewDirWS,      transforms);
                 cmd.SetComputeFloatParam( m_VolumeVoxelizationCS, HDShaderIDs._VBufferUnitDepthTexelSpacing, unitDepthTexelSpacing);
                 cmd.SetComputeIntParam(   m_VolumeVoxelizationCS, HDShaderIDs._NumVisibleDensityVolumes,     numVisibleVolumes);
                 cmd.SetComputeVectorParam(m_VolumeVoxelizationCS, HDShaderIDs._VolumeMaskDimensions,         volumeAtlasDimensions);
@@ -622,7 +646,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 int h = (int)resolution.y;
 
                 // The shader defines GROUP_SIZE_1D = 8.
-                cmd.DispatchCompute(m_VolumeVoxelizationCS, kernel, (w + 7) / 8, (h + 7) / 8, 1);
+                cmd.DispatchCompute(m_VolumeVoxelizationCS, kernel, (w + 7) / 8, (h + 7) / 8, XRGraphics.computePassCount);
             }
         }
 
@@ -697,7 +721,30 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 var lensShift   = Vector2.zero;
 #endif
                 // Compose the matrix which allows us to compute the world space view direction.
-                Matrix4x4 transform   = HDUtils.ComputePixelCoordToWorldSpaceViewDirectionMatrix(vFoV, lensShift, resolution, hdCamera.viewMatrix, false);
+                Matrix4x4[] transforms = new Matrix4x4[2];
+                
+                if (hdCamera.camera.stereoEnabled)
+                {
+                    {
+                        var planes = hdCamera.projMatrixStereo[0].decomposeProjection;
+                        float vertFov = Math.Abs(planes.top) + Math.Abs(planes.bottom);
+
+                        transforms[0] = HDUtils.ComputePixelCoordToWorldSpaceViewDirectionMatrix(vertFov, lensShift, resolution, hdCamera.viewMatrixStereo[0], false);
+                    }
+
+                    {
+                        var planes = hdCamera.projMatrixStereo[1].decomposeProjection;
+                        float vertFov = Math.Abs(planes.top) + Math.Abs(planes.bottom);
+
+                        transforms[1] = HDUtils.ComputePixelCoordToWorldSpaceViewDirectionMatrix(vertFov, lensShift, resolution, hdCamera.viewMatrixStereo[1], false);
+                    }
+
+                    
+                }
+                else
+                {
+                    transforms[0] = HDUtils.ComputePixelCoordToWorldSpaceViewDirectionMatrix(vFoV, lensShift, resolution, hdCamera.viewMatrix, false);
+                }
 
                 // Compute texel spacing at the depth of 1 meter.
                 float unitDepthTexelSpacing = HDUtils.ComputZPlaneTexelSpacing(1.0f, vFoV, resolution.y);
@@ -713,7 +760,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
                 // TODO: set 'm_VolumetricLightingPreset'.
                 // TODO: set the constant buffer data only once.
-                cmd.SetComputeMatrixParam( m_VolumetricLightingCS,         HDShaderIDs._VBufferCoordToViewDirWS,      transform);
+                cmd.SetComputeMatrixArrayParam( m_VolumetricLightingCS,         HDShaderIDs._VBufferCoordToViewDirWS,      transforms);
                 cmd.SetComputeFloatParam(  m_VolumetricLightingCS,         HDShaderIDs._VBufferUnitDepthTexelSpacing, unitDepthTexelSpacing);
                 cmd.SetComputeFloatParam(  m_VolumetricLightingCS,         HDShaderIDs._CornetteShanksConstant,       CornetteShanksPhasePartConstant(fog.anisotropy));
                 cmd.SetComputeVectorParam( m_VolumetricLightingCS,         HDShaderIDs._VBufferSampleOffset,          m_xySeqOffset);
@@ -736,7 +783,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 int h = (int)resolution.y;
 
                 // The shader defines GROUP_SIZE_1D = 8.
-                cmd.DispatchCompute(m_VolumetricLightingCS, kernel, (w + 7) / 8, (h + 7) / 8, 1);
+                cmd.DispatchCompute(m_VolumetricLightingCS, kernel, (w + 7) / 8, (h + 7) / 8, XRGraphics.computePassCount);
             }
         }
     } // class VolumetricLightingModule

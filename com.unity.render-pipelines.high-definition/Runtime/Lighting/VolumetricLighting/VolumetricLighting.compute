@@ -4,6 +4,7 @@
 
 // #pragma enable_d3d11_debug_symbols
 #pragma only_renderers d3d11 ps4 xboxone vulkan metal switch
+#pragma enable_d3d11_debug_symbols
 
 #pragma kernel VolumetricLightingBruteforceMQ            VolumetricLighting=VolumetricLightingBruteforceMQ            LIGHTLOOP_DISABLE_TILE_AND_CLUSTER ENABLE_REPROJECTION=0 ENABLE_ANISOTROPY=0 VL_PRESET_MQ
 #pragma kernel VolumetricLightingTiledMQ                 VolumetricLighting=VolumetricLightingTiledMQ                 ENABLE_REPROJECTION=0 ENABLE_ANISOTROPY=0 VL_PRESET_MQ
@@ -86,7 +87,7 @@ TEXTURE3D(_VBufferDensity);                     // RGB = scattering, A = extinct
 
 // TODO: avoid creating another Constant Buffer...
 CBUFFER_START(UnityVolumetricLighting)
-    float4x4 _VBufferCoordToViewDirWS;          // Actually just 3x3, but Unity can only set 4x4
+    float4x4 _VBufferCoordToViewDirWS[2];          // Actually just 3x3, but Unity can only set 4x4
 
     float    _VBufferUnitDepthTexelSpacing;
     uint     _NumVisibleDensityVolumes;         // Not used by this shader
@@ -470,7 +471,7 @@ void FillVolumetricLightingBuffer(LightLoopContext context, uint featureFlags,
 
     for (uint slice = 0; slice < _VBufferSliceCount; slice++)
     {
-        uint3 voxelCoord = uint3(posInput.positionSS, slice);
+        uint3 voxelCoord = uint3(posInput.positionSS, slice + _VBufferSliceCount * unity_StereoEyeIndex);
 
         float e1 = slice * de + de; // (slice + 1) / sliceCount
         float t1 = DecodeLogarithmicDepthGeneralized(e1, _VBufferDistanceDecodingParams);
@@ -630,11 +631,14 @@ void FillVolumetricLightingBuffer(LightLoopContext context, uint featureFlags,
 }
 
 [numthreads(GROUP_SIZE_1D, GROUP_SIZE_1D, 1)]
-void VolumetricLighting(uint2 groupId       : SV_GroupID,
-                        uint2 groupThreadId : SV_GroupThreadID)
+void VolumetricLighting(uint3 dispatchThreadId : SV_DispatchThreadID,
+                        uint2 groupId          : SV_GroupID,
+                        uint2 groupThreadId    : SV_GroupThreadID)
 {
     // Perform compile-time checks.
     if (!IsPower2(VBUFFER_TILE_SIZE) || !IsPower2(TILE_SIZE_BIG_TILE)) return;
+
+    UNITY_STEREO_ASSIGN_COMPUTE_EYE_INDEX(dispatchThreadId.z);
 
     uint2 groupOffset = groupId * GROUP_SIZE_1D;
     uint2 voxelCoord  = groupOffset + groupThreadId;
@@ -655,7 +659,7 @@ void VolumetricLighting(uint2 groupId       : SV_GroupID,
     float2 centerCoord = voxelCoord + float2(0.5, 0.5);
 
     // Compute a ray direction s.t. ViewSpace(rayDirWS).z = 1.
-    float3 rayDirWS       = mul(-float3(centerCoord, 1), (float3x3)_VBufferCoordToViewDirWS);
+    float3 rayDirWS       = mul(-float3(centerCoord, 1), (float3x3)_VBufferCoordToViewDirWS[unity_StereoEyeIndex]);
     float3 rightDirWS     = cross(rayDirWS, U);
     float  rcpLenRayDir   = rsqrt(dot(rayDirWS, rayDirWS));
     float  rcpLenRightDir = rsqrt(dot(rightDirWS, rightDirWS));
