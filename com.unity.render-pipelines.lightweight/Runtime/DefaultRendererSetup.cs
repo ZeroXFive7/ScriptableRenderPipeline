@@ -19,6 +19,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         private DrawSkyboxPass m_DrawSkyboxPass;
         private CopyDepthPass m_CopyDepthPass;
         private CopyColorPass m_CopyColorPass;
+        private InitialBlitPass m_InitialBlitPass;
         private RenderTransparentForwardPass m_RenderTransparentForwardPass;
         private TransparentPostProcessPass m_TransparentPostProcessPass;
         private FinalBlitPass m_FinalBlitPass;
@@ -36,6 +37,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         private RenderTargetHandle MainLightShadowmap;
         private RenderTargetHandle AdditionalLightsShadowmap;
         private RenderTargetHandle ScreenSpaceShadowmap;
+        private RenderTargetHandle InitialBlitMap;
 
         private List<IBeforeRender> m_BeforeRenderPasses = new List<IBeforeRender>(10);
 
@@ -45,7 +47,9 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         private void Init()
         {
             if (m_Initialized)
+            {
                 return;
+            }
 
             m_DepthOnlyPass = new DepthOnlyPass();
             m_MainLightShadowCasterPass = new MainLightShadowCasterPass();
@@ -60,6 +64,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             m_DrawSkyboxPass = new DrawSkyboxPass();
             m_CopyDepthPass = new CopyDepthPass();
             m_CopyColorPass = new CopyColorPass();
+            m_InitialBlitPass = new InitialBlitPass();
             m_RenderTransparentForwardPass = new RenderTransparentForwardPass();
             m_TransparentPostProcessPass = new TransparentPostProcessPass();
             m_FinalBlitPass = new FinalBlitPass();
@@ -78,6 +83,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             MainLightShadowmap.Init("_MainLightShadowmapTexture");
             AdditionalLightsShadowmap.Init("_AdditionalLightsShadowmapTexture");
             ScreenSpaceShadowmap.Init("_ScreenSpaceShadowmapTexture");
+            InitialBlitMap.Init("_InitialBlitTexture");
 
             m_Initialized = true;
         }
@@ -121,14 +127,18 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             {
                 mainLightShadows = m_MainLightShadowCasterPass.Setup(MainLightShadowmap, ref renderingData);
                 if (mainLightShadows)
+                {
                     renderer.EnqueuePass(m_MainLightShadowCasterPass);
+                }
             }
 
             if (renderingData.shadowData.supportsAdditionalLightShadows)
             {
                 bool additionalLightShadows = m_AdditionalLightsShadowCasterPass.Setup(AdditionalLightsShadowmap, ref renderingData, renderer.maxVisibleAdditionalLights);
                 if (additionalLightShadows)
+                {
                     renderer.EnqueuePass(m_AdditionalLightsShadowCasterPass);
+                }
             }
 
             bool resolveShadowsInScreenSpace = mainLightShadows && renderingData.shadowData.requiresScreenSpaceShadowResolve;
@@ -142,11 +152,16 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
 
             if (requiresDepthPrepass)
             {
+                m_InitialBlitPass.Setup(colorHandle, InitialBlitMap);
+                renderer.EnqueuePass(m_InitialBlitPass);
+
                 m_DepthOnlyPass.Setup(baseDescriptor, DepthTexture, SampleCount.One);
                 renderer.EnqueuePass(m_DepthOnlyPass);
 
                 foreach (var pass in camera.GetComponents<IAfterDepthPrePass>())
+                {
                     renderer.EnqueuePass(pass.GetPassToEnqueue(m_DepthOnlyPass.descriptor, DepthTexture));
+                }
             }
 
             if (resolveShadowsInScreenSpace)
@@ -156,7 +171,9 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             }
 
             if (renderingData.cameraData.isStereoEnabled)
+            {
                 renderer.EnqueuePass(m_BeginXrRenderingPass);
+            }
 
             RendererConfiguration rendererConfiguration = ScriptableRenderer.GetRendererConfiguration(renderingData.lightData.additionalLightsCount);
 
@@ -165,12 +182,17 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
 
             // If a before all render pass executed we expect it to clear the color render target
             if (m_BeforeRenderPasses.Count != 0)
+            {
                 clearFlag = ClearFlag.None;
+            }
 
             m_RenderOpaqueForwardPass.Setup(baseDescriptor, colorHandle, depthHandle, clearFlag, camera.backgroundColor, rendererConfiguration);
             renderer.EnqueuePass(m_RenderOpaqueForwardPass);
+
             foreach (var pass in camera.GetComponents<IAfterOpaquePass>())
+            {
                 renderer.EnqueuePass(pass.GetPassToEnqueue(baseDescriptor, colorHandle, depthHandle));
+            }
 
             if (renderingData.cameraData.postProcessEnabled &&
                 renderingData.cameraData.postProcessLayer.HasOpaqueOnlyEffects(renderer.postProcessingContext))
@@ -179,7 +201,9 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                 renderer.EnqueuePass(m_OpaquePostProcessPass);
 
                 foreach (var pass in camera.GetComponents<IAfterOpaquePostProcess>())
+                {
                     renderer.EnqueuePass(pass.GetPassToEnqueue(baseDescriptor, colorHandle, depthHandle));
+                }
             }
 
             if (camera.clearFlags == CameraClearFlags.Skybox && RenderSettings.skybox != null)
@@ -189,7 +213,9 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             }
 
             foreach (var pass in camera.GetComponents<IAfterSkyboxPass>())
+            {
                 renderer.EnqueuePass(pass.GetPassToEnqueue(baseDescriptor, colorHandle, depthHandle));
+            }
 
             if (renderingData.cameraData.requiresDepthTexture && !requiresDepthPrepass)
             {
@@ -207,7 +233,9 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             renderer.EnqueuePass(m_RenderTransparentForwardPass);
 
             foreach (var pass in camera.GetComponents<IAfterTransparentPass>())
+            {
                 renderer.EnqueuePass(pass.GetPassToEnqueue(baseDescriptor, colorHandle, depthHandle));
+            }
 
             if (renderingData.cameraData.postProcessEnabled)
             {
@@ -221,7 +249,9 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             }
 
             foreach (var pass in camera.GetComponents<IAfterRender>())
+            {
                 renderer.EnqueuePass(pass.GetPassToEnqueue());
+            }
 
             if (renderingData.cameraData.isStereoEnabled)
             {

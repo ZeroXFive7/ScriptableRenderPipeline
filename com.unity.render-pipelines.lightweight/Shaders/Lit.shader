@@ -70,6 +70,7 @@ Shader "Lightweight Render Pipeline/Lit"
             // All shaders must be compiled with HLSLcc and currently only gles is not using HLSLcc by default
             #pragma prefer_hlslcc gles
             #pragma exclude_renderers d3d11_9x
+            #pragma enable_d3d11_debug_symbols
             #pragma target 2.0
 
             // -------------------------------------
@@ -109,11 +110,12 @@ Shader "Lightweight Render Pipeline/Lit"
             #pragma vertex LitPassVertex
             #pragma fragment LitPassFragment
 
+            #define _VERTEX_COLOR 1
+
             #include "LitInput.hlsl"
             #include "LitForwardPass.hlsl"
             ENDHLSL
         }
-
         Pass
         {
             Name "ShadowCaster"
@@ -127,6 +129,7 @@ Shader "Lightweight Render Pipeline/Lit"
             // Required to compile gles 2.0 with standard srp library
             #pragma prefer_hlslcc gles
             #pragma exclude_renderers d3d11_9x
+            #pragma enable_d3d11_debug_symbols
             #pragma target 2.0
 
             // -------------------------------------
@@ -159,6 +162,7 @@ Shader "Lightweight Render Pipeline/Lit"
             // Required to compile gles 2.0 with standard srp library
             #pragma prefer_hlslcc gles
             #pragma exclude_renderers d3d11_9x
+            #pragma enable_d3d11_debug_symbols
             #pragma target 2.0
 
             #pragma vertex DepthOnlyVertex
@@ -190,6 +194,7 @@ Shader "Lightweight Render Pipeline/Lit"
             // Required to compile gles 2.0 with standard srp library
             #pragma prefer_hlslcc gles
             #pragma exclude_renderers d3d11_9x
+            #pragma enable_d3d11_debug_symbols
 
             #pragma vertex LightweightVertexMeta
             #pragma fragment LightweightFragmentMeta

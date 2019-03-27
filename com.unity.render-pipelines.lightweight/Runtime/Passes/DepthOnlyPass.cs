@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using UnityEngine.Rendering;
 
 namespace UnityEngine.Experimental.Rendering.LightweightPipeline
@@ -84,7 +84,9 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                     context.StopMultiEye(camera);
                 }
                 else
+                {
                     context.DrawRenderers(renderingData.cullResults.visibleRenderers, ref drawSettings, opaqueFilterSettings);
+                }
             }
             context.ExecuteCommandBuffer(cmd);
             CommandBufferPool.Release(cmd);

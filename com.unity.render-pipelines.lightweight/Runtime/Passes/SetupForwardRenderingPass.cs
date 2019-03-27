@@ -21,7 +21,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         {
             if (renderer == null)
                 throw new ArgumentNullException("renderer");
-            
+
             context.SetupCameraProperties(renderingData.cameraData.camera, renderingData.cameraData.isStereoEnabled);
         }
     }
