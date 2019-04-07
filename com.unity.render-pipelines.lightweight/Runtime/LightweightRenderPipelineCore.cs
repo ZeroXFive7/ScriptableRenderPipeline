@@ -50,6 +50,10 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         public float maxShadowDistance;
         public bool postProcessEnabled;
         public PostProcessLayer postProcessLayer;
+
+        // First Person View Model Fields.
+        public uint firstPersonViewModelRenderingLayerMask;
+        public Matrix4x4 firstPersonViewModelProjectionMatrix;
     }
 
     public struct ShadowData

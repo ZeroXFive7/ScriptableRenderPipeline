@@ -14,7 +14,12 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
 {
     public interface IBeforeCameraRender
     {
-        void ExecuteBeforeCameraRender(LightweightRenderPipeline pipelineInstance, ScriptableRenderContext context, Camera camera);
+        void ExecuteBeforeCameraRender(Camera camera);
+    }
+
+    public interface IAfterCameraRender
+    {
+        void ExecuteAfterCameraRender(Camera camera);
     }
 
     public sealed partial class LightweightRenderPipeline : RenderPipeline
@@ -46,6 +51,9 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             }
         }
 
+        public static event Action<Camera> BeforeCameraRenderEvent = null;
+        public static event Action<Camera> AfterCameraRenderEvent = null;
+
         const string k_RenderCameraTag = "Render Camera";
         CullResults m_CullResults;
 
@@ -76,6 +84,12 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             public bool supportsSoftShadows { get; private set; }
             public bool supportsDynamicBatching { get; private set; }
             public bool mixedLightingSupported { get; private set; }
+
+            // First Person View Model Settings
+            public uint firstPersonViewModelRenderingLayerMask { get; private set; }
+            public float firstPersonViewModelFOV { get; private set; }
+            public float firstPersonViewModelNearPlane { get; private set; }
+            public float firstPersonViewModelFarPlane { get; private set; }
 
             public static PipelineSettings Create(LightweightRenderPipelineAsset asset)
             {
@@ -113,7 +127,13 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                 // Advanced settings
                 cache.supportsDynamicBatching = asset.supportsDynamicBatching;
                 cache.mixedLightingSupported = asset.supportsMixedLighting;
-                
+
+                // First person view model settings.
+                cache.firstPersonViewModelRenderingLayerMask = asset.firstPersonViewModelRenderingLayerMask;
+                cache.firstPersonViewModelFOV = asset.firstPersonViewModelFOV;
+                cache.firstPersonViewModelNearPlane = asset.firstPersonViewModelNearPlane;
+                cache.firstPersonViewModelFarPlane = asset.firstPersonViewModelFarPlane;
+
                 return cache;
             }
         }
@@ -166,12 +186,22 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             SortCameras(cameras);
             foreach (Camera camera in cameras)
             {
+                // Raise before camera render events.
+                BeforeCameraRenderEvent?.Invoke(camera);
+
                 BeginCameraRendering(camera);
 
                 foreach (var beforeCamera in camera.GetComponents<IBeforeCameraRender>())
-                    beforeCamera.ExecuteBeforeCameraRender(this, renderContext, camera);
+                    beforeCamera.ExecuteBeforeCameraRender(camera);
 
+                // Actually render the camera.
                 RenderSingleCamera(this, renderContext, camera, ref m_CullResults, camera.GetComponent<IRendererSetup>());
+
+                // Raise after camera render events.
+                foreach (var afterCamera in camera.GetComponents<IAfterCameraRender>())
+                    afterCamera.ExecuteAfterCameraRender(camera);
+
+                AfterCameraRenderEvent?.Invoke(camera);
             }
         }
 
@@ -252,6 +282,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         static void InitializeCameraData(PipelineSettings settings, Camera camera, out CameraData cameraData)
         {
             const float kRenderScaleThreshold = 0.05f;
+
             cameraData.camera = camera;
 
             bool msaaEnabled = camera.allowMSAA && settings.msaaSampleCount > 1;
@@ -310,6 +341,25 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             bool canSkipFrontToBackSorting = (camera.opaqueSortMode == OpaqueSortMode.Default && hasHSRGPU) || camera.opaqueSortMode == OpaqueSortMode.NoDistanceSort;
 
             cameraData.defaultOpaqueSortFlags = canSkipFrontToBackSorting ? noFrontToBackOpaqueFlags : commonOpaqueFlags;
+
+            var obliqueness = 0.2f;
+
+            // Apply obliqueness.
+            if (!cameraData.isSceneViewCamera)
+            {
+                cameraData.camera.SetObliqueness(obliqueness);
+            }
+
+            cameraData.firstPersonViewModelRenderingLayerMask = settings.firstPersonViewModelRenderingLayerMask;
+
+            cameraData.firstPersonViewModelProjectionMatrix = Matrix4x4.Perspective(
+                settings.firstPersonViewModelFOV,
+                camera.aspect,
+                settings.firstPersonViewModelNearPlane,
+                settings.firstPersonViewModelFarPlane);
+
+            // Apply obliqueness settings.
+            cameraData.firstPersonViewModelProjectionMatrix.SetObliqueness(obliqueness);
         }
 
         static void InitializeRenderingData(PipelineSettings settings, ref CameraData cameraData, ref CullResults cullResults,

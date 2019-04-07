@@ -14,7 +14,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
     {
         const string k_RenderTransparentsTag = "Render Transparents";
 
-        FilterRenderersSettings m_TransparentFilterSettings;
+        FilterRenderersSettings m_FilterSettings;
 
         RenderTargetHandle colorAttachmentHandle { get; set; }
         RenderTargetHandle depthAttachmentHandle { get; set; }
@@ -26,9 +26,10 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             RegisterShaderPassName("LightweightForward");
             RegisterShaderPassName("SRPDefaultUnlit");
 
-            m_TransparentFilterSettings = new FilterRenderersSettings(true)
+            m_FilterSettings = new FilterRenderersSettings(true)
             {
                 renderQueueRange = RenderQueueRange.transparent,
+                renderingLayerMask = uint.MaxValue
             };
         }
 
@@ -70,10 +71,10 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
 
                 Camera camera = renderingData.cameraData.camera;
                 var drawSettings = CreateDrawRendererSettings(camera, SortFlags.CommonTransparent, rendererConfiguration, renderingData.supportsDynamicBatching);
-                context.DrawRenderers(renderingData.cullResults.visibleRenderers, ref drawSettings, m_TransparentFilterSettings);
+                context.DrawRenderers(renderingData.cullResults.visibleRenderers, ref drawSettings, m_FilterSettings);
 
                 // Render objects that did not match any shader pass with error shader
-                renderer.RenderObjectsWithError(context, ref renderingData.cullResults, camera, m_TransparentFilterSettings, SortFlags.None);
+                renderer.RenderObjectsWithError(context, ref renderingData.cullResults, camera, m_FilterSettings, SortFlags.None);
             }
 
             context.ExecuteCommandBuffer(cmd);

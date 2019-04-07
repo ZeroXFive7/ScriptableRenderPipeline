@@ -6,6 +6,18 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
     [CustomEditor(typeof(LightweightRenderPipelineAsset))]
     public class LightweightRenderPipelineAssetEditor : Editor
     {
+        internal enum RenderingLayer
+        {
+            Layer1  = 1 << 0,  Layer2  = 1 << 1,  Layer3  = 1 << 2,  Layer4  = 1 << 3,
+            Layer5  = 1 << 4,  Layer6  = 1 << 5,  Layer7  = 1 << 6,  Layer8  = 1 << 7,
+            Layer9  = 1 << 8,  Layer10 = 1 << 9,  Layer11 = 1 << 10, Layer12 = 1 << 11,
+            Layer13 = 1 << 12, Layer14 = 1 << 13, Layer15 = 1 << 14, Layer16 = 1 << 15,
+            Layer17 = 1 << 16, Layer18 = 1 << 17, Layer19 = 1 << 18, Layer20 = 1 << 19,
+            Layer21 = 1 << 20, Layer22 = 1 << 21, Layer23 = 1 << 22, Layer24 = 1 << 23,
+            Layer25 = 1 << 24, Layer26 = 1 << 25, Layer27 = 1 << 26, Layer28 = 1 << 27,
+            Layer29 = 1 << 28, Layer30 = 1 << 29, Layer31 = 1 << 30, Layer32 = 1 << 31,
+        }
+
         internal class Styles
         {
             // Groups
@@ -13,6 +25,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             public static GUIContent qualitySettingsText = EditorGUIUtility.TrTextContent("Quality");
             public static GUIContent lightingSettingsText = EditorGUIUtility.TrTextContent("Lighting");
             public static GUIContent shadowSettingsText = EditorGUIUtility.TrTextContent("Shadows");
+            public static GUIContent firstPersonViewModelSettingsText = EditorGUIUtility.TrTextContent("First Person View Models");
             public static GUIContent advancedSettingsText = EditorGUIUtility.TrTextContent("Advanced");
 
             // General
@@ -43,6 +56,12 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             public static GUIContent shadowNormalBias = EditorGUIUtility.TrTextContent("Normal Bias", "Controls distance at which the shadow casting surfaces will be shrunk along the surface normal. Useful for avoiding false self-shadowing artifacts.");
             public static GUIContent supportsSoftShadows = EditorGUIUtility.TrTextContent("Soft Shadows", "If enabled pipeline will perform shadow filtering. Otherwise all lights that cast shadows will fallback to perform a single shadow sample.");
 
+            // First Person View Model settings
+            public static GUIContent firstPersonViewModelRenderLayerText = EditorGUIUtility.TrTextContent("Rendering Layer", "Used to identify which renderers should be drawn as first person view models");
+            public static GUIContent firstPersonViewModelFOVText = EditorGUIUtility.TrTextContent("Field Of View", "FOV used to render first person view models");
+            public static GUIContent firstPersonViewModelNearPlaneText = EditorGUIUtility.TrTextContent("Near Plane", "Near plane used to render first person view models");
+            public static GUIContent firstPersonViewModelFarPlaneText = EditorGUIUtility.TrTextContent("Far Plane", "Far plane used to render first person view models");
+
             // Advanced settings
             public static GUIContent dynamicBatching = EditorGUIUtility.TrTextContent("Dynamic Batching", "If enabled the pipeline will batch drawcalls with few triangles together by copying their vertex buffers into a shared buffer on a per-frame basis.");
             public static GUIContent mixedLightingSupportLabel = EditorGUIUtility.TrTextContent("Mixed Lighting", "Support for mixed light mode.");
@@ -61,12 +80,15 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         bool m_QualitySettingsFoldout = false;
         bool m_LightingSettingsFoldout = false;
         bool m_ShadowSettingsFoldout = false;
+        bool m_FirstPersonViewModelSettingsFoldout = false;
         bool m_AdvancedSettingsFoldout = false;
 
         int k_MaxSupportedPerObjectLights = 4;
         float k_MinRenderScale = 0.1f;
         float k_MaxRenderScale = 4.0f;
         float k_MaxShadowBias = 10.0f;
+
+        RenderingLayer m_renderingLayerMask;
 
         SerializedProperty m_RequireDepthTextureProp;
         SerializedProperty m_RequireOpaqueTextureProp;
@@ -94,6 +116,11 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
 
         SerializedProperty m_SoftShadowsSupportedProp;
 
+        SerializedProperty m_FirstPersonViewModelRenderingLayerMaskProp;
+        SerializedProperty m_FirstPersonViewModelFOVProp;
+        SerializedProperty m_FirstPersonViewModelNearPlaneProp;
+        SerializedProperty m_FirstPersonViewModelFarPlaneProp;
+
         SerializedProperty m_SupportsDynamicBatching;
         SerializedProperty m_MixedLightingSupportedProp;
 
@@ -109,6 +136,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             DrawQualitySettings();
             DrawLightingSettings();
             DrawShadowSettings();
+            DrawFirstPersonViewModelSettings();
             DrawAdvancedSettings();
 
             serializedObject.ApplyModifiedProperties();
@@ -140,6 +168,11 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             m_ShadowDepthBiasProp = serializedObject.FindProperty("m_ShadowDepthBias");
             m_ShadowNormalBiasProp = serializedObject.FindProperty("m_ShadowNormalBias");
             m_SoftShadowsSupportedProp = serializedObject.FindProperty("m_SoftShadowsSupported");
+
+            m_FirstPersonViewModelRenderingLayerMaskProp = serializedObject.FindProperty("m_FirstPersonViewModelRenderingLayerMask");
+            m_FirstPersonViewModelFOVProp = serializedObject.FindProperty("m_FirstPersonViewModelFOV");
+            m_FirstPersonViewModelNearPlaneProp = serializedObject.FindProperty("m_FirstPersonViewModelNearPlane");
+            m_FirstPersonViewModelFarPlaneProp = serializedObject.FindProperty("m_FirstPersonViewModelFarPlane");
 
             m_SupportsDynamicBatching = serializedObject.FindProperty("m_SupportsDynamicBatching");
             m_MixedLightingSupportedProp = serializedObject.FindProperty("m_MixedLightingSupported");
@@ -258,6 +291,26 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                 m_ShadowDepthBiasProp.floatValue = EditorGUILayout.Slider(Styles.shadowDepthBias, m_ShadowDepthBiasProp.floatValue, 0.0f, k_MaxShadowBias);
                 m_ShadowNormalBiasProp.floatValue = EditorGUILayout.Slider(Styles.shadowNormalBias, m_ShadowNormalBiasProp.floatValue, 0.0f, k_MaxShadowBias);
                 EditorGUILayout.PropertyField(m_SoftShadowsSupportedProp, Styles.supportsSoftShadows);
+                EditorGUI.indentLevel--;
+                EditorGUILayout.Space();
+                EditorGUILayout.Space();
+            }
+        }
+
+        void DrawFirstPersonViewModelSettings()
+        {
+            m_FirstPersonViewModelSettingsFoldout = EditorGUILayout.Foldout(m_FirstPersonViewModelSettingsFoldout, Styles.firstPersonViewModelSettingsText);
+            if (m_FirstPersonViewModelSettingsFoldout)
+            {
+                EditorGUI.indentLevel++;
+
+                m_renderingLayerMask = (RenderingLayer)m_FirstPersonViewModelRenderingLayerMaskProp.intValue;
+                m_renderingLayerMask = (RenderingLayer)EditorGUILayout.EnumFlagsField(Styles.firstPersonViewModelRenderLayerText, m_renderingLayerMask);
+                m_FirstPersonViewModelRenderingLayerMaskProp.longValue = (uint)m_renderingLayerMask;
+
+                m_FirstPersonViewModelFOVProp.floatValue = EditorGUILayout.FloatField(Styles.firstPersonViewModelFOVText, m_FirstPersonViewModelFOVProp.floatValue);
+                m_FirstPersonViewModelNearPlaneProp.floatValue = EditorGUILayout.FloatField(Styles.firstPersonViewModelNearPlaneText, m_FirstPersonViewModelNearPlaneProp.floatValue);
+                m_FirstPersonViewModelFarPlaneProp.floatValue = EditorGUILayout.FloatField(Styles.firstPersonViewModelFarPlaneText, m_FirstPersonViewModelFarPlaneProp.floatValue);
                 EditorGUI.indentLevel--;
                 EditorGUILayout.Space();
                 EditorGUILayout.Space();

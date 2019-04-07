@@ -17,7 +17,8 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
 
         private RenderTargetHandle depthAttachmentHandle { get; set; }
         internal RenderTextureDescriptor descriptor { get; private set; }
-        private FilterRenderersSettings opaqueFilterSettings { get; set; }
+
+        FilterRenderersSettings m_FilterSettings;
 
         /// <summary>
         /// Create the DepthOnlyPass
@@ -25,9 +26,11 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         public DepthOnlyPass()
         {
             RegisterShaderPassName("DepthOnly");
-            opaqueFilterSettings = new FilterRenderersSettings(true)
+
+            m_FilterSettings = new FilterRenderersSettings(true)
             {
                 renderQueueRange = RenderQueueRange.opaque,
+                renderingLayerMask = uint.MaxValue
             };
         }
         
@@ -57,7 +60,9 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         {
             if (renderer == null)
                 throw new ArgumentNullException("renderer");
-            
+
+            Camera camera = renderingData.cameraData.camera;
+
             CommandBuffer cmd = CommandBufferPool.Get(k_DepthPrepassTag);
             using (new ProfilingSample(cmd, k_DepthPrepassTag))
             {
@@ -74,21 +79,56 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                 context.ExecuteCommandBuffer(cmd);
                 cmd.Clear();
 
+                // First render third person objects.
                 var sortFlags = renderingData.cameraData.defaultOpaqueSortFlags;
                 var drawSettings = CreateDrawRendererSettings(renderingData.cameraData.camera, sortFlags, RendererConfiguration.None, renderingData.supportsDynamicBatching);
+
+                m_FilterSettings.renderingLayerMask = uint.MaxValue & ~renderingData.cameraData.firstPersonViewModelRenderingLayerMask;
+
                 if (renderingData.cameraData.isStereoEnabled)
                 {
-                    Camera camera = renderingData.cameraData.camera;
                     context.StartMultiEye(camera);
-                    context.DrawRenderers(renderingData.cullResults.visibleRenderers, ref drawSettings, opaqueFilterSettings);
+                    context.DrawRenderers(renderingData.cullResults.visibleRenderers, ref drawSettings, m_FilterSettings);
                     context.StopMultiEye(camera);
                 }
                 else
                 {
-                    context.DrawRenderers(renderingData.cullResults.visibleRenderers, ref drawSettings, opaqueFilterSettings);
+                    context.DrawRenderers(renderingData.cullResults.visibleRenderers, ref drawSettings, m_FilterSettings);
+                }
+
+                context.ExecuteCommandBuffer(cmd);
+                cmd.Clear();
+
+                if (!renderingData.cameraData.isSceneViewCamera)
+                {
+                    // Then render first person objects.
+                    var viewMatrix = camera.worldToCameraMatrix;
+                    cmd.SetViewProjectionMatrices(viewMatrix, renderingData.cameraData.firstPersonViewModelProjectionMatrix);
+
+                    context.ExecuteCommandBuffer(cmd);
+                    cmd.Clear();
+
+                    m_FilterSettings.renderingLayerMask = renderingData.cameraData.firstPersonViewModelRenderingLayerMask;
+                    if (renderingData.cameraData.isStereoEnabled)
+                    {
+                        context.StartMultiEye(camera);
+                        context.DrawRenderers(renderingData.cullResults.visibleRenderers, ref drawSettings, m_FilterSettings);
+                        context.StopMultiEye(camera);
+                    }
+                    else
+                    {
+                        context.DrawRenderers(renderingData.cullResults.visibleRenderers, ref drawSettings, m_FilterSettings);
+                    }
+
+                    context.ExecuteCommandBuffer(cmd);
+                    cmd.Clear();
+
+                    // Then reset view proj state.
+                    cmd.SetViewProjectionMatrices(viewMatrix, camera.projectionMatrix);
+                    context.ExecuteCommandBuffer(cmd);
                 }
             }
-            context.ExecuteCommandBuffer(cmd);
+
             CommandBufferPool.Release(cmd);
         }
 

@@ -155,18 +155,21 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
 
                 m_MainLightShadowmapTexture = RenderTexture.GetTemporary(shadowData.mainLightShadowmapWidth,
                     shadowData.mainLightShadowmapHeight, k_ShadowmapBufferBits, m_ShadowmapFormat);
+
                 m_MainLightShadowmapTexture.filterMode = FilterMode.Bilinear;
                 m_MainLightShadowmapTexture.wrapMode = TextureWrapMode.Clamp;
+
                 SetRenderTarget(cmd, m_MainLightShadowmapTexture, RenderBufferLoadAction.DontCare,
                     RenderBufferStoreAction.Store, ClearFlag.Depth, Color.black, TextureDimension.Tex2D);
 
                 for (int cascadeIndex = 0; cascadeIndex < m_ShadowCasterCascadesCount; ++cascadeIndex)
                 {
                     settings.splitData.cullingSphere = m_CascadeSplitDistances[cascadeIndex];
-                        Vector4 shadowBias = ShadowUtils.GetShadowBias(ref shadowLight, shadowLightIndex, ref shadowData, m_CascadeSlices[cascadeIndex].projectionMatrix, m_CascadeSlices[cascadeIndex].resolution);
-                        ShadowUtils.SetupShadowCasterConstantBuffer(cmd, ref shadowLight, shadowBias);
-                    ShadowUtils.RenderShadowSlice(cmd, ref context, ref m_CascadeSlices[cascadeIndex],
-                        ref settings, m_CascadeSlices[cascadeIndex].projectionMatrix, m_CascadeSlices[cascadeIndex].viewMatrix);
+
+                    Vector4 shadowBias = ShadowUtils.GetShadowBias(ref shadowLight, shadowLightIndex, ref shadowData, m_CascadeSlices[cascadeIndex].projectionMatrix, m_CascadeSlices[cascadeIndex].resolution);
+                    ShadowUtils.SetupShadowCasterConstantBuffer(cmd, ref shadowLight, shadowBias);
+
+                    ShadowUtils.RenderShadowSlice(cmd, ref context, ref m_CascadeSlices[cascadeIndex], ref settings, m_CascadeSlices[cascadeIndex].projectionMatrix, m_CascadeSlices[cascadeIndex].viewMatrix);
                 }
 
                 SetupMainLightShadowReceiverConstants(cmd, ref shadowData, shadowLight);

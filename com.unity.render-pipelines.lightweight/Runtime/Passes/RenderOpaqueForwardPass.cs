@@ -13,7 +13,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
     public class RenderOpaqueForwardPass : ScriptableRenderPass
     {
         const string k_RenderOpaquesTag = "Render Opaques";
-        FilterRenderersSettings m_OpaqueFilterSettings;
+        FilterRenderersSettings m_FilterSettings;
 
         RenderTargetHandle colorAttachmentHandle { get; set; }
         RenderTargetHandle depthAttachmentHandle { get; set; }
@@ -28,9 +28,10 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             RegisterShaderPassName("LightweightForward");
             RegisterShaderPassName("SRPDefaultUnlit");
 
-            m_OpaqueFilterSettings = new FilterRenderersSettings(true)
+            m_FilterSettings = new FilterRenderersSettings(true)
             {
                 renderQueueRange = RenderQueueRange.opaque,
+                renderingLayerMask = uint.MaxValue
             };
         }
 
@@ -64,7 +65,9 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         {
             if (renderer == null)
                 throw new ArgumentNullException("renderer");
-            
+
+            var camera = renderingData.cameraData.camera;
+
             CommandBuffer cmd = CommandBufferPool.Get(k_RenderOpaquesTag);
             using (new ProfilingSample(cmd, k_RenderOpaquesTag))
             {
@@ -84,16 +87,47 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                 context.ExecuteCommandBuffer(cmd);
                 cmd.Clear();
 
-                Camera camera = renderingData.cameraData.camera;
+                // 1.
+                // Render world objects.
                 XRUtils.DrawOcclusionMesh(cmd, camera, renderingData.cameraData.isStereoEnabled);
                 var sortFlags = renderingData.cameraData.defaultOpaqueSortFlags;
                 var drawSettings = CreateDrawRendererSettings(camera, sortFlags, rendererConfiguration, renderingData.supportsDynamicBatching);
-                context.DrawRenderers(renderingData.cullResults.visibleRenderers, ref drawSettings, m_OpaqueFilterSettings);
+
+                m_FilterSettings.renderingLayerMask = uint.MaxValue & ~renderingData.cameraData.firstPersonViewModelRenderingLayerMask;
+                context.DrawRenderers(renderingData.cullResults.visibleRenderers, ref drawSettings, m_FilterSettings);
 
                 // Render objects that did not match any shader pass with error shader
-                renderer.RenderObjectsWithError(context, ref renderingData.cullResults, camera, m_OpaqueFilterSettings, SortFlags.None);
+                renderer.RenderObjectsWithError(context, ref renderingData.cullResults, camera, m_FilterSettings, SortFlags.None);
+
+                context.ExecuteCommandBuffer(cmd);
+                cmd.Clear();
+
+                if (!renderingData.cameraData.isSceneViewCamera)
+                {
+                    // 2.
+                    // Setup first person only camera properties.
+                    var viewMatrix = camera.worldToCameraMatrix;
+                    cmd.SetViewProjectionMatrices(viewMatrix, renderingData.cameraData.firstPersonViewModelProjectionMatrix);
+
+                    context.ExecuteCommandBuffer(cmd);
+                    cmd.Clear();
+
+                    // 3.
+                    // Render first person objects.
+                    m_FilterSettings.renderingLayerMask = renderingData.cameraData.firstPersonViewModelRenderingLayerMask;
+                    context.DrawRenderers(renderingData.cullResults.visibleRenderers, ref drawSettings, m_FilterSettings);
+                    renderer.RenderObjectsWithError(context, ref renderingData.cullResults, camera, m_FilterSettings, SortFlags.None);
+
+                    context.ExecuteCommandBuffer(cmd);
+                    cmd.Clear();
+
+                    // 4.
+                    // Then reset view proj state.
+                    cmd.SetViewProjectionMatrices(viewMatrix, camera.projectionMatrix);
+                    context.ExecuteCommandBuffer(cmd);
+                }
             }
-            context.ExecuteCommandBuffer(cmd);
+
             CommandBufferPool.Release(cmd);
         }
     }

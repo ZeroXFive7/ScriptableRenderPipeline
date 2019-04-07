@@ -110,6 +110,12 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         [SerializeField] bool m_MixedLightingSupported = true;
         // TODO: Render Pipeline Batcher
 
+        // First Person View Model settings.
+        [SerializeField] float m_FirstPersonViewModelFOV = 46.0f;
+        [SerializeField] float m_FirstPersonViewModelNearPlane = 0.01f;
+        [SerializeField] float m_FirstPersonViewModelFarPlane = 30.0f;
+        [SerializeField] uint m_FirstPersonViewModelRenderingLayerMask = 1;
+
         // Deprecated settings
         [SerializeField] ShadowQuality m_ShadowType = ShadowQuality.HardShadows;
         [SerializeField] bool m_LocalShadowsSupported = false;
@@ -357,6 +363,26 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         public bool supportsMixedLighting
         {
             get { return m_MixedLightingSupported; }
+        }
+
+        public uint firstPersonViewModelRenderingLayerMask
+        {
+            get { return m_FirstPersonViewModelRenderingLayerMask; }
+        }
+
+        public float firstPersonViewModelFOV
+        {
+            get { return m_FirstPersonViewModelFOV; }
+        }
+
+        public float firstPersonViewModelNearPlane
+        {
+            get { return m_FirstPersonViewModelNearPlane; }
+        }
+
+        public float firstPersonViewModelFarPlane
+        {
+            get { return m_FirstPersonViewModelFarPlane; }
         }
 
         public ShaderVariantLogLevel shaderVariantLogLevel
