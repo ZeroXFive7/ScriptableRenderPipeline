@@ -86,6 +86,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             public bool mixedLightingSupported { get; private set; }
 
             // First Person View Model Settings
+            public bool supportsFirstPersonViewModelRendering { get; private set; }
             public uint firstPersonViewModelRenderingLayerMask { get; private set; }
             public float firstPersonViewModelFOV { get; private set; }
             public float firstPersonViewModelNearPlane { get; private set; }
@@ -129,6 +130,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                 cache.mixedLightingSupported = asset.supportsMixedLighting;
 
                 // First person view model settings.
+                cache.supportsFirstPersonViewModelRendering = asset.supportsFirstPersonViewModelRendering;
                 cache.firstPersonViewModelRenderingLayerMask = asset.firstPersonViewModelRenderingLayerMask;
                 cache.firstPersonViewModelFOV = asset.firstPersonViewModelFOV;
                 cache.firstPersonViewModelNearPlane = asset.firstPersonViewModelNearPlane;
@@ -350,6 +352,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                 cameraData.camera.SetObliqueness(obliqueness);
             }
 
+            cameraData.supportsFirstPersonViewModelRendering = additionalCameraData != null ? additionalCameraData.supportsFirstPersonViewModelRendering : settings.supportsFirstPersonViewModelRendering;
             cameraData.firstPersonViewModelRenderingLayerMask = settings.firstPersonViewModelRenderingLayerMask;
 
             cameraData.firstPersonViewModelProjectionMatrix = Matrix4x4.Perspective(

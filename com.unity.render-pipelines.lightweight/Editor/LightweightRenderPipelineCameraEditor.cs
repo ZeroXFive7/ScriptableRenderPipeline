@@ -18,6 +18,7 @@ namespace UnityEditor.Experimental.Rendering.LightweightPipeline
             public static GUIContent renderingShadows = EditorGUIUtility.TrTextContent("Render Shadows", "Enable this to make this camera render shadows.");
             public static GUIContent requireDepthTexture = EditorGUIUtility.TrTextContent("Depth Texture", "On makes this camera create a _CameraDepthTexture, which is a copy of the rendered depth values.\nOff makes the camera not create a depth texture.\nUse Pipeline Settings applies settings from the Render Pipeline Asset.");
             public static GUIContent requireOpaqueTexture = EditorGUIUtility.TrTextContent("Opaque Texture", "On makes this camera create a _CameraOpaqueTexture, which is a copy of the rendered view.\nOff makes the camera does not create an opaque texture.\nUse Pipeline Settings applies settings from the Render Pipeline Asset.");
+            public static GUIContent renderingFirstPersonViewModels = EditorGUIUtility.TrTextContent("Render First Person View Models", "Enable this to make this camera render first person view models with a separate FOV and depth pass.");
             public static GUIContent allowMSAA = EditorGUIUtility.TrTextContent("MSAA", "Use Multi Sample Anti-Aliasing to reduce aliasing.");
             public static GUIContent allowHDR = EditorGUIUtility.TrTextContent("HDR", "High Dynamic Range gives you a wider range of light intensities, so your lighting looks more realistic. With it, you can still see details and experience less saturation even with bright light.", (Texture) null);
 
@@ -69,6 +70,8 @@ namespace UnityEditor.Experimental.Rendering.LightweightPipeline
         SerializedProperty m_AdditionalCameraDataRenderDepthProp;
         SerializedProperty m_AdditionalCameraDataRenderOpaqueProp;
 
+        SerializedProperty m_AdditionalCameraDataRenderFirstPersonViewModelProp;
+
         void SetAnimationTarget(AnimBool anim, bool initialize, bool targetValue)
         {
             if (initialize)
@@ -109,6 +112,8 @@ namespace UnityEditor.Experimental.Rendering.LightweightPipeline
             m_AdditionalCameraDataRenderShadowsProp = m_AdditionalCameraDataSO.FindProperty("m_RenderShadows");
             m_AdditionalCameraDataRenderDepthProp = m_AdditionalCameraDataSO.FindProperty("m_RequiresDepthTextureOption");
             m_AdditionalCameraDataRenderOpaqueProp = m_AdditionalCameraDataSO.FindProperty("m_RequiresOpaqueTextureOption");
+
+            m_AdditionalCameraDataRenderFirstPersonViewModelProp = m_AdditionalCameraDataSO.FindProperty("m_SupportsFirstPersonViewModelRendering");
         }
 
         public void OnDisable()
@@ -210,12 +215,14 @@ namespace UnityEditor.Experimental.Rendering.LightweightPipeline
         {
             bool hasChanged = false;
             bool selectedValueShadows;
+            bool selectedValueFirstPersonViewModel;
             CameraOverrideOption selectedDepthOption;
             CameraOverrideOption selectedOpaqueOption;
 
             if (m_AdditionalCameraDataSO == null)
             {
                 selectedValueShadows = true;
+                selectedValueFirstPersonViewModel = true;
                 selectedDepthOption = CameraOverrideOption.UsePipelineSettings;
                 selectedOpaqueOption = CameraOverrideOption.UsePipelineSettings;
             }
@@ -223,6 +230,7 @@ namespace UnityEditor.Experimental.Rendering.LightweightPipeline
             {
                 m_AdditionalCameraDataSO.Update();
                 selectedValueShadows = m_AdditionalCameraData.renderShadows;
+                selectedValueFirstPersonViewModel = m_AdditionalCameraData.supportsFirstPersonViewModelRendering;
                 selectedDepthOption = (CameraOverrideOption)m_AdditionalCameraDataRenderDepthProp.intValue;
                 selectedOpaqueOption =(CameraOverrideOption)m_AdditionalCameraDataRenderOpaqueProp.intValue;
             }
@@ -285,7 +293,24 @@ namespace UnityEditor.Experimental.Rendering.LightweightPipeline
             {
                 hasChanged = true;
             }
-            if(m_AdditionalCameraDataSO != null)
+
+            Rect controlRectFirstPersonViewModels = EditorGUILayout.GetControlRect(true);
+            if (m_AdditionalCameraDataSO != null)
+            {
+                EditorGUI.BeginProperty(controlRectFirstPersonViewModels, Styles.renderingFirstPersonViewModels, m_AdditionalCameraDataRenderFirstPersonViewModelProp);
+            }
+
+            EditorGUI.BeginChangeCheck();
+
+            selectedValueFirstPersonViewModel = EditorGUI.Toggle(controlRectFirstPersonViewModels, Styles.renderingFirstPersonViewModels, selectedValueFirstPersonViewModel);
+
+            if (EditorGUI.EndChangeCheck())
+            {
+                hasChanged = true;
+            }
+
+
+            if (m_AdditionalCameraDataSO != null)
                 EditorGUI.EndProperty();
 
             if (hasChanged)
@@ -298,6 +323,7 @@ namespace UnityEditor.Experimental.Rendering.LightweightPipeline
                 m_AdditionalCameraDataRenderShadowsProp.boolValue = selectedValueShadows;
                 m_AdditionalCameraDataRenderDepthProp.intValue = (int)selectedDepthOption;
                 m_AdditionalCameraDataRenderOpaqueProp.intValue = (int)selectedOpaqueOption;
+                m_AdditionalCameraDataRenderFirstPersonViewModelProp.boolValue = selectedValueFirstPersonViewModel;
                 m_AdditionalCameraDataSO.ApplyModifiedProperties();
             }
 

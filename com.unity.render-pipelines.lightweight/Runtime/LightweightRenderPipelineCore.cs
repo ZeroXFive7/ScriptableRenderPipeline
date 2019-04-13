@@ -52,6 +52,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         public PostProcessLayer postProcessLayer;
 
         // First Person View Model Fields.
+        public bool supportsFirstPersonViewModelRendering;
         public uint firstPersonViewModelRenderingLayerMask;
         public Matrix4x4 firstPersonViewModelProjectionMatrix;
     }

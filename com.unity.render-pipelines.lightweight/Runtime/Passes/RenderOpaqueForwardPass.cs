@@ -93,7 +93,12 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                 var sortFlags = renderingData.cameraData.defaultOpaqueSortFlags;
                 var drawSettings = CreateDrawRendererSettings(camera, sortFlags, rendererConfiguration, renderingData.supportsDynamicBatching);
 
-                m_FilterSettings.renderingLayerMask = uint.MaxValue & ~renderingData.cameraData.firstPersonViewModelRenderingLayerMask;
+                m_FilterSettings.renderingLayerMask = uint.MaxValue;
+                if (renderingData.cameraData.supportsFirstPersonViewModelRendering)
+                {
+                    m_FilterSettings.renderingLayerMask &= ~renderingData.cameraData.firstPersonViewModelRenderingLayerMask;
+                }
+
                 context.DrawRenderers(renderingData.cullResults.visibleRenderers, ref drawSettings, m_FilterSettings);
 
                 // Render objects that did not match any shader pass with error shader
@@ -102,7 +107,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                 context.ExecuteCommandBuffer(cmd);
                 cmd.Clear();
 
-                if (!renderingData.cameraData.isSceneViewCamera)
+                if (!renderingData.cameraData.isSceneViewCamera && renderingData.cameraData.supportsFirstPersonViewModelRendering)
                 {
                     // 2.
                     // Setup first person only camera properties.

@@ -19,6 +19,10 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         [FormerlySerializedAs("renderShadows"), SerializeField]
         bool m_RenderShadows = true;
 
+        [Tooltip("If enabled this camera will attempt to render first person view models.")]
+        [SerializeField]
+        bool m_SupportsFirstPersonViewModelRendering = true;
+
         [Tooltip("If enabled depth texture will render for this camera bound as _CameraDepthTexture.")]
         [SerializeField]
         CameraOverrideOption m_RequiresDepthTextureOption = CameraOverrideOption.UsePipelineSettings;
@@ -45,6 +49,12 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         {
             get { return m_RenderShadows; }
             set { m_RenderShadows = value; }
+        }
+
+        public bool supportsFirstPersonViewModelRendering
+        {
+            get { return m_SupportsFirstPersonViewModelRendering; }
+            set { m_SupportsFirstPersonViewModelRendering = value; }
         }
 
         public CameraOverrideOption requiresDepthOption

@@ -57,6 +57,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             public static GUIContent supportsSoftShadows = EditorGUIUtility.TrTextContent("Soft Shadows", "If enabled pipeline will perform shadow filtering. Otherwise all lights that cast shadows will fallback to perform a single shadow sample.");
 
             // First Person View Model settings
+            public static GUIContent supportsFirstPersonViewModelRenderingText = EditorGUIUtility.TrTextContent("Rendering Supported", "If enabled pipeline will render first person view models with a separate projection matrix and depth test.");
             public static GUIContent firstPersonViewModelRenderLayerText = EditorGUIUtility.TrTextContent("Rendering Layer", "Used to identify which renderers should be drawn as first person view models");
             public static GUIContent firstPersonViewModelFOVText = EditorGUIUtility.TrTextContent("Field Of View", "FOV used to render first person view models");
             public static GUIContent firstPersonViewModelNearPlaneText = EditorGUIUtility.TrTextContent("Near Plane", "Near plane used to render first person view models");
@@ -116,6 +117,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
 
         SerializedProperty m_SoftShadowsSupportedProp;
 
+        SerializedProperty m_SupportsFirstPersonViewModelRenderingProp;
         SerializedProperty m_FirstPersonViewModelRenderingLayerMaskProp;
         SerializedProperty m_FirstPersonViewModelFOVProp;
         SerializedProperty m_FirstPersonViewModelNearPlaneProp;
@@ -169,6 +171,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             m_ShadowNormalBiasProp = serializedObject.FindProperty("m_ShadowNormalBias");
             m_SoftShadowsSupportedProp = serializedObject.FindProperty("m_SoftShadowsSupported");
 
+            m_SupportsFirstPersonViewModelRenderingProp = serializedObject.FindProperty("m_SupportsFirstPersonViewModelRendering");
             m_FirstPersonViewModelRenderingLayerMaskProp = serializedObject.FindProperty("m_FirstPersonViewModelRenderingLayerMask");
             m_FirstPersonViewModelFOVProp = serializedObject.FindProperty("m_FirstPersonViewModelFOV");
             m_FirstPersonViewModelNearPlaneProp = serializedObject.FindProperty("m_FirstPersonViewModelNearPlane");
@@ -304,6 +307,12 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             {
                 EditorGUI.indentLevel++;
 
+                EditorGUILayout.PropertyField(m_SupportsFirstPersonViewModelRenderingProp, Styles.supportsFirstPersonViewModelRenderingText);
+
+                // Do not enable changes to first person view model settings when view model rendering is disabled.
+                var disableGroup = !m_SupportsFirstPersonViewModelRenderingProp.boolValue;
+                EditorGUI.BeginDisabledGroup(disableGroup);
+
                 m_renderingLayerMask = (RenderingLayer)m_FirstPersonViewModelRenderingLayerMaskProp.intValue;
                 m_renderingLayerMask = (RenderingLayer)EditorGUILayout.EnumFlagsField(Styles.firstPersonViewModelRenderLayerText, m_renderingLayerMask);
                 m_FirstPersonViewModelRenderingLayerMaskProp.longValue = (uint)m_renderingLayerMask;
@@ -311,6 +320,9 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                 m_FirstPersonViewModelFOVProp.floatValue = EditorGUILayout.FloatField(Styles.firstPersonViewModelFOVText, m_FirstPersonViewModelFOVProp.floatValue);
                 m_FirstPersonViewModelNearPlaneProp.floatValue = EditorGUILayout.FloatField(Styles.firstPersonViewModelNearPlaneText, m_FirstPersonViewModelNearPlaneProp.floatValue);
                 m_FirstPersonViewModelFarPlaneProp.floatValue = EditorGUILayout.FloatField(Styles.firstPersonViewModelFarPlaneText, m_FirstPersonViewModelFarPlaneProp.floatValue);
+
+                EditorGUI.EndDisabledGroup();
+
                 EditorGUI.indentLevel--;
                 EditorGUILayout.Space();
                 EditorGUILayout.Space();

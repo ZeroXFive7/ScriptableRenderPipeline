@@ -111,6 +111,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         // TODO: Render Pipeline Batcher
 
         // First Person View Model settings.
+        [SerializeField] bool m_SupportsFirstPersonViewModelRendering = true;
         [SerializeField] float m_FirstPersonViewModelFOV = 46.0f;
         [SerializeField] float m_FirstPersonViewModelNearPlane = 0.01f;
         [SerializeField] float m_FirstPersonViewModelFarPlane = 30.0f;
@@ -168,7 +169,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         static T LoadResourceFile<T>() where T : ScriptableObject
         {
             T resourceAsset = null;
-            var guids = AssetDatabase.FindAssets(typeof(T).Name + " t:scriptableobject", new[] {s_SearchPathProject});
+            var guids = AssetDatabase.FindAssets(typeof(T).Name + " t:scriptableobject", new[] { s_SearchPathProject });
             foreach (string guid in guids)
             {
                 string path = AssetDatabase.GUIDToAssetPath(guid);
@@ -363,6 +364,11 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         public bool supportsMixedLighting
         {
             get { return m_MixedLightingSupported; }
+        }
+
+        public bool supportsFirstPersonViewModelRendering
+        {
+            get { return m_SupportsFirstPersonViewModelRendering; }
         }
 
         public uint firstPersonViewModelRenderingLayerMask
