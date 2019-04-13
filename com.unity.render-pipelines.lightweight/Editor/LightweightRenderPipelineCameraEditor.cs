@@ -19,6 +19,7 @@ namespace UnityEditor.Experimental.Rendering.LightweightPipeline
             public static GUIContent requireDepthTexture = EditorGUIUtility.TrTextContent("Depth Texture", "On makes this camera create a _CameraDepthTexture, which is a copy of the rendered depth values.\nOff makes the camera not create a depth texture.\nUse Pipeline Settings applies settings from the Render Pipeline Asset.");
             public static GUIContent requireOpaqueTexture = EditorGUIUtility.TrTextContent("Opaque Texture", "On makes this camera create a _CameraOpaqueTexture, which is a copy of the rendered view.\nOff makes the camera does not create an opaque texture.\nUse Pipeline Settings applies settings from the Render Pipeline Asset.");
             public static GUIContent renderingFirstPersonViewModels = EditorGUIUtility.TrTextContent("Render First Person View Models", "Enable this to make this camera render first person view models with a separate FOV and depth pass.");
+            public static GUIContent obliqueness = EditorGUIUtility.TrTextContent("Vertical Obliqueness Normalized", "Vertical near plane offset amount.  Use to move center of view up/down in the world.");
             public static GUIContent allowMSAA = EditorGUIUtility.TrTextContent("MSAA", "Use Multi Sample Anti-Aliasing to reduce aliasing.");
             public static GUIContent allowHDR = EditorGUIUtility.TrTextContent("HDR", "High Dynamic Range gives you a wider range of light intensities, so your lighting looks more realistic. With it, you can still see details and experience less saturation even with bright light.", (Texture) null);
 
@@ -71,6 +72,7 @@ namespace UnityEditor.Experimental.Rendering.LightweightPipeline
         SerializedProperty m_AdditionalCameraDataRenderOpaqueProp;
 
         SerializedProperty m_AdditionalCameraDataRenderFirstPersonViewModelProp;
+        SerializedProperty m_AdditionalCameraDataObliquenessProp;
 
         void SetAnimationTarget(AnimBool anim, bool initialize, bool targetValue)
         {
@@ -114,6 +116,7 @@ namespace UnityEditor.Experimental.Rendering.LightweightPipeline
             m_AdditionalCameraDataRenderOpaqueProp = m_AdditionalCameraDataSO.FindProperty("m_RequiresOpaqueTextureOption");
 
             m_AdditionalCameraDataRenderFirstPersonViewModelProp = m_AdditionalCameraDataSO.FindProperty("m_SupportsFirstPersonViewModelRendering");
+            m_AdditionalCameraDataObliquenessProp = m_AdditionalCameraDataSO.FindProperty("m_Obliqueness");
         }
 
         public void OnDisable()
@@ -218,6 +221,7 @@ namespace UnityEditor.Experimental.Rendering.LightweightPipeline
             bool selectedValueFirstPersonViewModel;
             CameraOverrideOption selectedDepthOption;
             CameraOverrideOption selectedOpaqueOption;
+            float selectedObliqueness;
 
             if (m_AdditionalCameraDataSO == null)
             {
@@ -225,6 +229,7 @@ namespace UnityEditor.Experimental.Rendering.LightweightPipeline
                 selectedValueFirstPersonViewModel = true;
                 selectedDepthOption = CameraOverrideOption.UsePipelineSettings;
                 selectedOpaqueOption = CameraOverrideOption.UsePipelineSettings;
+                selectedObliqueness = 0.0f;
             }
             else
             {
@@ -233,6 +238,7 @@ namespace UnityEditor.Experimental.Rendering.LightweightPipeline
                 selectedValueFirstPersonViewModel = m_AdditionalCameraData.supportsFirstPersonViewModelRendering;
                 selectedDepthOption = (CameraOverrideOption)m_AdditionalCameraDataRenderDepthProp.intValue;
                 selectedOpaqueOption =(CameraOverrideOption)m_AdditionalCameraDataRenderOpaqueProp.intValue;
+                selectedObliqueness = m_AdditionalCameraDataObliquenessProp.floatValue;
             }
 
             // Depth Texture
@@ -309,6 +315,20 @@ namespace UnityEditor.Experimental.Rendering.LightweightPipeline
                 hasChanged = true;
             }
 
+            Rect controlRectObliqueness = EditorGUILayout.GetControlRect(true);
+            if (m_AdditionalCameraDataSO != null)
+            {
+                EditorGUI.BeginProperty(controlRectObliqueness, Styles.obliqueness, m_AdditionalCameraDataObliquenessProp);
+            }
+
+            EditorGUI.BeginChangeCheck();
+
+            selectedObliqueness = EditorGUI.FloatField(controlRectObliqueness, Styles.obliqueness, selectedObliqueness);
+
+            if (EditorGUI.EndChangeCheck())
+            {
+                hasChanged = true;
+            }
 
             if (m_AdditionalCameraDataSO != null)
                 EditorGUI.EndProperty();
@@ -324,6 +344,7 @@ namespace UnityEditor.Experimental.Rendering.LightweightPipeline
                 m_AdditionalCameraDataRenderDepthProp.intValue = (int)selectedDepthOption;
                 m_AdditionalCameraDataRenderOpaqueProp.intValue = (int)selectedOpaqueOption;
                 m_AdditionalCameraDataRenderFirstPersonViewModelProp.boolValue = selectedValueFirstPersonViewModel;
+                m_AdditionalCameraDataObliquenessProp.floatValue = selectedObliqueness;
                 m_AdditionalCameraDataSO.ApplyModifiedProperties();
             }
 

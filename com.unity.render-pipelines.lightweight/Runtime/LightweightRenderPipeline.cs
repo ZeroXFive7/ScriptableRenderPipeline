@@ -344,7 +344,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
 
             cameraData.defaultOpaqueSortFlags = canSkipFrontToBackSorting ? noFrontToBackOpaqueFlags : commonOpaqueFlags;
 
-            var obliqueness = 0.2f;
+            var obliqueness = additionalCameraData != null ? additionalCameraData.obliqueness : 0.0f;
 
             // Apply obliqueness.
             if (!cameraData.isSceneViewCamera)

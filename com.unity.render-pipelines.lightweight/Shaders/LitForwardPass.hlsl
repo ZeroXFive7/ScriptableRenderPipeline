@@ -148,17 +148,6 @@ Varyings LitPassVertex(Attributes input)
 // Used in Standard (Physically Based) shader
 half4 LitPassFragment(Varyings input) : SV_Target
 {
-//#if defined(_MAIN_LIGHT_SHADOWS) && !defined(_RECEIVE_SHADOWS_OFF)
-//    float4 shadowCoord = input.shadowCoord;
-//    shadowCoord.xy /= shadowCoord.w;
-//
-//    float4 shadowCoord2 = input.shadowCoord2;
-//    shadowCoord2.xy /= shadowCoord2.w;
-//
-//    half c = SAMPLE_TEXTURE2D(_ScreenSpaceShadowmapTexture, sampler_ScreenSpaceShadowmapTexture, shadowCoord2.xy);
-//    return half4(c,c,c, 1);
-//#endif
-//
     UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
 
     SurfaceData surfaceData;

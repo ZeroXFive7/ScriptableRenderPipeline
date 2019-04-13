@@ -23,6 +23,10 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         [SerializeField]
         bool m_SupportsFirstPersonViewModelRendering = true;
 
+        [Tooltip("Vetical Obliqueness normalized")]
+        [SerializeField]
+        float m_Obliqueness = 0.0f;
+
         [Tooltip("If enabled depth texture will render for this camera bound as _CameraDepthTexture.")]
         [SerializeField]
         CameraOverrideOption m_RequiresDepthTextureOption = CameraOverrideOption.UsePipelineSettings;
@@ -55,6 +59,12 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         {
             get { return m_SupportsFirstPersonViewModelRendering; }
             set { m_SupportsFirstPersonViewModelRendering = value; }
+        }
+
+        public float obliqueness
+        {
+            get { return m_Obliqueness; }
+            set { m_Obliqueness = value; }
         }
 
         public CameraOverrideOption requiresDepthOption
