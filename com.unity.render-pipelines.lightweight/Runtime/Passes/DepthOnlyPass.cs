@@ -79,32 +79,17 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                 context.ExecuteCommandBuffer(cmd);
                 cmd.Clear();
 
-                // First render third person objects.
                 var sortFlags = renderingData.cameraData.defaultOpaqueSortFlags;
                 var drawSettings = CreateDrawRendererSettings(renderingData.cameraData.camera, sortFlags, RendererConfiguration.None, renderingData.supportsDynamicBatching);
 
                 m_FilterSettings.renderingLayerMask = uint.MaxValue;
-                if (renderingData.cameraData.supportsFirstPersonViewModelRendering)
-                {
-                    m_FilterSettings.renderingLayerMask &= ~renderingData.cameraData.firstPersonViewModelRenderingLayerMask;
-                }
 
-                if (renderingData.cameraData.isStereoEnabled)
+                // First try to render first person objects.
+                var renderFirstPerson = !renderingData.cameraData.isSceneViewCamera && renderingData.cameraData.supportsFirstPersonViewModelRendering;
+                if (renderFirstPerson)
                 {
-                    context.StartMultiEye(camera);
-                    context.DrawRenderers(renderingData.cullResults.visibleRenderers, ref drawSettings, m_FilterSettings);
-                    context.StopMultiEye(camera);
-                }
-                else
-                {
-                    context.DrawRenderers(renderingData.cullResults.visibleRenderers, ref drawSettings, m_FilterSettings);
-                }
+                    cmd.SetStencilState(2, CompareFunction.Always, StencilOp.Replace, StencilOp.Keep);
 
-                context.ExecuteCommandBuffer(cmd);
-                cmd.Clear();
-
-                if (!renderingData.cameraData.isSceneViewCamera && renderingData.cameraData.supportsFirstPersonViewModelRendering)
-                {
                     // Then render first person objects.
                     var viewMatrix = camera.worldToCameraMatrix;
                     cmd.SetViewProjectionMatrices(viewMatrix, renderingData.cameraData.firstPersonViewModelProjectionMatrix);
@@ -127,9 +112,36 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                     context.ExecuteCommandBuffer(cmd);
                     cmd.Clear();
 
-                    // Then reset view proj state.
+                    // Then reset rendering state for world geometry.
+                    cmd.SetStencilState(2, CompareFunction.NotEqual, StencilOp.Keep, StencilOp.Keep);
                     cmd.SetViewProjectionMatrices(viewMatrix, camera.projectionMatrix);
+
                     context.ExecuteCommandBuffer(cmd);
+
+                    // Setup rendering layer mask for third person rendering.
+                    m_FilterSettings.renderingLayerMask = uint.MaxValue & ~renderingData.cameraData.firstPersonViewModelRenderingLayerMask;
+                }
+
+                // Then render third person objects.
+                if (renderingData.cameraData.isStereoEnabled)
+                {
+                    context.StartMultiEye(camera);
+                    context.DrawRenderers(renderingData.cullResults.visibleRenderers, ref drawSettings, m_FilterSettings);
+                    context.StopMultiEye(camera);
+                }
+                else
+                {
+                    context.DrawRenderers(renderingData.cullResults.visibleRenderers, ref drawSettings, m_FilterSettings);
+                }
+
+                context.ExecuteCommandBuffer(cmd);
+                cmd.Clear();
+
+                if (renderFirstPerson)
+                {
+                    cmd.SetStencilState(2, CompareFunction.Disabled, StencilOp.Keep, StencilOp.Keep);
+                    context.ExecuteCommandBuffer(cmd);
+                    cmd.Clear();
                 }
             }
 

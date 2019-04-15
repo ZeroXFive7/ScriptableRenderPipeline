@@ -87,37 +87,25 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                 context.ExecuteCommandBuffer(cmd);
                 cmd.Clear();
 
-                // 1.
-                // Render world objects.
                 XRUtils.DrawOcclusionMesh(cmd, camera, renderingData.cameraData.isStereoEnabled);
+
                 var sortFlags = renderingData.cameraData.defaultOpaqueSortFlags;
                 var drawSettings = CreateDrawRendererSettings(camera, sortFlags, rendererConfiguration, renderingData.supportsDynamicBatching);
 
                 m_FilterSettings.renderingLayerMask = uint.MaxValue;
-                if (renderingData.cameraData.supportsFirstPersonViewModelRendering)
+
+                // First attempt to render first person view models.
+                var renderFirstPerson = !renderingData.cameraData.isSceneViewCamera && renderingData.cameraData.supportsFirstPersonViewModelRendering;
+                if (renderFirstPerson)
                 {
-                    m_FilterSettings.renderingLayerMask &= ~renderingData.cameraData.firstPersonViewModelRenderingLayerMask;
-                }
+                    cmd.SetStencilState(2, CompareFunction.Always, StencilOp.Replace, StencilOp.Keep);
 
-                context.DrawRenderers(renderingData.cullResults.visibleRenderers, ref drawSettings, m_FilterSettings);
-
-                // Render objects that did not match any shader pass with error shader
-                renderer.RenderObjectsWithError(context, ref renderingData.cullResults, camera, m_FilterSettings, SortFlags.None);
-
-                context.ExecuteCommandBuffer(cmd);
-                cmd.Clear();
-
-                if (!renderingData.cameraData.isSceneViewCamera && renderingData.cameraData.supportsFirstPersonViewModelRendering)
-                {
-                    // 2.
-                    // Setup first person only camera properties.
                     var viewMatrix = camera.worldToCameraMatrix;
                     cmd.SetViewProjectionMatrices(viewMatrix, renderingData.cameraData.firstPersonViewModelProjectionMatrix);
 
                     context.ExecuteCommandBuffer(cmd);
                     cmd.Clear();
 
-                    // 3.
                     // Render first person objects.
                     m_FilterSettings.renderingLayerMask = renderingData.cameraData.firstPersonViewModelRenderingLayerMask;
                     context.DrawRenderers(renderingData.cullResults.visibleRenderers, ref drawSettings, m_FilterSettings);
@@ -126,10 +114,29 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                     context.ExecuteCommandBuffer(cmd);
                     cmd.Clear();
 
-                    // 4.
                     // Then reset view proj state.
+                    cmd.SetStencilState(2, CompareFunction.NotEqual, StencilOp.Keep, StencilOp.Keep);
                     cmd.SetViewProjectionMatrices(viewMatrix, camera.projectionMatrix);
                     context.ExecuteCommandBuffer(cmd);
+
+                    // Reset filter settings for world geometry.
+                    m_FilterSettings.renderingLayerMask = uint.MaxValue & ~renderingData.cameraData.firstPersonViewModelRenderingLayerMask;
+                }
+
+                // Then render world geometry.
+                context.DrawRenderers(renderingData.cullResults.visibleRenderers, ref drawSettings, m_FilterSettings);
+
+                // Render objects that did not match any shader pass with error shader
+                renderer.RenderObjectsWithError(context, ref renderingData.cullResults, camera, m_FilterSettings, SortFlags.None);
+
+                context.ExecuteCommandBuffer(cmd);
+                cmd.Clear();
+
+                if (renderFirstPerson)
+                {
+                    cmd.SetStencilState(2, CompareFunction.Disabled, StencilOp.Keep, StencilOp.Keep);
+                    context.ExecuteCommandBuffer(cmd);
+                    cmd.Clear();
                 }
             }
 

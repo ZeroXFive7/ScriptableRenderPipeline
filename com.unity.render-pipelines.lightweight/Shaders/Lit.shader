@@ -65,6 +65,14 @@ Shader "Lightweight Render Pipeline/Lit"
             ZWrite[_ZWrite]
             Cull[_Cull]
 
+            Stencil
+            {
+                Ref[_GlobalStencilRef]
+                Comp[_GlobalStencilComp]
+                Pass[_GlobalStencilPass]
+                Fail[_GlobalStencilFail]
+            }
+
             HLSLPROGRAM
             // Required to compile gles 2.0 with standard SRP library
             // All shaders must be compiled with HLSLcc and currently only gles is not using HLSLcc by default
@@ -157,6 +165,14 @@ Shader "Lightweight Render Pipeline/Lit"
             ZWrite On
             ColorMask 0
             Cull[_Cull]
+
+            Stencil
+            {
+                Ref [_GlobalStencilRef]
+                Comp [_GlobalStencilComp]
+                Pass [_GlobalStencilPass]
+                Fail [_GlobalStencilFail]
+            }
 
             HLSLPROGRAM
             // Required to compile gles 2.0 with standard srp library
