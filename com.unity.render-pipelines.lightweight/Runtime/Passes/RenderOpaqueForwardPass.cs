@@ -66,8 +66,6 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             if (renderer == null)
                 throw new ArgumentNullException("renderer");
 
-            var camera = renderingData.cameraData.camera;
-
             CommandBuffer cmd = CommandBufferPool.Get(k_RenderOpaquesTag);
             using (new ProfilingSample(cmd, k_RenderOpaquesTag))
             {
@@ -87,10 +85,10 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                 context.ExecuteCommandBuffer(cmd);
                 cmd.Clear();
 
+                var camera = renderingData.cameraData.camera;
                 XRUtils.DrawOcclusionMesh(cmd, camera, renderingData.cameraData.isStereoEnabled);
 
-                var sortFlags = renderingData.cameraData.defaultOpaqueSortFlags;
-                var drawSettings = CreateDrawRendererSettings(camera, sortFlags, rendererConfiguration, renderingData.supportsDynamicBatching);
+                var drawSettings = CreateDrawRendererSettings(camera, renderingData.cameraData.defaultOpaqueSortFlags, rendererConfiguration, renderingData.supportsDynamicBatching);
 
                 m_FilterSettings.renderingLayerMask = uint.MaxValue;
 

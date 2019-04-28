@@ -44,7 +44,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
 
         private void OnBeforeCameraRender(Camera camera)
         {
-            var visibleInThisCamera = this.camera != null && this.camera == camera;
+            var visibleInThisCamera = this.camera == null || this.camera == camera;
 
             foreach (var renderer in renderers)
             {

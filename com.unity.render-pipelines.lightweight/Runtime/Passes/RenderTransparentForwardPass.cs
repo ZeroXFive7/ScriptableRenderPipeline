@@ -71,10 +71,53 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
 
                 Camera camera = renderingData.cameraData.camera;
                 var drawSettings = CreateDrawRendererSettings(camera, SortFlags.CommonTransparent, rendererConfiguration, renderingData.supportsDynamicBatching);
+
+                m_FilterSettings.renderingLayerMask = uint.MaxValue;
+
+                // First attempt to render first person view models.
+                var renderFirstPerson = !renderingData.cameraData.isSceneViewCamera && renderingData.cameraData.supportsFirstPersonViewModelRendering;
+                if (renderFirstPerson)
+                {
+                    cmd.SetStencilState(2, CompareFunction.Always, StencilOp.Replace, StencilOp.Keep);
+
+                    var viewMatrix = camera.worldToCameraMatrix;
+                    cmd.SetViewProjectionMatrices(viewMatrix, renderingData.cameraData.firstPersonViewModelProjectionMatrix);
+
+                    context.ExecuteCommandBuffer(cmd);
+                    cmd.Clear();
+
+                    // Render first person objects.
+                    m_FilterSettings.renderingLayerMask = renderingData.cameraData.firstPersonViewModelRenderingLayerMask;
+                    context.DrawRenderers(renderingData.cullResults.visibleRenderers, ref drawSettings, m_FilterSettings);
+                    renderer.RenderObjectsWithError(context, ref renderingData.cullResults, camera, m_FilterSettings, SortFlags.None);
+
+                    context.ExecuteCommandBuffer(cmd);
+                    cmd.Clear();
+
+                    // Then reset view proj state.
+                    cmd.SetStencilState(2, CompareFunction.NotEqual, StencilOp.Keep, StencilOp.Keep);
+                    cmd.SetViewProjectionMatrices(viewMatrix, camera.projectionMatrix);
+                    context.ExecuteCommandBuffer(cmd);
+
+                    // Reset filter settings for world geometry.
+                    m_FilterSettings.renderingLayerMask = uint.MaxValue & ~renderingData.cameraData.firstPersonViewModelRenderingLayerMask;
+                }
+
+                // Then render world geometry.
                 context.DrawRenderers(renderingData.cullResults.visibleRenderers, ref drawSettings, m_FilterSettings);
 
                 // Render objects that did not match any shader pass with error shader
                 renderer.RenderObjectsWithError(context, ref renderingData.cullResults, camera, m_FilterSettings, SortFlags.None);
+
+                context.ExecuteCommandBuffer(cmd);
+                cmd.Clear();
+
+                if (renderFirstPerson)
+                {
+                    cmd.SetStencilState(2, CompareFunction.Disabled, StencilOp.Keep, StencilOp.Keep);
+                    context.ExecuteCommandBuffer(cmd);
+                    cmd.Clear();
+                }
             }
 
             context.ExecuteCommandBuffer(cmd);
