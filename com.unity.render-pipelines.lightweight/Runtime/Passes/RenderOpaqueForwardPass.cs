@@ -127,16 +127,17 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                 // Render objects that did not match any shader pass with error shader
                 renderer.RenderObjectsWithError(context, ref renderingData.cullResults, camera, m_FilterSettings, SortFlags.None);
 
-                context.ExecuteCommandBuffer(cmd);
-                cmd.Clear();
-
                 if (renderFirstPerson)
                 {
-                    cmd.SetStencilState(2, CompareFunction.Disabled, StencilOp.Keep, StencilOp.Keep);
                     context.ExecuteCommandBuffer(cmd);
                     cmd.Clear();
+
+                    cmd.SetStencilState(2, CompareFunction.Disabled, StencilOp.Keep, StencilOp.Keep);
                 }
             }
+
+            context.ExecuteCommandBuffer(cmd);
+            cmd.Clear();
 
             CommandBufferPool.Release(cmd);
         }

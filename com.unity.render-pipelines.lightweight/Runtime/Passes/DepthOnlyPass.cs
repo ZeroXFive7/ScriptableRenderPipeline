@@ -134,17 +134,17 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                     context.DrawRenderers(renderingData.cullResults.visibleRenderers, ref drawSettings, m_FilterSettings);
                 }
 
-                context.ExecuteCommandBuffer(cmd);
-                cmd.Clear();
-
                 if (renderFirstPerson)
                 {
-                    cmd.SetStencilState(2, CompareFunction.Disabled, StencilOp.Keep, StencilOp.Keep);
                     context.ExecuteCommandBuffer(cmd);
                     cmd.Clear();
+
+                    cmd.SetStencilState(2, CompareFunction.Disabled, StencilOp.Keep, StencilOp.Keep);
                 }
             }
 
+            context.ExecuteCommandBuffer(cmd);
+            cmd.Clear();
             CommandBufferPool.Release(cmd);
         }
 
