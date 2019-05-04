@@ -150,12 +150,14 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
 
             renderer.EnqueuePass(m_SetupForwardRenderingPass);
 
+            var forwardSortFlags = renderingData.cameraData.defaultOpaqueSortFlags;
+
             if (requiresDepthPrepass)
             {
                 m_InitialBlitPass.Setup(colorHandle, InitialBlitMap);
                 renderer.EnqueuePass(m_InitialBlitPass);
 
-                m_DepthOnlyPass.Setup(baseDescriptor, DepthTexture, SampleCount.One);
+                m_DepthOnlyPass.Setup(baseDescriptor, DepthTexture, SampleCount.One, forwardSortFlags);
                 renderer.EnqueuePass(m_DepthOnlyPass);
 
                 foreach (var pass in camera.GetComponents<IAfterDepthPrePass>())
@@ -186,7 +188,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                 clearFlag = ClearFlag.None;
             }
 
-            m_RenderOpaqueForwardPass.Setup(baseDescriptor, colorHandle, depthHandle, clearFlag, camera.backgroundColor, rendererConfiguration);
+            m_RenderOpaqueForwardPass.Setup(baseDescriptor, colorHandle, depthHandle, clearFlag, camera.backgroundColor, forwardSortFlags, rendererConfiguration);
             renderer.EnqueuePass(m_RenderOpaqueForwardPass);
 
             foreach (var pass in camera.GetComponents<IAfterOpaquePass>())

@@ -9,27 +9,21 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
     /// You can use this pass to prime a depth buffer for subsequent rendering.
     /// Use it as a z-prepass, or use it to generate a depth buffer.
     /// </summary>
-    public class DepthOnlyPass : ScriptableRenderPass
+    public class DepthOnlyPass : RenderForwardPass
     {
-        const string k_DepthPrepassDefaultTag = "Depth Prepass";
-        const string k_DepthPrepassFirstPersonTag = "Depth Prepass (First Person)";
-        const string k_DepthPrepassThirdPersonTag = "Depth Prepass (Third Person)";
-
-        int kDepthBufferBits = 32;
+        private const int DEPTH_BUFFER_BITS = 32;
 
         private RenderTargetHandle depthAttachmentHandle { get; set; }
         internal RenderTextureDescriptor descriptor { get; private set; }
 
-        FilterRenderersSettings m_FilterSettings;
-
         /// <summary>
         /// Create the DepthOnlyPass
         /// </summary>
-        public DepthOnlyPass()
+        public DepthOnlyPass() : base("Depth Prepass")
         {
             RegisterShaderPassName("DepthOnly");
 
-            m_FilterSettings = new FilterRenderersSettings(true)
+            filterSettings = new FilterRenderersSettings(true)
             {
                 renderQueueRange = RenderQueueRange.opaque,
                 renderingLayerMask = uint.MaxValue
@@ -42,11 +36,15 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         public void Setup(
             RenderTextureDescriptor baseDescriptor,
             RenderTargetHandle depthAttachmentHandle,
-            SampleCount samples)
+            SampleCount samples,
+            SortFlags sortFlags)
         {
             this.depthAttachmentHandle = depthAttachmentHandle;
             baseDescriptor.colorFormat = RenderTextureFormat.Depth;
-            baseDescriptor.depthBufferBits = kDepthBufferBits;
+            baseDescriptor.depthBufferBits = DEPTH_BUFFER_BITS;
+
+            this.rendererConfiguration = RendererConfiguration.None;
+            this.sortFlags = sortFlags;
 
             if ((int)samples > 1)
             {
@@ -55,31 +53,6 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             }
 
             descriptor = baseDescriptor;
-        }
-
-        /// <inheritdoc/>
-        public override void Execute(ScriptableRenderer renderer, ScriptableRenderContext context, ref RenderingData renderingData)
-        {
-            if (renderer == null)
-            {
-                throw new ArgumentNullException("renderer");
-            }
-
-            // Pre-compute references used across all pass variants.
-            var camera = renderingData.cameraData.camera;
-            var drawSettings = CreateDrawRendererSettings(renderingData.cameraData.camera, renderingData.cameraData.defaultOpaqueSortFlags, RendererConfiguration.None, renderingData.supportsDynamicBatching);
-
-            var renderFirstPerson = !renderingData.cameraData.isSceneViewCamera && renderingData.cameraData.supportsFirstPersonViewModelRendering;
-            if (renderFirstPerson)
-            {
-                ExecuteRenderFirstPersonOnly(context, camera, drawSettings, ref renderingData);
-                ExecuteRenderThirdPersonOnly(context, camera, drawSettings, ref renderingData);
-            }
-            else
-            {
-                ExecuteRenderDefault(context, camera, drawSettings, ref renderingData);
-
-            }
         }
 
         /// <inheritdoc/>
@@ -95,88 +68,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             }
         }
 
-        private void ExecuteRenderDefault(ScriptableRenderContext context, Camera camera, DrawRendererSettings drawSettings, ref RenderingData renderingData)
-        {
-            CommandBuffer cmd = CommandBufferPool.Get(k_DepthPrepassDefaultTag);
-            using (new ProfilingSample(cmd, k_DepthPrepassDefaultTag))
-            {
-                // First get and set render target.
-                AllocateAndSetRenderTarget(cmd);
-                context.ExecuteCommandBuffer(cmd);
-                cmd.Clear();
-
-                // Then filter renderers.
-                m_FilterSettings.renderingLayerMask = uint.MaxValue;
-
-                // Then render all objects.
-                RenderFiltered(context, camera, drawSettings, ref renderingData);
-            }
-
-            context.ExecuteCommandBuffer(cmd);
-            cmd.Clear();
-
-            CommandBufferPool.Release(cmd);
-        }
-
-        private void ExecuteRenderFirstPersonOnly(ScriptableRenderContext context, Camera camera, DrawRendererSettings drawSettings, ref RenderingData renderingData)
-        {
-            CommandBuffer cmd = CommandBufferPool.Get(k_DepthPrepassFirstPersonTag);
-            using (new ProfilingSample(cmd, k_DepthPrepassFirstPersonTag))
-            {
-                // First setup render target.
-                AllocateAndSetRenderTarget(cmd);
-                context.ExecuteCommandBuffer(cmd);
-                cmd.Clear();
-
-                // Then filter to first person only.
-                m_FilterSettings.renderingLayerMask = renderingData.cameraData.firstPersonViewModelRenderingLayerMask;
-
-                // Set pipeline state.
-                CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.FirstPersonDepth, true);
-                cmd.SetStencilState(2, CompareFunction.Always, StencilOp.Replace, StencilOp.Keep);
-                cmd.SetViewProjectionMatrices(camera.worldToCameraMatrix, renderingData.cameraData.firstPersonViewModelProjectionMatrix);
-                context.ExecuteCommandBuffer(cmd);
-                cmd.Clear();
-
-                // Finally render objects.
-                RenderFiltered(context, camera, drawSettings, ref renderingData);
-            }
-
-            context.ExecuteCommandBuffer(cmd);
-            cmd.Clear();
-            CommandBufferPool.Release(cmd);
-        }
-
-        private void ExecuteRenderThirdPersonOnly(ScriptableRenderContext context, Camera camera, DrawRendererSettings drawSettings, ref RenderingData renderingData)
-        {
-            CommandBuffer cmd = CommandBufferPool.Get(k_DepthPrepassThirdPersonTag);
-            using (new ProfilingSample(cmd, k_DepthPrepassThirdPersonTag))
-            {
-                // Setup third person rendering filter.
-                m_FilterSettings.renderingLayerMask = uint.MaxValue & ~renderingData.cameraData.firstPersonViewModelRenderingLayerMask;
-
-                // Set pipeline state.
-                CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.FirstPersonDepth, false);
-                cmd.SetStencilState(2, CompareFunction.NotEqual, StencilOp.Keep, StencilOp.Keep);
-                cmd.SetViewProjectionMatrices(camera.worldToCameraMatrix, camera.projectionMatrix);
-                context.ExecuteCommandBuffer(cmd);
-                cmd.Clear();
-
-                // Then render third person objects.
-                RenderFiltered(context, camera, drawSettings, ref renderingData);
-                context.ExecuteCommandBuffer(cmd);
-                cmd.Clear();
-
-                // Clear stencil state.
-                cmd.SetStencilState(2, CompareFunction.Disabled, StencilOp.Keep, StencilOp.Keep);
-            }
-
-            context.ExecuteCommandBuffer(cmd);
-            cmd.Clear();
-            CommandBufferPool.Release(cmd);
-        }
-
-        private void AllocateAndSetRenderTarget(CommandBuffer cmd)
+        protected override void SetRenderTarget(CommandBuffer cmd)
         {
             cmd.GetTemporaryRT(depthAttachmentHandle.id, descriptor, FilterMode.Point);
 
@@ -190,17 +82,17 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                 descriptor.dimension);
         }
 
-        private void RenderFiltered(ScriptableRenderContext context, Camera camera, DrawRendererSettings drawSettings, ref RenderingData renderingData)
+        protected override void RenderFiltered(ScriptableRenderer renderer, ScriptableRenderContext context, Camera camera, DrawRendererSettings drawSettings, ref RenderingData renderingData, ref RenderStateBlock renderStateBlock)
         {
             if (renderingData.cameraData.isStereoEnabled)
             {
                 context.StartMultiEye(camera);
-                context.DrawRenderers(renderingData.cullResults.visibleRenderers, ref drawSettings, m_FilterSettings);
+                context.DrawRenderers(renderingData.cullResults.visibleRenderers, ref drawSettings, filterSettings, renderStateBlock);
                 context.StopMultiEye(camera);
             }
             else
             {
-                context.DrawRenderers(renderingData.cullResults.visibleRenderers, ref drawSettings, m_FilterSettings);
+                context.DrawRenderers(renderingData.cullResults.visibleRenderers, ref drawSettings, filterSettings, renderStateBlock);
             }
         }
     }
