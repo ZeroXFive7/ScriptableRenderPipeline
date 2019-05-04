@@ -131,7 +131,8 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                 // Then filter to first person only.
                 m_FilterSettings.renderingLayerMask = renderingData.cameraData.firstPersonViewModelRenderingLayerMask;
 
-                // Set stencil, viewproj state.
+                // Set pipeline state.
+                CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.FirstPersonDepth, true);
                 cmd.SetStencilState(2, CompareFunction.Always, StencilOp.Replace, StencilOp.Keep);
                 cmd.SetViewProjectionMatrices(camera.worldToCameraMatrix, renderingData.cameraData.firstPersonViewModelProjectionMatrix);
                 context.ExecuteCommandBuffer(cmd);
@@ -154,7 +155,8 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                 // Setup third person rendering filter.
                 m_FilterSettings.renderingLayerMask = uint.MaxValue & ~renderingData.cameraData.firstPersonViewModelRenderingLayerMask;
 
-                // Setup stencil, viewproj stae.
+                // Set pipeline state.
+                CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.FirstPersonDepth, false);
                 cmd.SetStencilState(2, CompareFunction.NotEqual, StencilOp.Keep, StencilOp.Keep);
                 cmd.SetViewProjectionMatrices(camera.worldToCameraMatrix, camera.projectionMatrix);
                 context.ExecuteCommandBuffer(cmd);

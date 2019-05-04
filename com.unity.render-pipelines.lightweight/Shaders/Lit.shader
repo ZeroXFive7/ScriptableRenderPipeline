@@ -105,6 +105,9 @@ Shader "Lightweight Render Pipeline/Lit"
             #pragma multi_compile _ _SHADOWS_SOFT
             #pragma multi_compile _ _MIXED_LIGHTING_SUBTRACTIVE
 
+            // Giants Kettle keywords
+            #pragma multi_compile _ _FIRST_PERSON_DEPTH
+
             // -------------------------------------
             // Unity defined keywords
             #pragma multi_compile _ DIRLIGHTMAP_COMBINED
@@ -188,6 +191,9 @@ Shader "Lightweight Render Pipeline/Lit"
             // Material Keywords
             #pragma shader_feature _ALPHATEST_ON
             #pragma shader_feature _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+
+            // Giants Kettle keywords
+            #pragma multi_compile _ _FIRST_PERSON_DEPTH
 
             //--------------------------------------
             // GPU Instancing
