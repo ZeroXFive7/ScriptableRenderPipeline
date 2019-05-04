@@ -12,7 +12,10 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
     /// </summary>
     public class RenderOpaqueForwardPass : ScriptableRenderPass
     {
-        const string k_RenderOpaquesTag = "Render Opaques";
+        const string k_RenderOpaquesDefaultTag = "Render Opaques";
+        const string k_RenderOpaquesFirstPersonTag = "Render Opaques (First Person)";
+        const string k_RenderOpaquesThirdPersonTag = "Render Opaques (Third Person)";
+
         FilterRenderersSettings m_FilterSettings;
 
         RenderTargetHandle colorAttachmentHandle { get; set; }
@@ -64,82 +67,124 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         public override void Execute(ScriptableRenderer renderer, ScriptableRenderContext context, ref RenderingData renderingData)
         {
             if (renderer == null)
-                throw new ArgumentNullException("renderer");
-
-            CommandBuffer cmd = CommandBufferPool.Get(k_RenderOpaquesTag);
-            using (new ProfilingSample(cmd, k_RenderOpaquesTag))
             {
-                // When ClearFlag.None that means this is not the first render pass to write to camera target.
-                // In that case we set loadOp for both color and depth as RenderBufferLoadAction.Load
-                RenderBufferLoadAction loadOp = clearFlag != ClearFlag.None ? RenderBufferLoadAction.DontCare : RenderBufferLoadAction.Load;
-                RenderBufferStoreAction storeOp = RenderBufferStoreAction.Store;
+                throw new ArgumentNullException("renderer");
+            }
 
-                SetRenderTarget(cmd, colorAttachmentHandle.Identifier(), loadOp, storeOp,
-                    depthAttachmentHandle.Identifier(), loadOp, storeOp, clearFlag, clearColor, descriptor.dimension);
+            // Pre-compute references that are used in both first person and default render.
+            var camera = renderingData.cameraData.camera;
+            var drawSettings = CreateDrawRendererSettings(camera, renderingData.cameraData.defaultOpaqueSortFlags, rendererConfiguration, renderingData.supportsDynamicBatching);
 
-                // TODO: We need a proper way to handle multiple camera/ camera stack. Issue is: multiple cameras can share a same RT
-                // (e.g, split screen games). However devs have to be dilligent with it and know when to clear/preserve color.
-                // For now we make it consistent by resolving viewport with a RT until we can have a proper camera management system
-                //if (colorAttachmentHandle == -1 && !cameraData.isDefaultViewport)
-                //    cmd.SetViewport(camera.pixelRect);
+            var renderFirstPerson = !renderingData.cameraData.isSceneViewCamera && renderingData.cameraData.supportsFirstPersonViewModelRendering;
+            if (renderFirstPerson)
+            {
+                ExecuteRenderFirstPersonOnly(renderer, context, camera, drawSettings, ref renderingData);
+                ExecuteRenderThirdPersonOnly(renderer, context, camera, drawSettings, ref renderingData);
+            }
+            else
+            {
+                ExecuteRenderDefault(renderer, context, camera, drawSettings, ref renderingData);
+            }
+        }
+
+        private void ExecuteRenderDefault(ScriptableRenderer renderer, ScriptableRenderContext context, Camera camera, DrawRendererSettings drawSettings, ref RenderingData renderingData)
+        {
+            CommandBuffer cmd = CommandBufferPool.Get(k_RenderOpaquesDefaultTag);
+            using (new ProfilingSample(cmd, k_RenderOpaquesDefaultTag))
+            {
+                // First set render target.
+                SetRenderTarget(cmd);
                 context.ExecuteCommandBuffer(cmd);
                 cmd.Clear();
 
-                var camera = renderingData.cameraData.camera;
-                XRUtils.DrawOcclusionMesh(cmd, camera, renderingData.cameraData.isStereoEnabled);
-
-                var drawSettings = CreateDrawRendererSettings(camera, renderingData.cameraData.defaultOpaqueSortFlags, rendererConfiguration, renderingData.supportsDynamicBatching);
-
+                // Then filter renderers.
                 m_FilterSettings.renderingLayerMask = uint.MaxValue;
 
-                // First attempt to render first person view models.
-                var renderFirstPerson = !renderingData.cameraData.isSceneViewCamera && renderingData.cameraData.supportsFirstPersonViewModelRendering;
-                if (renderFirstPerson)
-                {
-                    cmd.SetStencilState(2, CompareFunction.Always, StencilOp.Replace, StencilOp.Keep);
-
-                    var viewMatrix = camera.worldToCameraMatrix;
-                    cmd.SetViewProjectionMatrices(viewMatrix, renderingData.cameraData.firstPersonViewModelProjectionMatrix);
-
-                    context.ExecuteCommandBuffer(cmd);
-                    cmd.Clear();
-
-                    // Render first person objects.
-                    m_FilterSettings.renderingLayerMask = renderingData.cameraData.firstPersonViewModelRenderingLayerMask;
-                    context.DrawRenderers(renderingData.cullResults.visibleRenderers, ref drawSettings, m_FilterSettings);
-                    renderer.RenderObjectsWithError(context, ref renderingData.cullResults, camera, m_FilterSettings, SortFlags.None);
-
-                    context.ExecuteCommandBuffer(cmd);
-                    cmd.Clear();
-
-                    // Then reset view proj state.
-                    cmd.SetStencilState(2, CompareFunction.NotEqual, StencilOp.Keep, StencilOp.Keep);
-                    cmd.SetViewProjectionMatrices(viewMatrix, camera.projectionMatrix);
-                    context.ExecuteCommandBuffer(cmd);
-
-                    // Reset filter settings for world geometry.
-                    m_FilterSettings.renderingLayerMask = uint.MaxValue & ~renderingData.cameraData.firstPersonViewModelRenderingLayerMask;
-                }
-
                 // Then render world geometry.
+                XRUtils.DrawOcclusionMesh(cmd, camera, renderingData.cameraData.isStereoEnabled);
                 context.DrawRenderers(renderingData.cullResults.visibleRenderers, ref drawSettings, m_FilterSettings);
-
-                // Render objects that did not match any shader pass with error shader
                 renderer.RenderObjectsWithError(context, ref renderingData.cullResults, camera, m_FilterSettings, SortFlags.None);
-
-                if (renderFirstPerson)
-                {
-                    context.ExecuteCommandBuffer(cmd);
-                    cmd.Clear();
-
-                    cmd.SetStencilState(2, CompareFunction.Disabled, StencilOp.Keep, StencilOp.Keep);
-                }
             }
 
             context.ExecuteCommandBuffer(cmd);
             cmd.Clear();
 
             CommandBufferPool.Release(cmd);
+        }
+
+        private void ExecuteRenderFirstPersonOnly(ScriptableRenderer renderer, ScriptableRenderContext context, Camera camera, DrawRendererSettings drawSettings, ref RenderingData renderingData)
+        {
+            CommandBuffer cmd = CommandBufferPool.Get(k_RenderOpaquesFirstPersonTag);
+            using (new ProfilingSample(cmd, k_RenderOpaquesFirstPersonTag))
+            {
+                // First set the render target.
+                SetRenderTarget(cmd);
+                context.ExecuteCommandBuffer(cmd);
+                cmd.Clear();
+
+                // Then filter to only first person renderers.
+                m_FilterSettings.renderingLayerMask = renderingData.cameraData.firstPersonViewModelRenderingLayerMask;
+
+                // Then set stencil, viewproj state.
+                cmd.SetStencilState(2, CompareFunction.Always, StencilOp.Replace, StencilOp.Keep);
+                cmd.SetViewProjectionMatrices(camera.worldToCameraMatrix, renderingData.cameraData.firstPersonViewModelProjectionMatrix);
+                context.ExecuteCommandBuffer(cmd);
+                cmd.Clear();
+
+                // Render first person objects.
+                context.DrawRenderers(renderingData.cullResults.visibleRenderers, ref drawSettings, m_FilterSettings);
+                renderer.RenderObjectsWithError(context, ref renderingData.cullResults, camera, m_FilterSettings, SortFlags.None);
+            }
+
+            context.ExecuteCommandBuffer(cmd);
+            cmd.Clear();
+
+            CommandBufferPool.Release(cmd);
+        }
+
+        private void ExecuteRenderThirdPersonOnly(ScriptableRenderer renderer, ScriptableRenderContext context, Camera camera, DrawRendererSettings drawSettings, ref RenderingData renderingData)
+        {
+            CommandBuffer cmd = CommandBufferPool.Get(k_RenderOpaquesThirdPersonTag);
+            using (new ProfilingSample(cmd, k_RenderOpaquesThirdPersonTag))
+            {
+                // Setup third person filtering.
+                m_FilterSettings.renderingLayerMask = uint.MaxValue & ~renderingData.cameraData.firstPersonViewModelRenderingLayerMask;
+
+                // Setup stencil and view proj state
+                cmd.SetStencilState(2, CompareFunction.NotEqual, StencilOp.Keep, StencilOp.Keep);
+                cmd.SetViewProjectionMatrices(camera.worldToCameraMatrix, camera.projectionMatrix);
+                context.ExecuteCommandBuffer(cmd);
+                cmd.Clear();
+
+                // Draw third person renderers.
+                XRUtils.DrawOcclusionMesh(cmd, camera, renderingData.cameraData.isStereoEnabled);
+                context.DrawRenderers(renderingData.cullResults.visibleRenderers, ref drawSettings, m_FilterSettings);
+                renderer.RenderObjectsWithError(context, ref renderingData.cullResults, camera, m_FilterSettings, SortFlags.None);
+                context.ExecuteCommandBuffer(cmd);
+                cmd.Clear();
+
+                // Clear stencil state.
+                cmd.SetStencilState(2, CompareFunction.Disabled, StencilOp.Keep, StencilOp.Keep);
+            }
+
+            context.ExecuteCommandBuffer(cmd);
+            cmd.Clear();
+
+            CommandBufferPool.Release(cmd);
+        }
+
+        private void SetRenderTarget(CommandBuffer cmd)
+        {
+            // When ClearFlag.None that means this is not the first render pass to write to camera target.
+            // In that case we set loadOp for both color and depth as RenderBufferLoadAction.Load
+            RenderBufferLoadAction loadOp = clearFlag != ClearFlag.None ? RenderBufferLoadAction.DontCare : RenderBufferLoadAction.Load;
+            RenderBufferStoreAction storeOp = RenderBufferStoreAction.Store;
+
+            SetRenderTarget(cmd,
+                colorAttachmentHandle.Identifier(), loadOp, storeOp,
+                depthAttachmentHandle.Identifier(), loadOp, storeOp,
+                clearFlag, clearColor,
+                descriptor.dimension);
         }
     }
 }
