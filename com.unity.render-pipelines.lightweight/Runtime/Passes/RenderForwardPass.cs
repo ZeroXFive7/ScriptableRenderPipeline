@@ -12,9 +12,9 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
 
         protected RendererConfiguration rendererConfiguration;
 
-        private RenderStateBlock defaultRenderStateBlock;
-        private RenderStateBlock firstPersonRenderStateBlock;
-        private RenderStateBlock thirdPersonRenderStateBlock;
+        protected RenderStateBlock defaultRenderStateBlock;
+        protected RenderStateBlock firstPersonRenderStateBlock;
+        protected RenderStateBlock thirdPersonRenderStateBlock;
 
         private readonly string renderDefaultPassTag;
         private readonly string renderFirstPersonPassTag;
@@ -23,8 +23,8 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         protected RenderForwardPass(string defaultPassTag)
         {
             this.renderDefaultPassTag = defaultPassTag;
-            this.renderFirstPersonPassTag = string.Format("{0} (First Person", defaultPassTag);
-            this.renderThirdPersonPassTag = string.Format("{0} (Third Person", defaultPassTag);
+            this.renderFirstPersonPassTag = string.Format("{0} (First Person)", defaultPassTag);
+            this.renderThirdPersonPassTag = string.Format("{0} (Third Person)", defaultPassTag);
 
             defaultRenderStateBlock = new RenderStateBlock(RenderStateMask.Nothing);
 

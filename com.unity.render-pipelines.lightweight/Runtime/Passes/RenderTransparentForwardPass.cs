@@ -27,6 +27,26 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             };
 
             sortFlags = SortFlags.CommonTransparent;
+
+            // Transparent renderers never write depth.
+            // When rendering in first person all renderers should draw on top of the scene unless they fail the stencil test.
+            // Therefore disable depth test and enable stencil.
+            firstPersonRenderStateBlock.mask = RenderStateMask.Depth | RenderStateMask.Stencil;
+            firstPersonRenderStateBlock.stencilState = new StencilState()
+            {
+                enabled = true,
+                readMask = 255,
+                writeMask = 255,
+                compareFunction = CompareFunction.NotEqual,
+                passOperation = StencilOp.Keep,
+                failOperation = StencilOp.Keep
+            };
+
+            firstPersonRenderStateBlock.depthState = new DepthState()
+            {
+                writeEnabled = false,
+                compareFunction = CompareFunction.Always
+            };
         }
 
         /// <summary>
