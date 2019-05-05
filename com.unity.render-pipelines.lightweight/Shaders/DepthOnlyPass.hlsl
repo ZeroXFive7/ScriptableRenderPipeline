@@ -3,10 +3,12 @@
 
 #include "Packages/com.unity.render-pipelines.lightweight/ShaderLibrary/Core.hlsl"
 
+float _FirstPersonDepthBias;
+
 #if defined(UNITY_REVERSED_Z)
-    #define FIRST_PERSON_DEPTH_BIAS 0.125f
+    #define FIRST_PERSON_DEPTH_BIAS _FirstPersonDepthBias
 #else
-    #define FIRST_PERSON_DEPTH_BIAS -0.125f
+    #define FIRST_PERSON_DEPTH_BIAS -1.0f * _FirstPersonDepthBias
 #endif
 
 struct Attributes

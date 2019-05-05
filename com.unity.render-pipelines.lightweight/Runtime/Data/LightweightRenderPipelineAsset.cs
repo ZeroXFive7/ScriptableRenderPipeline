@@ -113,6 +113,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         // First Person View Model settings.
         [SerializeField] bool m_SupportsFirstPersonViewModelRendering = true;
         [SerializeField] float m_FirstPersonViewModelFOV = 46.0f;
+        [SerializeField] float m_FirstPersonDepthBias = 0.075f;
         [SerializeField] float m_FirstPersonViewModelNearPlane = 0.01f;
         [SerializeField] float m_FirstPersonViewModelFarPlane = 30.0f;
         [SerializeField] uint m_FirstPersonViewModelRenderingLayerMask = 1;
@@ -379,6 +380,11 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         public float firstPersonViewModelFOV
         {
             get { return m_FirstPersonViewModelFOV; }
+        }
+
+        public float firstPersonDepthBias
+        {
+            get { return m_FirstPersonDepthBias; }
         }
 
         public float firstPersonViewModelNearPlane

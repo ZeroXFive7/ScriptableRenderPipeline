@@ -60,6 +60,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             public static GUIContent supportsFirstPersonViewModelRenderingText = EditorGUIUtility.TrTextContent("Rendering Supported", "If enabled pipeline will render first person view models with a separate projection matrix and depth test.");
             public static GUIContent firstPersonViewModelRenderLayerText = EditorGUIUtility.TrTextContent("Rendering Layer", "Used to identify which renderers should be drawn as first person view models");
             public static GUIContent firstPersonViewModelFOVText = EditorGUIUtility.TrTextContent("Field Of View", "FOV used to render first person view models");
+            public static GUIContent firstPersonDepthBiasText = EditorGUIUtility.TrTextContent("Depth Bias", "Offset used to compensate for different depth values that result from different projcetion matrices.");
             public static GUIContent firstPersonViewModelNearPlaneText = EditorGUIUtility.TrTextContent("Near Plane", "Near plane used to render first person view models");
             public static GUIContent firstPersonViewModelFarPlaneText = EditorGUIUtility.TrTextContent("Far Plane", "Far plane used to render first person view models");
 
@@ -120,6 +121,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         SerializedProperty m_SupportsFirstPersonViewModelRenderingProp;
         SerializedProperty m_FirstPersonViewModelRenderingLayerMaskProp;
         SerializedProperty m_FirstPersonViewModelFOVProp;
+        SerializedProperty m_FirstPersonDepthBiasProp;
         SerializedProperty m_FirstPersonViewModelNearPlaneProp;
         SerializedProperty m_FirstPersonViewModelFarPlaneProp;
 
@@ -174,6 +176,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             m_SupportsFirstPersonViewModelRenderingProp = serializedObject.FindProperty("m_SupportsFirstPersonViewModelRendering");
             m_FirstPersonViewModelRenderingLayerMaskProp = serializedObject.FindProperty("m_FirstPersonViewModelRenderingLayerMask");
             m_FirstPersonViewModelFOVProp = serializedObject.FindProperty("m_FirstPersonViewModelFOV");
+            m_FirstPersonDepthBiasProp = serializedObject.FindProperty("m_FirstPersonDepthBias");
             m_FirstPersonViewModelNearPlaneProp = serializedObject.FindProperty("m_FirstPersonViewModelNearPlane");
             m_FirstPersonViewModelFarPlaneProp = serializedObject.FindProperty("m_FirstPersonViewModelFarPlane");
 
@@ -318,6 +321,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                 m_FirstPersonViewModelRenderingLayerMaskProp.longValue = (uint)m_renderingLayerMask;
 
                 m_FirstPersonViewModelFOVProp.floatValue = EditorGUILayout.FloatField(Styles.firstPersonViewModelFOVText, m_FirstPersonViewModelFOVProp.floatValue);
+                m_FirstPersonDepthBiasProp.floatValue = EditorGUILayout.FloatField(Styles.firstPersonDepthBiasText, m_FirstPersonDepthBiasProp.floatValue);
                 m_FirstPersonViewModelNearPlaneProp.floatValue = EditorGUILayout.FloatField(Styles.firstPersonViewModelNearPlaneText, m_FirstPersonViewModelNearPlaneProp.floatValue);
                 m_FirstPersonViewModelFarPlaneProp.floatValue = EditorGUILayout.FloatField(Styles.firstPersonViewModelFarPlaneText, m_FirstPersonViewModelFarPlaneProp.floatValue);
 

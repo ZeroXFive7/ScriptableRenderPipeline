@@ -28,6 +28,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         {
             public static int _GlossyEnvironmentColor;
             public static int _SubtractiveShadowColor;
+            public static int _FirstPersonDepthBias;
         }
 
         static class PerCameraBuffer
@@ -89,6 +90,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             public bool supportsFirstPersonViewModelRendering { get; private set; }
             public uint firstPersonViewModelRenderingLayerMask { get; private set; }
             public float firstPersonViewModelFOV { get; private set; }
+            public float firstPersonDepthBias { get; private set; }
             public float firstPersonViewModelNearPlane { get; private set; }
             public float firstPersonViewModelFarPlane { get; private set; }
 
@@ -133,6 +135,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                 cache.supportsFirstPersonViewModelRendering = asset.supportsFirstPersonViewModelRendering;
                 cache.firstPersonViewModelRenderingLayerMask = asset.firstPersonViewModelRenderingLayerMask;
                 cache.firstPersonViewModelFOV = asset.firstPersonViewModelFOV;
+                cache.firstPersonDepthBias = asset.firstPersonDepthBias;
                 cache.firstPersonViewModelNearPlane = asset.firstPersonViewModelNearPlane;
                 cache.firstPersonViewModelFarPlane = asset.firstPersonViewModelFarPlane;
 
@@ -149,13 +152,16 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
 
             PerFrameBuffer._GlossyEnvironmentColor = Shader.PropertyToID("_GlossyEnvironmentColor");
             PerFrameBuffer._SubtractiveShadowColor = Shader.PropertyToID("_SubtractiveShadowColor");
+            PerFrameBuffer._FirstPersonDepthBias = Shader.PropertyToID("_FirstPersonDepthBias");
 
             PerCameraBuffer._InvCameraViewProj = Shader.PropertyToID("_InvCameraViewProj");
             PerCameraBuffer._ScaledScreenParams = Shader.PropertyToID("_ScaledScreenParams");
-            
+
             // Let engine know we have MSAA on for cases where we support MSAA backbuffer
             if (QualitySettings.antiAliasing != settings.msaaSampleCount)
+            {
                 QualitySettings.antiAliasing = settings.msaaSampleCount;
+            }
 
             Shader.globalRenderPipeline = "LightweightPipeline";
 
@@ -183,7 +189,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             BeginFrameRendering(cameras);
 
             GraphicsSettings.lightsUseLinearIntensity = true;
-            SetupPerFrameShaderConstants();
+            SetupPerFrameShaderConstants(this);
 
             SortCameras(cameras);
             foreach (Camera camera in cameras)
@@ -215,17 +221,20 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                 return;
             }
 
-            ScriptableCullingParameters cullingParameters;    
+            CameraData cameraData;
+            PipelineSettings settings = pipelineInstance.settings;
+            ScriptableRenderer renderer = pipelineInstance.renderer;
+            InitializeCameraData(settings, camera, out cameraData);
+
+            ScriptableCullingParameters cullingParameters;
             if (!CullResults.GetCullingParameters(camera, IsStereoEnabled(camera), out cullingParameters))
+            {
                 return;
+            }
 
             CommandBuffer cmd = CommandBufferPool.Get(k_RenderCameraTag);
             using (new ProfilingSample(cmd, k_RenderCameraTag))
             {
-                CameraData cameraData;
-                PipelineSettings settings = pipelineInstance.settings;
-                ScriptableRenderer renderer = pipelineInstance.renderer;
-                InitializeCameraData(settings, camera, out cameraData);
                 SetupPerCameraShaderConstants(cameraData);
 
                 cullingParameters.shadowDistance = Mathf.Min(cameraData.maxShadowDistance, camera.farClipPlane);
@@ -505,7 +514,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             return -1;
         }
 
-        static void SetupPerFrameShaderConstants()
+        static void SetupPerFrameShaderConstants(LightweightRenderPipeline pipeline)
         {
             // When glossy reflections are OFF in the shader we set a constant color to use as indirect specular
             SphericalHarmonicsL2 ambientSH = RenderSettings.ambientProbe;
@@ -515,6 +524,9 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
 
             // Used when subtractive mode is selected
             Shader.SetGlobalVector(PerFrameBuffer._SubtractiveShadowColor, CoreUtils.ConvertSRGBToActiveColorSpace(RenderSettings.subtractiveShadowColor));
+
+            // Used to compensate for different FOVs when rendering first, third person.
+            Shader.SetGlobalFloat(PerFrameBuffer._FirstPersonDepthBias, pipeline.settings.firstPersonDepthBias);
         }
 
         static void SetupPerCameraShaderConstants(CameraData cameraData)
