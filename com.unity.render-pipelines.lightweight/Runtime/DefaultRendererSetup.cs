@@ -15,13 +15,13 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         private BeginXRRenderingPass m_BeginXrRenderingPass;
         private SetupLightweightConstanstPass m_SetupLightweightConstants;
         private RenderOpaqueForwardPass m_RenderOpaqueForwardPass;
-        private OpaquePostProcessPass m_OpaquePostProcessPass;
+        private PostProcessPass m_OpaquePostProcessPass;
         private DrawSkyboxPass m_DrawSkyboxPass;
         private CopyDepthPass m_CopyDepthPass;
         private CopyColorPass m_CopyColorPass;
         private InitialBlitPass m_InitialBlitPass;
         private RenderTransparentForwardPass m_RenderTransparentForwardPass;
-        private TransparentPostProcessPass m_TransparentPostProcessPass;
+        private PostProcessPass m_TransparentPostProcessPass;
         private FinalBlitPass m_FinalBlitPass;
         private EndXRRenderingPass m_EndXrRenderingPass;
 
@@ -60,13 +60,13 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             m_BeginXrRenderingPass = new BeginXRRenderingPass();
             m_SetupLightweightConstants = new SetupLightweightConstanstPass();
             m_RenderOpaqueForwardPass = new RenderOpaqueForwardPass();
-            m_OpaquePostProcessPass = new OpaquePostProcessPass();
+            m_OpaquePostProcessPass = new PostProcessPass(renderOpaques: true);
             m_DrawSkyboxPass = new DrawSkyboxPass();
             m_CopyDepthPass = new CopyDepthPass();
             m_CopyColorPass = new CopyColorPass();
             m_InitialBlitPass = new InitialBlitPass();
             m_RenderTransparentForwardPass = new RenderTransparentForwardPass();
-            m_TransparentPostProcessPass = new TransparentPostProcessPass();
+            m_TransparentPostProcessPass = new PostProcessPass(renderOpaques: false);
             m_FinalBlitPass = new FinalBlitPass();
             m_EndXrRenderingPass = new EndXRRenderingPass();
 
@@ -197,9 +197,9 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             }
 
             if (renderingData.cameraData.postProcessEnabled &&
-                renderingData.cameraData.postProcessLayer.HasOpaqueOnlyEffects(renderer.postProcessingContext))
+                renderingData.cameraData.postProcessLayer.HasOpaqueOnlyEffects(renderer.postProcessRenderContext))
             {
-                m_OpaquePostProcessPass.Setup(baseDescriptor, colorHandle);
+                m_OpaquePostProcessPass.Setup(baseDescriptor, colorHandle, colorHandle);
                 renderer.EnqueuePass(m_OpaquePostProcessPass);
 
                 foreach (var pass in camera.GetComponents<IAfterOpaquePostProcess>())
@@ -241,7 +241,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
 
             if (renderingData.cameraData.postProcessEnabled)
             {
-                m_TransparentPostProcessPass.Setup(baseDescriptor, colorHandle, BuiltinRenderTextureType.CameraTarget);
+                m_TransparentPostProcessPass.Setup(baseDescriptor, colorHandle, RenderTargetHandle.CameraTarget);
                 renderer.EnqueuePass(m_TransparentPostProcessPass);
             }
             else if (!renderingData.cameraData.isOffscreenRender && colorHandle != RenderTargetHandle.CameraTarget)

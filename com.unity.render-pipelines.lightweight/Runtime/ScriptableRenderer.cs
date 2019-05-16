@@ -8,6 +8,8 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
 {
     public sealed class ScriptableRenderer
     {
+        static int m_PostProcessingTemporaryTargetId = Shader.PropertyToID("_TemporaryColorTexture");
+
         // When there is no support to StruturedBuffer lights data is setup in a constants data
         // we also limit the amount of lights that can be shaded per object to simplify shading
         // in these low end platforms (GLES 2.0 and GLES 3.0)
@@ -58,7 +60,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             }
         }
 
-        public PostProcessRenderContext postProcessingContext { get; private set; }
+        public PostProcessRenderContext postProcessRenderContext { get; private set; }
 
         public ComputeBuffer perObjectLightIndices { get; private set; }
 
@@ -125,7 +127,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                 CoreUtils.CreateEngineMaterial(pipelineAsset.screenSpaceShadowShader),
             };
 
-            postProcessingContext = new PostProcessRenderContext();
+            postProcessRenderContext = new PostProcessRenderContext();
         }
 
         public void Dispose()
@@ -243,21 +245,57 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             }
         }
 
-        public void RenderPostProcess(CommandBuffer cmd, ref CameraData cameraData, RenderTextureFormat colorFormat, RenderTargetIdentifier source, RenderTargetIdentifier dest, bool opaqueOnly)
+        public void RenderPostProcess(CommandBuffer cmd, ref CameraData cameraData, RenderTextureDescriptor sourceDescriptor, RenderTargetIdentifier source, RenderTargetIdentifier destination, bool opaqueOnly, bool flip)
         {
-            Camera camera = cameraData.camera;
-            postProcessingContext.Reset();
-            postProcessingContext.camera = camera;
-            postProcessingContext.source = source;
-            postProcessingContext.sourceFormat = colorFormat;
-            postProcessingContext.destination = dest;
-            postProcessingContext.command = cmd;
-            postProcessingContext.flip = !cameraData.isStereoEnabled && camera.targetTexture == null;
-
+            var layer = cameraData.postProcessLayer;
+            int effectsCount;
             if (opaqueOnly)
-                cameraData.postProcessLayer.RenderOpaqueOnly(postProcessingContext);
+            {
+                effectsCount = layer.sortedBundles[PostProcessEvent.BeforeTransparent].Count;
+            }
             else
-                cameraData.postProcessLayer.Render(postProcessingContext);
+            {
+                effectsCount = layer.sortedBundles[PostProcessEvent.BeforeStack].Count +
+                               layer.sortedBundles[PostProcessEvent.AfterStack].Count;
+            }
+
+            Camera camera = cameraData.camera;
+            postProcessRenderContext.Reset();
+            postProcessRenderContext.camera = camera;
+            postProcessRenderContext.source = source;
+            postProcessRenderContext.sourceFormat = sourceDescriptor.colorFormat;
+            postProcessRenderContext.destination = destination;
+            postProcessRenderContext.command = cmd;
+            postProcessRenderContext.flip = flip;
+
+            // If there's only one effect in the stack and source is same as dest we
+            // create an intermediate blit rendertarget to handle it.
+            // Otherwise, PostProcessing system will create the intermediate blit targets itself.
+            if (effectsCount == 1 && source == destination)
+            {
+                RenderTargetIdentifier rtId = new RenderTargetIdentifier(m_PostProcessingTemporaryTargetId);
+                RenderTextureDescriptor descriptor = sourceDescriptor;
+                descriptor.msaaSamples = 1;
+                descriptor.depthBufferBits = 0;
+
+                postProcessRenderContext.destination = rtId;
+                cmd.GetTemporaryRT(m_PostProcessingTemporaryTargetId, descriptor, FilterMode.Point);
+
+                if (opaqueOnly)
+                    cameraData.postProcessLayer.RenderOpaqueOnly(postProcessRenderContext);
+                else
+                    cameraData.postProcessLayer.Render(postProcessRenderContext);
+
+                cmd.Blit(rtId, destination);
+                cmd.ReleaseTemporaryRT(m_PostProcessingTemporaryTargetId);
+            }
+            else
+            {
+                if (opaqueOnly)
+                    cameraData.postProcessLayer.RenderOpaqueOnly(postProcessRenderContext);
+                else
+                    cameraData.postProcessLayer.Render(postProcessRenderContext);
+            }
         }
 
         [Conditional("DEVELOPMENT_BUILD"), Conditional("UNITY_EDITOR")]
