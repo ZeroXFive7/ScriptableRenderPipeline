@@ -6,18 +6,6 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
     [CustomEditor(typeof(LightweightRenderPipelineAsset))]
     public class LightweightRenderPipelineAssetEditor : Editor
     {
-        internal enum RenderingLayer
-        {
-            Layer1  = 1 << 0,  Layer2  = 1 << 1,  Layer3  = 1 << 2,  Layer4  = 1 << 3,
-            Layer5  = 1 << 4,  Layer6  = 1 << 5,  Layer7  = 1 << 6,  Layer8  = 1 << 7,
-            Layer9  = 1 << 8,  Layer10 = 1 << 9,  Layer11 = 1 << 10, Layer12 = 1 << 11,
-            Layer13 = 1 << 12, Layer14 = 1 << 13, Layer15 = 1 << 14, Layer16 = 1 << 15,
-            Layer17 = 1 << 16, Layer18 = 1 << 17, Layer19 = 1 << 18, Layer20 = 1 << 19,
-            Layer21 = 1 << 20, Layer22 = 1 << 21, Layer23 = 1 << 22, Layer24 = 1 << 23,
-            Layer25 = 1 << 24, Layer26 = 1 << 25, Layer27 = 1 << 26, Layer28 = 1 << 27,
-            Layer29 = 1 << 28, Layer30 = 1 << 29, Layer31 = 1 << 30, Layer32 = 1 << 31,
-        }
-
         internal class Styles
         {
             // Groups
@@ -58,7 +46,8 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
 
             // First Person View Model settings
             public static GUIContent supportsFirstPersonViewModelRenderingText = EditorGUIUtility.TrTextContent("Rendering Supported", "If enabled pipeline will render first person view models with a separate projection matrix and depth test.");
-            public static GUIContent firstPersonViewModelRenderLayerText = EditorGUIUtility.TrTextContent("Rendering Layer", "Used to identify which renderers should be drawn as first person view models");
+            public static GUIContent firstPersonViewModelRenderLayerText = EditorGUIUtility.TrTextContent("First Person Rendering Layer", "Used to identify which renderers should be drawn as first person view models");
+            public static GUIContent thirdPersonRenderLayerText = EditorGUIUtility.TrTextContent("Third Person Rendering Layer", "Used to identify which renderers should be drawn in third person");
             public static GUIContent firstPersonViewModelFOVText = EditorGUIUtility.TrTextContent("Field Of View", "FOV used to render first person view models");
             public static GUIContent firstPersonDepthBiasText = EditorGUIUtility.TrTextContent("Depth Bias", "Offset used to compensate for different depth values that result from different projcetion matrices.");
             public static GUIContent firstPersonViewModelNearPlaneText = EditorGUIUtility.TrTextContent("Near Plane", "Near plane used to render first person view models");
@@ -90,7 +79,8 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         float k_MaxRenderScale = 4.0f;
         float k_MaxShadowBias = 10.0f;
 
-        RenderingLayer m_renderingLayerMask;
+        RenderingLayer m_firstPersonViewModelRenderingLayerMask;
+        RenderingLayer m_thirdPersonRenderingLayerMask;
 
         SerializedProperty m_RequireDepthTextureProp;
         SerializedProperty m_RequireOpaqueTextureProp;
@@ -120,6 +110,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
 
         SerializedProperty m_SupportsFirstPersonViewModelRenderingProp;
         SerializedProperty m_FirstPersonViewModelRenderingLayerMaskProp;
+        SerializedProperty m_ThirdPersonRenderingLayerMaskProp;
         SerializedProperty m_FirstPersonViewModelFOVProp;
         SerializedProperty m_FirstPersonDepthBiasProp;
         SerializedProperty m_FirstPersonViewModelNearPlaneProp;
@@ -175,6 +166,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
 
             m_SupportsFirstPersonViewModelRenderingProp = serializedObject.FindProperty("m_SupportsFirstPersonViewModelRendering");
             m_FirstPersonViewModelRenderingLayerMaskProp = serializedObject.FindProperty("m_FirstPersonViewModelRenderingLayerMask");
+            m_ThirdPersonRenderingLayerMaskProp = serializedObject.FindProperty("m_ThirdPersonRenderingLayerMask");
             m_FirstPersonViewModelFOVProp = serializedObject.FindProperty("m_FirstPersonViewModelFOV");
             m_FirstPersonDepthBiasProp = serializedObject.FindProperty("m_FirstPersonDepthBias");
             m_FirstPersonViewModelNearPlaneProp = serializedObject.FindProperty("m_FirstPersonViewModelNearPlane");
@@ -316,9 +308,13 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                 var disableGroup = !m_SupportsFirstPersonViewModelRenderingProp.boolValue;
                 EditorGUI.BeginDisabledGroup(disableGroup);
 
-                m_renderingLayerMask = (RenderingLayer)m_FirstPersonViewModelRenderingLayerMaskProp.intValue;
-                m_renderingLayerMask = (RenderingLayer)EditorGUILayout.EnumFlagsField(Styles.firstPersonViewModelRenderLayerText, m_renderingLayerMask);
-                m_FirstPersonViewModelRenderingLayerMaskProp.longValue = (uint)m_renderingLayerMask;
+                m_firstPersonViewModelRenderingLayerMask = (RenderingLayer)m_FirstPersonViewModelRenderingLayerMaskProp.intValue;
+                m_firstPersonViewModelRenderingLayerMask = (RenderingLayer)EditorGUILayout.EnumFlagsField(Styles.firstPersonViewModelRenderLayerText, m_firstPersonViewModelRenderingLayerMask);
+                m_FirstPersonViewModelRenderingLayerMaskProp.longValue = (uint)m_firstPersonViewModelRenderingLayerMask;
+
+                m_thirdPersonRenderingLayerMask = (RenderingLayer)m_ThirdPersonRenderingLayerMaskProp.intValue;
+                m_thirdPersonRenderingLayerMask = (RenderingLayer)EditorGUILayout.EnumFlagsField(Styles.thirdPersonRenderLayerText, m_thirdPersonRenderingLayerMask);
+                m_ThirdPersonRenderingLayerMaskProp.longValue = (uint)m_thirdPersonRenderingLayerMask;
 
                 m_FirstPersonViewModelFOVProp.floatValue = EditorGUILayout.FloatField(Styles.firstPersonViewModelFOVText, m_FirstPersonViewModelFOVProp.floatValue);
                 m_FirstPersonDepthBiasProp.floatValue = EditorGUILayout.FloatField(Styles.firstPersonDepthBiasText, m_FirstPersonDepthBiasProp.floatValue);

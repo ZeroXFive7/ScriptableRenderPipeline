@@ -22,9 +22,9 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
 
         protected RenderForwardPass(string defaultPassTag)
         {
-            this.renderDefaultPassTag = defaultPassTag;
-            this.renderFirstPersonPassTag = string.Format("{0} (First Person)", defaultPassTag);
-            this.renderThirdPersonPassTag = string.Format("{0} (Third Person)", defaultPassTag);
+            renderDefaultPassTag = defaultPassTag;
+            renderFirstPersonPassTag = string.Format("{0} (First Person)", defaultPassTag);
+            renderThirdPersonPassTag = string.Format("{0} (Third Person)", defaultPassTag);
 
             defaultRenderStateBlock = new RenderStateBlock(RenderStateMask.Nothing);
 
@@ -135,7 +135,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             using (new ProfilingSample(cmd, renderThirdPersonPassTag))
             {
                 // Setup third person filtering.
-                filterSettings.renderingLayerMask = uint.MaxValue & ~renderingData.cameraData.firstPersonViewModelRenderingLayerMask;
+                filterSettings.renderingLayerMask = renderingData.cameraData.thirdPersonRenderingLayerMask;
 
                 // Set pipeline state.
                 CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.FirstPersonDepth, false);

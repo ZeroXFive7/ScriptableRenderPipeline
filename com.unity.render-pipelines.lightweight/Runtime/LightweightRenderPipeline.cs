@@ -12,6 +12,18 @@ using Lightmapping = UnityEngine.Experimental.GlobalIllumination.Lightmapping;
 
 namespace UnityEngine.Experimental.Rendering.LightweightPipeline
 {
+    public enum RenderingLayer
+    {
+        Layer1 = 1 << 0, Layer2 = 1 << 1, Layer3 = 1 << 2, Layer4 = 1 << 3,
+        Layer5 = 1 << 4, Layer6 = 1 << 5, Layer7 = 1 << 6, Layer8 = 1 << 7,
+        Layer9 = 1 << 8, Layer10 = 1 << 9, Layer11 = 1 << 10, Layer12 = 1 << 11,
+        Layer13 = 1 << 12, Layer14 = 1 << 13, Layer15 = 1 << 14, Layer16 = 1 << 15,
+        Layer17 = 1 << 16, Layer18 = 1 << 17, Layer19 = 1 << 18, Layer20 = 1 << 19,
+        Layer21 = 1 << 20, Layer22 = 1 << 21, Layer23 = 1 << 22, Layer24 = 1 << 23,
+        Layer25 = 1 << 24, Layer26 = 1 << 25, Layer27 = 1 << 26, Layer28 = 1 << 27,
+        Layer29 = 1 << 28, Layer30 = 1 << 29, Layer31 = 1 << 30, Layer32 = 1 << 31,
+    }
+
     public interface IBeforeCameraRender
     {
         void ExecuteBeforeCameraRender(Camera camera);
@@ -89,6 +101,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             // First Person View Model Settings
             public bool supportsFirstPersonViewModelRendering { get; private set; }
             public uint firstPersonViewModelRenderingLayerMask { get; private set; }
+            public uint thirdPersonRenderingLayerMask { get; private set; }
             public float firstPersonViewModelFOV { get; private set; }
             public float firstPersonDepthBias { get; private set; }
             public float firstPersonViewModelNearPlane { get; private set; }
@@ -134,6 +147,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                 // First person view model settings.
                 cache.supportsFirstPersonViewModelRendering = asset.supportsFirstPersonViewModelRendering;
                 cache.firstPersonViewModelRenderingLayerMask = asset.firstPersonViewModelRenderingLayerMask;
+                cache.thirdPersonRenderingLayerMask = asset.thirdPersonRenderingLayerMask;
                 cache.firstPersonViewModelFOV = asset.firstPersonViewModelFOV;
                 cache.firstPersonDepthBias = asset.firstPersonDepthBias;
                 cache.firstPersonViewModelNearPlane = asset.firstPersonViewModelNearPlane;
@@ -362,7 +376,8 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             }
 
             cameraData.supportsFirstPersonViewModelRendering = additionalCameraData != null ? additionalCameraData.supportsFirstPersonViewModelRendering : settings.supportsFirstPersonViewModelRendering;
-            cameraData.firstPersonViewModelRenderingLayerMask = settings.firstPersonViewModelRenderingLayerMask;
+            cameraData.firstPersonViewModelRenderingLayerMask = additionalCameraData != null ? additionalCameraData.firstPersonViewModelRenderingLayerMask : settings.firstPersonViewModelRenderingLayerMask;
+            cameraData.thirdPersonRenderingLayerMask = additionalCameraData != null ? additionalCameraData.thirdPersonRenderingLayerMask : settings.thirdPersonRenderingLayerMask;
 
             cameraData.firstPersonViewModelProjectionMatrix = Matrix4x4.Perspective(
                 settings.firstPersonViewModelFOV,

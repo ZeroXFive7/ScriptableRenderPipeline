@@ -15,6 +15,9 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
     [ImageEffectAllowedInSceneView]
     public class LWRPAdditionalCameraData : MonoBehaviour, ISerializationCallbackReceiver
     {
+        public const uint DEFAULT_FIRST_PERSON_LAYER_MASK = 2;
+        public const uint DEFAULT_THIRD_PERSON_LAYER_MASK = uint.MaxValue & ~DEFAULT_FIRST_PERSON_LAYER_MASK;
+
         [Tooltip("If enabled shadows will render for this camera.")]
         [FormerlySerializedAs("renderShadows"), SerializeField]
         bool m_RenderShadows = true;
@@ -22,6 +25,12 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         [Tooltip("If enabled this camera will attempt to render first person view models.")]
         [SerializeField]
         bool m_SupportsFirstPersonViewModelRendering = true;
+
+        [SerializeField]
+        uint m_FirstPersonViewModelRenderingLayerMask = DEFAULT_FIRST_PERSON_LAYER_MASK;
+
+        [SerializeField]
+        uint m_ThirdPersonRenderingLayerMask = DEFAULT_THIRD_PERSON_LAYER_MASK;
 
         [Tooltip("Vetical Obliqueness normalized")]
         [SerializeField]
@@ -59,6 +68,18 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         {
             get { return m_SupportsFirstPersonViewModelRendering; }
             set { m_SupportsFirstPersonViewModelRendering = value; }
+        }
+
+        public uint firstPersonViewModelRenderingLayerMask
+        {
+            get { return m_FirstPersonViewModelRenderingLayerMask; }
+            set { m_FirstPersonViewModelRenderingLayerMask = value; }
+        }
+
+        public uint thirdPersonRenderingLayerMask
+        {
+            get { return m_ThirdPersonRenderingLayerMask; }
+            set { m_ThirdPersonRenderingLayerMask = value; }
         }
 
         public float obliqueness

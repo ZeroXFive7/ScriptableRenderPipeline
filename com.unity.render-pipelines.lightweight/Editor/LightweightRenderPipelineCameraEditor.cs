@@ -20,6 +20,8 @@ namespace UnityEditor.Experimental.Rendering.LightweightPipeline
             public static GUIContent requireOpaqueTexture = EditorGUIUtility.TrTextContent("Opaque Texture", "On makes this camera create a _CameraOpaqueTexture, which is a copy of the rendered view.\nOff makes the camera does not create an opaque texture.\nUse Pipeline Settings applies settings from the Render Pipeline Asset.");
             public static GUIContent renderingFirstPersonViewModels = EditorGUIUtility.TrTextContent("Render First Person View Models", "Enable this to make this camera render first person view models with a separate FOV and depth pass.");
             public static GUIContent obliqueness = EditorGUIUtility.TrTextContent("Vertical Obliqueness Normalized", "Vertical near plane offset amount.  Use to move center of view up/down in the world.");
+            public static GUIContent firstPersonViewModelRenderLayerText = EditorGUIUtility.TrTextContent("First Person Rendering Layer", "Used to identify which renderers should be drawn as first person view models");
+            public static GUIContent thirdPersonRenderLayerText = EditorGUIUtility.TrTextContent("Third Person Rendering Layer", "Used to identify which renderers should be drawn in third person");
             public static GUIContent allowMSAA = EditorGUIUtility.TrTextContent("MSAA", "Use Multi Sample Anti-Aliasing to reduce aliasing.");
             public static GUIContent allowHDR = EditorGUIUtility.TrTextContent("HDR", "High Dynamic Range gives you a wider range of light intensities, so your lighting looks more realistic. With it, you can still see details and experience less saturation even with bright light.", (Texture) null);
 
@@ -73,6 +75,8 @@ namespace UnityEditor.Experimental.Rendering.LightweightPipeline
 
         SerializedProperty m_AdditionalCameraDataRenderFirstPersonViewModelProp;
         SerializedProperty m_AdditionalCameraDataObliquenessProp;
+        SerializedProperty m_AdditionalCameraDataFirstPersonViewModelRenderingLayerMaskProp;
+        SerializedProperty m_AdditionalCameraDataThirdPersonRenderingLayerMaskProp;
 
         void SetAnimationTarget(AnimBool anim, bool initialize, bool targetValue)
         {
@@ -117,6 +121,8 @@ namespace UnityEditor.Experimental.Rendering.LightweightPipeline
 
             m_AdditionalCameraDataRenderFirstPersonViewModelProp = m_AdditionalCameraDataSO.FindProperty("m_SupportsFirstPersonViewModelRendering");
             m_AdditionalCameraDataObliquenessProp = m_AdditionalCameraDataSO.FindProperty("m_Obliqueness");
+            m_AdditionalCameraDataFirstPersonViewModelRenderingLayerMaskProp = m_AdditionalCameraDataSO.FindProperty("m_FirstPersonViewModelRenderingLayerMask");
+            m_AdditionalCameraDataThirdPersonRenderingLayerMaskProp = m_AdditionalCameraDataSO.FindProperty("m_ThirdPersonRenderingLayerMask");
         }
 
         public void OnDisable()
@@ -222,6 +228,8 @@ namespace UnityEditor.Experimental.Rendering.LightweightPipeline
             CameraOverrideOption selectedDepthOption;
             CameraOverrideOption selectedOpaqueOption;
             float selectedObliqueness;
+            RenderingLayer selectedFirstPersonViewModelRenderingLayerMask;
+            RenderingLayer selectedThirdPersonRenderingLayerMask;
 
             if (m_AdditionalCameraDataSO == null)
             {
@@ -315,6 +323,8 @@ namespace UnityEditor.Experimental.Rendering.LightweightPipeline
                 hasChanged = true;
             }
 
+            // Obliqueness.
+
             Rect controlRectObliqueness = EditorGUILayout.GetControlRect(true);
             if (m_AdditionalCameraDataSO != null)
             {
@@ -324,6 +334,30 @@ namespace UnityEditor.Experimental.Rendering.LightweightPipeline
             EditorGUI.BeginChangeCheck();
 
             selectedObliqueness = EditorGUI.FloatField(controlRectObliqueness, Styles.obliqueness, selectedObliqueness);
+
+            if (EditorGUI.EndChangeCheck())
+            {
+                hasChanged = true;
+            }
+
+            // First Person View Model Rendering Layer Masks.
+
+            EditorGUI.BeginChangeCheck();
+
+            selectedFirstPersonViewModelRenderingLayerMask = (RenderingLayer)m_AdditionalCameraDataFirstPersonViewModelRenderingLayerMaskProp.intValue;
+            selectedFirstPersonViewModelRenderingLayerMask = (RenderingLayer)EditorGUILayout.EnumFlagsField(Styles.firstPersonViewModelRenderLayerText, selectedFirstPersonViewModelRenderingLayerMask);
+
+            if (EditorGUI.EndChangeCheck())
+            {
+                hasChanged = true;
+            }
+
+            // Third Person Rendering Layer Masks.
+
+            EditorGUI.BeginChangeCheck();
+
+            selectedThirdPersonRenderingLayerMask = (RenderingLayer)m_AdditionalCameraDataThirdPersonRenderingLayerMaskProp.intValue;
+            selectedThirdPersonRenderingLayerMask = (RenderingLayer)EditorGUILayout.EnumFlagsField(Styles.thirdPersonRenderLayerText, selectedThirdPersonRenderingLayerMask);
 
             if (EditorGUI.EndChangeCheck())
             {
@@ -345,6 +379,8 @@ namespace UnityEditor.Experimental.Rendering.LightweightPipeline
                 m_AdditionalCameraDataRenderOpaqueProp.intValue = (int)selectedOpaqueOption;
                 m_AdditionalCameraDataRenderFirstPersonViewModelProp.boolValue = selectedValueFirstPersonViewModel;
                 m_AdditionalCameraDataObliquenessProp.floatValue = selectedObliqueness;
+                m_AdditionalCameraDataFirstPersonViewModelRenderingLayerMaskProp.longValue = (uint)selectedFirstPersonViewModelRenderingLayerMask;
+                m_AdditionalCameraDataThirdPersonRenderingLayerMaskProp.longValue = (uint)selectedThirdPersonRenderingLayerMask;
                 m_AdditionalCameraDataSO.ApplyModifiedProperties();
             }
 
