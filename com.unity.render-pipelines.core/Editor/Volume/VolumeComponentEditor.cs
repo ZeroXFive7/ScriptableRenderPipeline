@@ -31,7 +31,18 @@ namespace UnityEditor.Rendering
 
         public virtual bool hasAdvancedMode => false;
 
-        public bool isInAdvancedMode => m_AdvancedMode != null && m_AdvancedMode.boolValue;
+        public bool isInAdvancedMode
+        {
+            get => m_AdvancedMode != null && m_AdvancedMode.boolValue;
+            internal set
+            {
+                if (m_AdvancedMode != null)
+                {
+                    m_AdvancedMode.boolValue = value;
+                    serializedObject.ApplyModifiedProperties();
+                }
+            }
+        }
 
         protected Editor m_Inspector;
         List<SerializedDataParameter> m_Parameters;
@@ -55,10 +66,9 @@ namespace UnityEditor.Rendering
             s_ParameterDrawers.Clear();
 
             // Look for all the valid parameter drawers
-            var types = CoreUtils.GetAllAssemblyTypes()
+            var types = CoreUtils.GetAllTypesDerivedFrom<VolumeParameterDrawer>()
                 .Where(
-                    t => t.IsSubclassOf(typeof(VolumeParameterDrawer))
-                    && t.IsDefined(typeof(VolumeParameterDrawerAttribute), false)
+                    t => t.IsDefined(typeof(VolumeParameterDrawerAttribute), false)
                     && !t.IsAbstract
                     );
 
@@ -145,12 +155,6 @@ namespace UnityEditor.Rendering
 
                 if (GUILayout.Button(EditorGUIUtility.TrTextContent("None", "Toggle all overrides off."), CoreEditorStyles.miniLabelButton, GUILayout.Width(32f), GUILayout.ExpandWidth(false)))
                     SetAllOverridesTo(false);
-
-                GUILayout.FlexibleSpace();
-
-                // TODO: Rework the UI to match the 'advanced mode' in regular HDRP components
-                if (hasAdvancedMode)
-                    m_AdvancedMode.boolValue = GUILayout.Toggle(m_AdvancedMode.boolValue, "Advanced", EditorStyles.miniButton, GUILayout.ExpandWidth(false), GUILayout.Width(70f));
             }
         }
 

@@ -10,6 +10,8 @@ namespace UnityEngine.Rendering
 
     public sealed class VolumeManager
     {
+        internal static bool needIsolationFilteredByRenderer = false;
+
         static readonly Lazy<VolumeManager> s_Instance = new Lazy<VolumeManager>(() => new VolumeManager());
         public static VolumeManager instance => s_Instance.Value;
 
@@ -66,8 +68,8 @@ namespace UnityEngine.Rendering
             m_ComponentsDefaultState.Clear();
 
             // Grab all the component types we can find
-            baseComponentTypes = CoreUtils.GetAllAssemblyTypes()
-                .Where(t => t.IsSubclassOf(typeof(VolumeComponent)) && !t.IsAbstract);
+            baseComponentTypes = CoreUtils.GetAllTypesDerivedFrom<VolumeComponent>()
+                .Where(t => !t.IsAbstract);
 
             // Keep an instance of each type to be used in a virtual lowest priority global volume
             // so that we have a default state to fallback to when exiting volumes
@@ -234,6 +236,13 @@ namespace UnityEngine.Rendering
             // Traverse all volumes
             foreach (var volume in volumes)
             {
+#if UNITY_EDITOR
+                // Skip volumes that aren't in the scene currently displayed in the scene view
+                if (needIsolationFilteredByRenderer
+                    && !IsVolumeRenderedByCamera(volume, trigger.GetComponent<Camera>()))
+                    continue;
+#endif
+                
                 // Skip disabled volumes and volumes without any data or weight
                 if (!volume.enabled || volume.profileRef == null || volume.weight <= 0f)
                     continue;
@@ -343,5 +352,30 @@ namespace UnityEngine.Rendering
                 volumes[j + 1] = temp;
             }
         }
+
+        static bool IsVolumeRenderedByCamera(Volume volume, Camera camera)
+        {
+#if UNITY_2018_3_OR_NEWER && UNITY_EDITOR
+            return UnityEditor.SceneManagement.StageUtility.IsGameObjectRenderedByCamera(volume.gameObject, camera);
+#else
+            return true;
+#endif
+        }
+    }
+    
+    /// <summary>
+    /// Scope in which is volume is filtered by its rendering camera.
+    /// </summary>
+    public struct VolumeIsolationScope : IDisposable
+    {
+        /// <summary>
+        /// Construct a scope in which is volume is filtered by its rendering camera.
+        /// </summary>
+        /// <param name="unused">Unused parameter</param>
+        public VolumeIsolationScope(bool unused)
+            => VolumeManager.needIsolationFilteredByRenderer = true;
+
+        void IDisposable.Dispose()
+            => VolumeManager.needIsolationFilteredByRenderer = false;
     }
 }

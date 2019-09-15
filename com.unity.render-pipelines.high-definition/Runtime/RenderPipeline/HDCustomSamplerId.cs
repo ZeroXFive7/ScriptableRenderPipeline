@@ -1,8 +1,8 @@
 using UnityEngine.Profiling;
 
-namespace UnityEngine.Experimental.Rendering.HDPipeline
+namespace UnityEngine.Rendering.HighDefinition
 {
-    public enum CustomSamplerId
+    internal enum CustomSamplerId
     {
         PushGlobalParameters,
         CopySetDepthBuffer,
@@ -11,9 +11,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         Forward,
         RenderSSAO,
         ResolveSSAO,
-        RenderShadows,
+        RenderShadowMaps,
         ScreenSpaceShadows,
         BuildLightList,
+        ContactShadows,
         BlitToFinalRT,
         Distortion,
         ApplyDistortion,
@@ -35,8 +36,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         ForwardTransparentDepthPrepass,
         RenderForwardError,
         TransparentDepthPostpass,
-        ObjectsVelocity,
-        CameraVelocity,
+        ObjectsMotionVector,
+        CameraMotionVectors,
         ColorPyramid,
         DepthPyramid,
         PostProcessing,
@@ -66,6 +67,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         RaytracingFilterAO,
         RaytracingShadowIntegration,
         RaytracingShadowCombination,
+        RaytracingFilterIndirectDiffuse,
         RaytracingDebug,
 
         // Profile sampler for tile pass
@@ -75,12 +77,16 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         TPScreenSpaceShadows,
         TPTileSettingsEnableTileAndCluster,
         TPForwardPass,
-        TPForwardTiledClusterpass,
         TPDisplayShadows,
         TPRenderDeferredLighting,
 
         // Misc
         VolumeUpdate,
+
+        // Low res transparency
+        DownsampleDepth,
+        LowResTransparent,
+        UpsampleLowResTransparent,
 
         // Post-processing
         StopNaNs,
@@ -98,7 +104,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         DepthOfFieldPreCombine,
         DepthOfFieldCombine,
         MotionBlur,
-        MotionBlurVelocityPrep,
+        MotionBlurMotionVecPrep,
         MotionBlurTileMinMax,
         MotionBlurTileNeighbourhood,
         MotionBlurKernel,
@@ -107,12 +113,16 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         ColorGradingLUTBuilder,
         UberPost,
         FXAA,
+        SMAA,
         FinalPost,
+        CustomPostProcessBeforePP,
+        CustomPostProcessAfterPP,
+        CustomPostProcessBeforeTransparent,
 
         Max
     }
 
-    public static class HDCustomSamplerExtension
+    internal static class HDCustomSamplerExtension
     {
         static CustomSampler[] s_Samplers;
 

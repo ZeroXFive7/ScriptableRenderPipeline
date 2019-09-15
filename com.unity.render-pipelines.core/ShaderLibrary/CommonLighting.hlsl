@@ -292,7 +292,13 @@ real GetSpecularOcclusionFromBentAO(real3 V, real3 bentNormalWS, real3 normalWS,
 // Ref: Steve McAuley - Energy-Conserving Wrapped Diffuse
 real ComputeWrappedDiffuseLighting(real NdotL, real w)
 {
-    return saturate((NdotL + w) / ((1 + w) * (1 + w)));
+    return saturate((NdotL + w) / ((1.0 + w) * (1.0 + w)));
+}
+
+// Jimenez variant for eye
+real ComputeWrappedPowerDiffuseLighting(real NdotL, real w, real p)
+{
+    return pow(saturate((NdotL + w) / (1.0 + w)), p) * (p + 1) / (w * 2.0 + 2.0);
 }
 
 // Ref: The Technical Art of Uncharted 4 - Brinck and Maximov 2016
@@ -303,6 +309,10 @@ real ComputeMicroShadowing(real AO, real NdotL, real opacity)
 	return lerp(1.0, microshadow, opacity);
 }
 
+real3 ComputeShadowColor(real shadow, real3 shadowTint)
+{
+    return float3(1.0, 1.0, 1.0) - ((1.0 - shadow) * (float3(1.0, 1.0, 1.0) - shadowTint));
+}
 //-----------------------------------------------------------------------------
 // Helper functions
 //-----------------------------------------------------------------------------
@@ -313,15 +323,16 @@ float ClampNdotV(float NdotV)
     return max(NdotV, 0.0001); // Approximately 0.0057 degree bias
 }
 
-// return usual BSDF angle
-void GetBSDFAngle(float3 V, float3 L, float NdotL, float unclampNdotV, out float LdotV, out float NdotH, out float LdotH, out float clampNdotV, out float invLenLV)
+// Helper function to return a set of common angle used when evaluating BSDF
+// NdotL and NdotV are unclamped
+void GetBSDFAngle(float3 V, float3 L, float NdotL, float NdotV,
+                  out float LdotV, out float NdotH, out float LdotH, out float invLenLV)
 {
     // Optimized math. Ref: PBR Diffuse Lighting for GGX + Smith Microsurfaces (slide 114).
     LdotV = dot(L, V);
     invLenLV = rsqrt(max(2.0 * LdotV + 2.0, FLT_EPS));    // invLenLV = rcp(length(L + V)), clamp to avoid rsqrt(0) = inf, inf * 0 = NaN
-    NdotH = saturate((NdotL + unclampNdotV) * invLenLV);        // Do not clamp NdotV here
+    NdotH = saturate((NdotL + NdotV) * invLenLV);
     LdotH = saturate(invLenLV * LdotV + invLenLV);
-    clampNdotV = ClampNdotV(unclampNdotV);
 }
 
 // Inputs:    normalized normal and view vectors.

@@ -4,20 +4,17 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Serialization;
-using UnityEditor.Experimental.VFX;
-using UnityEngine.Experimental.VFX;
+using UnityEditor.VFX;
+using UnityEngine.VFX;
 
 namespace UnityEditor.VFX
 {
-    abstract class VFXAbstractParticleOutput : VFXContext, IVFXSubRenderer
+    abstract class VFXAbstractParticleOutput : VFXAbstractRenderedOutput, IVFXSubRenderer
     {
-        public enum BlendMode
+        public enum ColorMappingMode
         {
-            Additive,
-            Alpha,
-            Masked,
-            AlphaPremultiplied,
-            Opaque,
+            Default,
+            GradientMapped
         }
 
         public enum UVMode
@@ -25,7 +22,8 @@ namespace UnityEditor.VFX
             Simple,
             Flipbook,
             FlipbookBlend,
-            ScaleAndBias
+            ScaleAndBias,
+            FlipbookMotionBlend,
         }
 
         public enum ZWriteMode
@@ -60,9 +58,11 @@ namespace UnityEditor.VFX
             Off,
             On
         }
-
-        [VFXSetting, SerializeField, Header("Render States")]
-        protected BlendMode blendMode = BlendMode.Alpha;
+        protected enum StripTilingMode
+        {
+            Stretch,
+            RepeatPerSegment,
+        }
 
         [VFXSetting(VFXSettingAttribute.VisibleFlags.InInspector), SerializeField]
         protected CullMode cullMode = CullMode.Default;
@@ -73,7 +73,10 @@ namespace UnityEditor.VFX
         [VFXSetting(VFXSettingAttribute.VisibleFlags.InInspector), SerializeField]
         protected ZTestMode zTestMode = ZTestMode.Default;
 
-        [VFXSetting, SerializeField, Header("Particle Options"), FormerlySerializedAs("flipbookMode")]
+        [VFXSetting, SerializeField, Tooltip("Determines how the color is handled at pixel shader"), Header("Particle Options")]
+        protected ColorMappingMode colorMappingMode;
+
+        [VFXSetting, SerializeField, Tooltip("Determines how the particle UV are handled"), FormerlySerializedAs("flipbookMode")]
         protected UVMode uvMode;
 
         [VFXSetting, SerializeField]
@@ -92,13 +95,19 @@ namespace UnityEditor.VFX
         protected bool castShadows = false;
 
         [VFXSetting(VFXSettingAttribute.VisibleFlags.InInspector), SerializeField]
-        protected bool preRefraction = false;
+        protected bool useExposureWeight = false;
+
+        protected virtual bool bypassExposure { get { return true; } } // In case exposure weight is not used, tell whether pre exposure should be applied or not
 
         // IVFXSubRenderer interface
         public virtual bool hasShadowCasting { get { return castShadows; } }
 
-        public bool HasIndirectDraw()   { return indirectDraw || HasSorting(); }
-        public bool HasSorting()        { return sort == SortMode.On || (sort == SortMode.Auto && (blendMode == BlendMode.Alpha || blendMode == BlendMode.AlphaPremultiplied)); }
+        protected virtual bool needsExposureWeight { get { return true; } }
+
+        private bool hasExposure { get { return needsExposureWeight && subOutput.supportsExposure; } }
+
+        public bool HasIndirectDraw()   { return (indirectDraw || HasSorting()) && !HasStrips(true); }
+        public bool HasSorting()        { return (sort == SortMode.On || (sort == SortMode.Auto && (blendMode == BlendMode.Alpha || blendMode == BlendMode.AlphaPremultiplied))) && !HasStrips(true); }
         int IVFXSubRenderer.sortPriority
         {
             get {
@@ -114,7 +123,9 @@ namespace UnityEditor.VFX
         }
         public bool NeedsDeadListCount() { return HasIndirectDraw() && (taskType == VFXTaskType.ParticleQuadOutput || taskType == VFXTaskType.ParticleHexahedronOutput); } // Should take the capacity into account to avoid false positive
 
-        protected VFXAbstractParticleOutput() : base(VFXContextType.kOutput, VFXDataType.kParticle, VFXDataType.kNone) {}
+        public bool HasStrips(bool data = false) { return (data ? GetData().type : ownedType) == VFXDataType.ParticleStrip; }
+
+        protected VFXAbstractParticleOutput(bool strip = false) : base(strip ? VFXDataType.ParticleStrip : VFXDataType.Particle) {}
 
         public override bool codeGeneratorCompute { get { return false; } }
 
@@ -125,14 +136,19 @@ namespace UnityEditor.VFX
 
         public virtual bool supportSoftParticles { get { return useSoftParticle && !isBlendModeOpaque; } }
 
-        protected bool isBlendModeOpaque { get { return blendMode == BlendMode.Opaque || blendMode == BlendMode.Masked; } }
+        protected bool usesFlipbook { get { return supportsUV && (uvMode == UVMode.Flipbook || uvMode == UVMode.FlipbookBlend || uvMode == UVMode.FlipbookMotionBlend); } }
 
-        protected bool usesFlipbook { get { return supportsUV && (uvMode == UVMode.Flipbook || uvMode == UVMode.FlipbookBlend); } }
+        public virtual bool exposeAlphaThreshold { get => useAlphaClipping; }
 
         protected virtual IEnumerable<VFXNamedExpression> CollectGPUExpressions(IEnumerable<VFXNamedExpression> slotExpressions)
         {
-            if (blendMode == BlendMode.Masked)
+            if (exposeAlphaThreshold)
                 yield return slotExpressions.First(o => o.name == "alphaThreshold");
+
+            if (colorMappingMode == ColorMappingMode.GradientMapped)
+            {
+                yield return slotExpressions.First(o => o.name == "gradient");
+            }
 
             if (supportSoftParticles)
             {
@@ -143,13 +159,20 @@ namespace UnityEditor.VFX
 
             if (supportsUV && uvMode != UVMode.Simple)
             {
+                VFXNamedExpression flipBookSizeExp;
                 switch (uvMode)
                 {
                     case UVMode.Flipbook:
                     case UVMode.FlipbookBlend:
-                        var flipBookSizeExp = slotExpressions.First(o => o.name == "flipBookSize");
+                    case UVMode.FlipbookMotionBlend:
+                        flipBookSizeExp = slotExpressions.First(o => o.name == "flipBookSize");
                         yield return flipBookSizeExp;
                         yield return new VFXNamedExpression(VFXValue.Constant(Vector2.one) / flipBookSizeExp.exp, "invFlipBookSize");
+                        if (uvMode == UVMode.FlipbookMotionBlend)
+                        {
+                            yield return slotExpressions.First(o => o.name == "motionVectorMap");
+                            yield return slotExpressions.First(o => o.name == "motionVectorScale");
+                        }
                         break;
                     case UVMode.ScaleAndBias:
                         yield return slotExpressions.First(o => o.name == "uvScale");
@@ -158,17 +181,28 @@ namespace UnityEditor.VFX
                     default: throw new NotImplementedException("Unimplemented UVMode: " + uvMode);
                 }
             }
+
+            if (hasExposure && useExposureWeight)
+                yield return slotExpressions.First(o => o.name == "exposureWeight");
         }
 
         public override VFXExpressionMapper GetExpressionMapper(VFXDeviceTarget target)
         {
             if (target == VFXDeviceTarget.GPU)
             {
-                var gpuMapper = VFXExpressionMapper.FromBlocks(activeChildrenWithImplicit);
+                var gpuMapper = VFXExpressionMapper.FromBlocks(activeFlattenedChildrenWithImplicit);
                 gpuMapper.AddExpressions(CollectGPUExpressions(GetExpressionsFromSlots(this)), -1);
+                if (generateMotionVector)
+                    gpuMapper.AddExpression(VFXBuiltInExpression.FrameIndex, "currentFrameIndex", -1);
                 return gpuMapper;
             }
             return new VFXExpressionMapper();
+        }
+
+        public class InputPropertiesGradientMapped
+        {
+            [Tooltip("The gradient used to sample color")]
+            public Gradient gradient = VFXResources.defaultResources.gradientMapRamp;
         }
 
         protected override IEnumerable<VFXPropertyWithValue> inputProperties
@@ -178,13 +212,25 @@ namespace UnityEditor.VFX
                 foreach (var property in PropertiesFromType(GetInputPropertiesTypeName()))
                     yield return property;
 
+                if(colorMappingMode == ColorMappingMode.GradientMapped)
+                {
+                    foreach(var property in PropertiesFromType("InputPropertiesGradientMapped"))
+                        yield return property;
+                }
+
                 if (supportsUV && uvMode != UVMode.Simple)
                 {
                     switch (uvMode)
                     {
                         case UVMode.Flipbook:
                         case UVMode.FlipbookBlend:
+                        case UVMode.FlipbookMotionBlend:
                             yield return new VFXPropertyWithValue(new VFXProperty(typeof(Vector2), "flipBookSize"), new Vector2(4, 4));
+                            if(uvMode == UVMode.FlipbookMotionBlend)
+                            {
+                                yield return new VFXPropertyWithValue(new VFXProperty(typeof(Texture2D), "motionVectorMap"));
+                                yield return new VFXPropertyWithValue(new VFXProperty(typeof(float), "motionVectorScale"), 1.0f);
+                            }
                             break;
                         case UVMode.ScaleAndBias:
                             yield return new VFXPropertyWithValue(new VFXProperty(typeof(Vector2), "uvScale"), Vector2.one);
@@ -194,10 +240,14 @@ namespace UnityEditor.VFX
                     }
                 }
 
-                if (blendMode == BlendMode.Masked)
-                    yield return new VFXPropertyWithValue(new VFXProperty(typeof(float), "alphaThreshold", VFXPropertyAttribute.Create(new RangeAttribute(0.0f, 1.0f))), 0.5f);
+                if (exposeAlphaThreshold)
+                    yield return new VFXPropertyWithValue(new VFXProperty(typeof(float), "alphaThreshold", VFXPropertyAttribute.Create(new RangeAttribute(0.0f, 1.0f), new TooltipAttribute("Alpha threshold used for pixel clipping"))), 0.5f);
+
                 if (supportSoftParticles)
                     yield return new VFXPropertyWithValue(new VFXProperty(typeof(float), "softParticlesFadeDistance", VFXPropertyAttribute.Create(new MinAttribute(0.001f))), 1.0f);
+
+                if (hasExposure && useExposureWeight)
+                    yield return new VFXPropertyWithValue(new VFXProperty(typeof(float), "exposureWeight", VFXPropertyAttribute.Create(new RangeAttribute(0.0f, 1.0f))), 1.0f);
             }
         }
 
@@ -205,12 +255,22 @@ namespace UnityEditor.VFX
         {
             get
             {
+                switch(colorMappingMode)
+                {
+                    case ColorMappingMode.Default:
+                        yield return "VFX_COLORMAPPING_DEFAULT";
+                        break;
+                    case ColorMappingMode.GradientMapped:
+                        yield return "VFX_COLORMAPPING_GRADIENTMAPPED";
+                        break;
+                }
+
                 if (isBlendModeOpaque)
                     yield return "IS_OPAQUE_PARTICLE";
                 else
                     yield return "IS_TRANSPARENT_PARTICLE";
 
-                if (blendMode == BlendMode.Masked)
+                if (useAlphaClipping)
                     yield return "USE_ALPHA_TEST";
                 if (supportSoftParticles)
                     yield return "USE_SOFT_PARTICLE";
@@ -228,12 +288,12 @@ namespace UnityEditor.VFX
                         break;
                 }
 
-                VisualEffectResource asset = GetResource();
-                if (asset != null)
                 {
-                    var settings = asset.rendererSettings;
-                    if (settings.motionVectorGenerationMode == MotionVectorGenerationMode.Object)
-                        yield return "USE_MOTION_VECTORS_PASS";
+                    if (hasMotionVector)
+                        if (isBlendModeOpaque)
+                            yield return "USE_MOTION_VECTORS_PASS";
+                        else
+                            yield return "WRITE_MOTION_VECTOR_IN_FORWARD";
                     if (hasShadowCasting)
                         yield return "USE_CAST_SHADOWS_PASS";
                 }
@@ -252,6 +312,11 @@ namespace UnityEditor.VFX
                             yield return "USE_FLIPBOOK";
                             yield return "USE_FLIPBOOK_INTERPOLATION";
                             break;
+                        case UVMode.FlipbookMotionBlend:
+                            yield return "USE_FLIPBOOK";
+                            yield return "USE_FLIPBOOK_INTERPOLATION";
+                            yield return "USE_FLIPBOOK_MOTIONVECTORS";
+                            break;
                         case UVMode.ScaleAndBias:
                             yield return "USE_UV_SCALE_BIAS";
                             break;
@@ -259,8 +324,19 @@ namespace UnityEditor.VFX
                     }
                 }
 
+                if (hasExposure)
+                {
+                    if (useExposureWeight)
+                        yield return "USE_EXPOSURE_WEIGHT";
+                    else if (bypassExposure)
+                        yield return "VFX_BYPASS_EXPOSURE";
+                }
+
                 if (NeedsDeadListCount() && GetData().IsAttributeStored(VFXAttribute.Alive)) //Actually, there are still corner cases, e.g.: particles spawning immortal particles through GPU Event
                     yield return "USE_DEAD_LIST_COUNT";
+
+                if (HasStrips(false))
+                    yield return "HAS_STRIPS";
             }
         }
 
@@ -271,10 +347,22 @@ namespace UnityEditor.VFX
                 if (!supportsUV)
                     yield return "uvMode";
 
-                if (isBlendModeOpaque)
+                if (!implementsMotionVector || !subOutput.supportsMotionVector)
+                    yield return "generateMotionVector";
+
+                if (isBlendModeOpaque || !supportSoftParticles)
                 {
-                    yield return "preRefraction";
                     yield return "useSoftParticle";
+                }
+
+                if (!hasExposure)
+                    yield return "useExposureWeight";
+
+                // No indirect / sorting support now for strips
+                if (HasStrips(true))
+                {
+                    yield return "indirectDraw";
+                    yield return "sort";
                 }
             }
         }
@@ -286,28 +374,16 @@ namespace UnityEditor.VFX
                 yield return new KeyValuePair<string, VFXShaderWriter>("${VFXOutputRenderState}", renderState);
 
                 var shaderTags = new VFXShaderWriter();
-                if (blendMode == BlendMode.Opaque)
-                    shaderTags.Write("Tags { \"Queue\"=\"Geometry\" \"IgnoreProjector\"=\"False\" \"RenderType\"=\"Opaque\" }");
-                else if (blendMode == BlendMode.Masked)
-                    shaderTags.Write("Tags { \"Queue\"=\"AlphaTest\" \"IgnoreProjector\"=\"False\" \"RenderType\"=\"Opaque\" }");
-                else
-                {
-                    string queueName = preRefraction ? "Geometry+750" : "Transparent"; // TODO Geometry + 750 is currently hardcoded value from HDRP...
-                    shaderTags.Write(string.Format("Tags {{ \"Queue\"=\"{0}\" \"IgnoreProjector\"=\"True\" \"RenderType\"=\"Transparent\" }}", queueName));
-                }
-
+                var renderQueueStr = subOutput.GetRenderQueueStr();
+                var renderTypeStr = isBlendModeOpaque ? "Opaque" : "Transparent";
+                shaderTags.Write(string.Format("Tags {{ \"Queue\"=\"{0}\" \"IgnoreProjector\"=\"{1}\" \"RenderType\"=\"{2}\" }}", renderQueueStr, !isBlendModeOpaque, renderTypeStr));
                 yield return new KeyValuePair<string, VFXShaderWriter>("${VFXShaderTags}", shaderTags);
-            }
-        }
 
-        protected virtual void WriteBlendMode(VFXShaderWriter writer)
-        {
-            if (blendMode == BlendMode.Additive)
-                writer.WriteLine("Blend SrcAlpha One");
-            else if (blendMode == BlendMode.Alpha)
-                writer.WriteLine("Blend SrcAlpha OneMinusSrcAlpha");
-            else if (blendMode == BlendMode.AlphaPremultiplied)
-                writer.WriteLine("Blend One OneMinusSrcAlpha");
+                foreach (var additionnalStencilReplacement in subOutput.GetStencilStateOverridesStr())
+                {
+                    yield return additionnalStencilReplacement;
+                }
+            }
         }
 
         protected virtual VFXShaderWriter renderState
@@ -361,7 +437,6 @@ namespace UnityEditor.VFX
                 return rs;
             }
         }
-
 
         public override IEnumerable<VFXMapping> additionalMappings
         {

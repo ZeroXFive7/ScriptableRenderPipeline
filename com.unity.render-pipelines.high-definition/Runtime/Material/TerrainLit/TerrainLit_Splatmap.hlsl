@@ -1,4 +1,8 @@
 TEXTURE2D(_Control0);
+#ifndef _TERRAIN_BASEMAP_GEN
+// To avoid duplicate definitions, we put this inside the #ifdef
+float4 _Control0_TexelSize;
+#endif
 
 #define DECLARE_TERRAIN_LAYER_TEXS(n)   \
     TEXTURE2D(_Splat##n);               \
@@ -15,6 +19,7 @@ DECLARE_TERRAIN_LAYER_TEXS(3);
     DECLARE_TERRAIN_LAYER_TEXS(6);
     DECLARE_TERRAIN_LAYER_TEXS(7);
     TEXTURE2D(_Control1);
+    float4 _Control1_TexelSize;
 #endif
 
 #undef DECLARE_TERRAIN_LAYER_TEXS
@@ -68,7 +73,7 @@ float4 RemapMasks(float4 masks, float blendMask, float4 remapOffset, float4 rema
     SAMPLER(OVERRIDE_SPLAT_SAMPLER_NAME);
 #endif
 
-void TerrainSplatBlend(float2 controlUV, float2 splatBaseUV, out float3 outAlbedo, out float3 outNormalData, out float outSmoothness, out float outMetallic, out float outAO)
+void TerrainSplatBlend(float2 controlUV, float2 splatBaseUV, inout TerrainLitSurfaceData surfaceData)
 {
     // TODO: triplanar
     // TODO: POM
@@ -83,11 +88,14 @@ void TerrainSplatBlend(float2 controlUV, float2 splatBaseUV, out float3 outAlbed
     #define SampleNormal(i) float3(0, 0, 0)
 #endif
 
+#define DefaultMask(i) float4(_Metallic##i, _MaskMapRemapOffset##i.y + _MaskMapRemapScale##i.y, _MaskMapRemapOffset##i.z + _MaskMapRemapScale##i.z, albedo[i].a * _Smoothness##i)
+
 #ifdef _MASKMAP
-    #define SampleMasks(i, blendMask) RemapMasks(SAMPLE_TEXTURE2D_GRAD(_Mask##i, sampler_Splat0, splatuv, splatdxuv, splatdyuv), blendMask, _MaskMapRemapOffset##i, _MaskMapRemapScale##i)
-    #define NullMask(i)               float4(0, 1, _MaskMapRemapOffset##i.z, 0) // only height matters when weight is zero.
+    #define MaskModeMasks(i, blendMask) RemapMasks(SAMPLE_TEXTURE2D_GRAD(_Mask##i, sampler_Splat0, splatuv, splatdxuv, splatdyuv), blendMask, _MaskMapRemapOffset##i, _MaskMapRemapScale##i)
+#define SampleMasks(i, blendMask) lerp(DefaultMask(i), MaskModeMasks(i, blendMask), _LayerHasMask##i)
+    #define NullMask(i)               float4(0, 1, _MaskMapRemapOffset##i.z + _MaskMapRemapScale##i.z, 0) // only height matters when weight is zero.
 #else
-    #define SampleMasks(i, blendMask) float4(_Metallic##i, 1, 0, albedo[i].a * _Smoothness##i)
+    #define SampleMasks(i, blendMask) DefaultMask(i)
     #define NullMask(i)               float4(0, 1, 0, 0)
 #endif
 
@@ -112,9 +120,11 @@ void TerrainSplatBlend(float2 controlUV, float2 splatBaseUV, out float3 outAlbed
     float2 dxuv = ddx(splatBaseUV);
     float2 dyuv = ddy(splatBaseUV);
 
-    float4 blendMasks0 = SAMPLE_TEXTURE2D(_Control0, sampler_Control0, controlUV);
+    float2 blendUV0 = (controlUV.xy * (_Control0_TexelSize.zw - 1.0f) + 0.5f) * _Control0_TexelSize.xy;
+    float4 blendMasks0 = SAMPLE_TEXTURE2D(_Control0, sampler_Control0, blendUV0);
     #ifdef _TERRAIN_8_LAYERS
-        float4 blendMasks1 = SAMPLE_TEXTURE2D(_Control1, sampler_Control0, controlUV);
+        float2 blendUV1 = (controlUV.xy * (_Control1_TexelSize.zw - 1.0f) + 0.5f) * _Control1_TexelSize.xy;
+        float4 blendMasks1 = SAMPLE_TEXTURE2D(_Control1, sampler_Control0, blendUV1);
     #else
         float4 blendMasks1 = float4(0, 0, 0, 0);
     #endif
@@ -138,7 +148,7 @@ void TerrainSplatBlend(float2 controlUV, float2 splatBaseUV, out float3 outAlbed
     ZERO_INITIALIZE_ARRAY(float, weights, _LAYER_COUNT);
 
     #ifdef _MASKMAP
-        #ifdef _TERRAIN_BLEND_HEIGHT
+        #if defined(_TERRAIN_BLEND_HEIGHT)
             // Modify blendMask to take into account the height of the layer. Higher height should be more visible.
             float maxHeight = masks[0].z;
             maxHeight = max(maxHeight, masks[1].z);
@@ -176,7 +186,7 @@ void TerrainSplatBlend(float2 controlUV, float2 splatBaseUV, out float3 outAlbed
             #ifdef _TERRAIN_8_LAYERS
                 blendMasks1 = weightedHeights1 / sumHeight.xxxx;
             #endif
-        #else
+        #elif defined(_TERRAIN_BLEND_DENSITY)
             // Denser layers are more visible.
             float4 opacityAsDensity0 = saturate((float4(albedo[0].a, albedo[1].a, albedo[2].a, albedo[3].a) - (float4(1.0, 1.0, 1.0, 1.0) - blendMasks0)) * 20.0); // 20.0 is the number of steps in inputAlphaMask (Density mask. We decided 20 empirically)
             opacityAsDensity0 += 0.001f * blendMasks0;		// if all weights are zero, default to what the blend mask says
@@ -209,23 +219,23 @@ void TerrainSplatBlend(float2 controlUV, float2 splatBaseUV, out float3 outAlbed
         weights[7] = blendMasks1.w;
     #endif
 
-    outAlbedo = 0;
-    outNormalData = 0;
+    surfaceData.albedo = 0;
+    surfaceData.normalData = 0;
     float3 outMasks = 0;
     UNITY_UNROLL for (int i = 0; i < _LAYER_COUNT; ++i)
     {
-        outAlbedo += albedo[i].rgb * weights[i];
-        outNormalData += normal[i].rgb * weights[i]; // no need to normalize
+        surfaceData.albedo += albedo[i].rgb * weights[i];
+        surfaceData.normalData += normal[i].rgb * weights[i]; // no need to normalize
         outMasks += masks[i].xyw * weights[i];
     }
-    outSmoothness = outMasks.z;
-    outMetallic = outMasks.x;
-    outAO = outMasks.y;
+    surfaceData.smoothness = outMasks.z;
+    surfaceData.metallic = outMasks.x;
+    surfaceData.ao = outMasks.y;
 }
 
-void TerrainLitShade(float2 uv, out float3 outAlbedo, out float3 outNormalData, out float outSmoothness, out float outMetallic, out float outAO)
+void TerrainLitShade(float2 uv, inout TerrainLitSurfaceData surfaceData)
 {
-    TerrainSplatBlend(uv, uv, outAlbedo, outNormalData, outSmoothness, outMetallic, outAO);
+    TerrainSplatBlend(uv, uv, surfaceData);
 }
 
 void TerrainLitDebug(float2 uv, inout float3 baseColor)

@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine.Rendering;
 using UnityEngine.Serialization;
+using Utilities;
 
-namespace UnityEngine.Experimental.Rendering.HDPipeline
+namespace UnityEngine.Rendering.HighDefinition
 {
-    public enum ShaderVariantLogLevel
+    enum ShaderVariantLogLevel
     {
         Disabled,
         OnlyHDRPShaders,
@@ -13,6 +13,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
     }
 
     // The HDRenderPipeline assumes linear lighting. Doesn't work with gamma.
+    [HelpURL(Documentation.baseURL + Documentation.version + Documentation.subURL + "HDRP-Asset" + Documentation.endURL)]
     public partial class HDRenderPipelineAsset : RenderPipelineAsset
     {
 
@@ -20,25 +21,66 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         {
         }
 
+        void Reset() => OnValidate();
+
         protected override UnityEngine.Rendering.RenderPipeline CreatePipeline()
         {
-            return new HDRenderPipeline(this);
+            // safe: When we return a null render pipline it will do nothing in the rendering
+            HDRenderPipeline pipeline = null;
+
+            // We need to do catch every errors that happend during the HDRP build, when we upgrade the
+            // HDRP package, some required assets are not yet imported by the package manager when the
+            // pipeline is created so in that case, we just return a null pipeline. Some error may appear
+            // when we upgrade the pipeline but it's better than breaking HDRP resources an causing more
+            // errors.
+            try
+            {
+                pipeline = new HDRenderPipeline(this, HDRenderPipeline.defaultAsset);
+            } catch (Exception e) {
+                UnityEngine.Debug.LogError(e);
+            }
+
+            return pipeline;
+        }
+
+        protected override void OnValidate()
+        {
+            //Do not reconstruct the pipeline if we modify other assets.
+            //OnValidate is called once at first selection of the asset.
+            if (GraphicsSettings.renderPipelineAsset == this)
+                base.OnValidate();
         }
 
         [SerializeField]
         RenderPipelineResources m_RenderPipelineResources;
 
-        public RenderPipelineResources renderPipelineResources
+        internal RenderPipelineResources renderPipelineResources
         {
             get { return m_RenderPipelineResources; }
             set { m_RenderPipelineResources = value; }
+        }
+
+        [SerializeField]
+        HDRenderPipelineRayTracingResources m_RenderPipelineRayTracingResources;
+        internal HDRenderPipelineRayTracingResources renderPipelineRayTracingResources
+        {
+            get { return m_RenderPipelineRayTracingResources; }
+            set { m_RenderPipelineRayTracingResources = value; }
+        }
+
+        [SerializeField] private VolumeProfile m_DefaultVolumeProfile;
+
+        internal VolumeProfile defaultVolumeProfile
+        {
+            get => m_DefaultVolumeProfile;
+            set => m_DefaultVolumeProfile = value;
         }
 
 #if UNITY_EDITOR
         HDRenderPipelineEditorResources m_RenderPipelineEditorResources;
 
 
-        public HDRenderPipelineEditorResources renderPipelineEditorResources
+        internal HDRenderPipelineEditorResources renderPipelineEditorResources
         {
             get
             {
@@ -66,7 +108,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         [SerializeField]
         FrameSettings m_RenderingPathDefaultRealtimeReflectionFrameSettings = FrameSettings.defaultRealtimeReflectionProbe;
 
-        public ref FrameSettings GetDefaultFrameSettings(FrameSettingsRenderType type)
+        internal ref FrameSettings GetDefaultFrameSettings(FrameSettingsRenderType type)
         {
             switch(type)
             {
@@ -81,9 +123,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             }
         }
 
-        public bool frameSettingsHistory { get; set; } = false;
+        internal bool frameSettingsHistory { get; set; } = false;
 
-        public ReflectionSystemParameters reflectionSystemParameters
+        internal ReflectionSystemParameters reflectionSystemParameters
         {
             get
             {
@@ -110,31 +152,44 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         // Return the current use RenderPipelineSettings (i.e for the current platform)
         public RenderPipelineSettings currentPlatformRenderPipelineSettings => m_RenderPipelineSettings;
 
-        public bool allowShaderVariantStripping = true;
-        public bool enableSRPBatcher = true;
-        public ShaderVariantLogLevel shaderVariantLogLevel = ShaderVariantLogLevel.Disabled;
+        [SerializeField]
+        internal bool allowShaderVariantStripping = true;
+        [SerializeField]
+        internal bool enableSRPBatcher = true;
+        [SerializeField]
+        internal ShaderVariantLogLevel shaderVariantLogLevel = ShaderVariantLogLevel.Disabled;
+
+        public MaterialQuality materialQualityLevels = (MaterialQuality)(-1);
 
         [SerializeField]
-        [Obsolete("Use diffusionProfileSettingsList instead")]
-        public DiffusionProfileSettings diffusionProfileSettings;
+        private MaterialQuality m_CurrentMaterialQualityLevel = MaterialQuality.High;
 
-        [SerializeField]
-        public DiffusionProfileSettings[] diffusionProfileSettingsList = new DiffusionProfileSettings[0];
-
-        [NonSerialized]
-        DiffusionProfileSettings m_DefaultDiffusionProfileSettings;
-        public DiffusionProfileSettings defaultDiffusionProfileSettings
+        public MaterialQuality currentMaterialQualityLevel
         {
             get
             {
-                if (m_DefaultDiffusionProfileSettings == null)
+                if ((m_CurrentMaterialQualityLevel & materialQualityLevels) != m_CurrentMaterialQualityLevel)
                 {
-                    m_DefaultDiffusionProfileSettings = ScriptableObject.CreateInstance<DiffusionProfileSettings>();
-                    m_DefaultDiffusionProfileSettings.SetDefaultParams();
+                    // Current quality level is not supported,
+                    // Pick the highest one
+                    var highest = materialQualityLevels.GetHighestQuality();
+                    if (highest == 0)
+                        // If none are available, still pick the lowest one
+                        highest = MaterialQuality.Low;
+
+                    return highest;
                 }
-                return m_DefaultDiffusionProfileSettings;
+
+                return m_CurrentMaterialQualityLevel;
             }
         }
+
+        [SerializeField]
+        [Obsolete("Use diffusionProfileSettingsList instead")]
+        internal DiffusionProfileSettings diffusionProfileSettings;
+
+        [SerializeField]
+        internal DiffusionProfileSettings[] diffusionProfileSettingsList = new DiffusionProfileSettings[0];
 
         // HDRP use GetRenderingLayerMaskNames to create its light linking system
         // Mean here we define our name for light linking.
@@ -183,6 +238,19 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 return m_RenderPipelineResources.shaders.defaultPS;
             }
         }
+
+        static public bool AggreateRayTracingSupport(RenderPipelineSettings rpSetting)
+        {
+            return rpSetting.supportRayTracing && UnityEngine.SystemInfo.supportsRayTracing;
+        }
+
+        // List of custom post process Types that will be executed in the project, in the order of the list (top to back)
+        [SerializeField]
+        internal List<string> beforeTransparentCustomPostProcesses = new List<string>();
+        [SerializeField]
+        internal List<string> beforePostProcessCustomPostProcesses = new List<string>();
+        [SerializeField]
+        internal List<string> afterPostProcessCustomPostProcesses = new List<string>();
 
 #if UNITY_EDITOR
         public override Material defaultMaterial
@@ -290,22 +358,39 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         // This function allows us to raise or remove some preprocessing defines based on the render pipeline settings
         public void EvaluateSettings()
         {
-#if REALTIME_RAYTRACING_SUPPORT
             // Grab the current set of defines and split them
             string currentDefineList = UnityEditor.PlayerSettings.GetScriptingDefineSymbolsForGroup(UnityEditor.BuildTargetGroup.Standalone);
             defineArray.Clear();
             defineArray.AddRange(currentDefineList.Split(';'));
 
+            // Is ray tracing supported for this project and this platform?
+            bool raytracingSupport = AggreateRayTracingSupport(currentPlatformRenderPipelineSettings);
+            
             // Update all the individual defines
             bool needUpdate = false;
-            needUpdate |= UpdateDefineList(currentPlatformRenderPipelineSettings.supportRayTracing, "ENABLE_RAYTRACING");
+            needUpdate |= UpdateDefineList(raytracingSupport, "ENABLE_RAYTRACING");
 
             // Only set if it changed
             if (needUpdate)
             {
                 UnityEditor.PlayerSettings.SetScriptingDefineSymbolsForGroup(UnityEditor.BuildTargetGroup.Standalone, string.Join(";", defineArray.ToArray()));
             }
-#endif
+        }
+
+        public bool AddDiffusionProfile(DiffusionProfileSettings profile)
+        {
+            if (diffusionProfileSettingsList.Length < 15)
+            {
+                int index = diffusionProfileSettingsList.Length;
+                Array.Resize(ref diffusionProfileSettingsList, index + 1);
+                diffusionProfileSettingsList[index] = profile;
+                return true;
+            }
+            else
+            {
+                Debug.LogError("There are too many diffusion profile settings in your HDRP. Please remove one before adding a new one.");
+                return false;
+            }
         }
 #endif
     }

@@ -58,7 +58,7 @@ namespace UnityEditor.VFX.UI
 
         public VFXBlackboardCategory()
         {
-            var tpl = Resources.Load<VisualTreeAsset>("uxml/VFXBlackboardSection");
+            var tpl = VFXView.LoadUXML("VFXBlackboardSection");
 
             m_MainContainer = tpl.CloneTree();
             m_MainContainer.AddToClassList("mainContainer");
@@ -121,13 +121,13 @@ namespace UnityEditor.VFX.UI
 
         void CleanupNameField()
         {
-            m_NameField.visible = false;
+            m_NameField.style.display = DisplayStyle.None;
         }
 
         public void SetSelectable()
         {
             capabilities |= Capabilities.Selectable | Capabilities.Droppable | Capabilities.Deletable;
-            styleSheets.Add(Resources.Load<StyleSheet>("Selectable"));
+            styleSheets.Add(VFXView.LoadStyleSheet("Selectable"));
             AddToClassList("selectable");
             hierarchy.Add(new VisualElement() {name = "selection-border", pickingMode = PickingMode.Ignore});
 
@@ -142,8 +142,7 @@ namespace UnityEditor.VFX.UI
             m_NameField.Q("unity-text-input").RegisterCallback<FocusOutEvent>(e => { OnEditTextSucceded(); });
             m_NameField.Q("unity-text-input").RegisterCallback<KeyDownEvent>(OnTextFieldKeyPressed);
             m_Header.pickingMode = PickingMode.Position;
-
-            m_NameField.visible = false;
+            m_NameField.style.display = DisplayStyle.None;
         }
 
         void ToggleExpand()
@@ -191,7 +190,7 @@ namespace UnityEditor.VFX.UI
 
                 if (value)
                 {
-                    m_MainContainer.Add(m_Header);
+                    m_MainContainer.Insert(1,m_Header);
                 }
                 else
                 {
@@ -331,14 +330,14 @@ namespace UnityEditor.VFX.UI
         public void OpenTextEditor()
         {
             m_NameField.value = title;
-            m_NameField.visible = true;
-            m_NameField.Q("unity-text-input").Focus();
+            m_NameField.style.display = DisplayStyle.Flex;
+            m_NameField.Q(TextField.textInputUssName).Focus();
             m_NameField.SelectAll();
         }
 
         void BuildContextualMenu(ContextualMenuPopulateEvent evt)
         {
-            if (evt.target == this)
+            if (evt.target == this && (capabilities & Capabilities.Selectable)!= 0)
             {
                 evt.menu.AppendAction("Rename", (a) => OpenTextEditor(), DropdownMenuAction.AlwaysEnabled);
 

@@ -1,6 +1,4 @@
-using UnityEngine.Rendering;
-
-namespace UnityEngine.Experimental.Rendering.HDPipeline
+namespace UnityEngine.Rendering.HighDefinition
 {
     [VolumeComponentMenu("Sky/Gradient Sky")]
     [SkyUniqueID((int)SkyType.Gradient)]
@@ -26,7 +24,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
             unchecked
             {
-                hash = 13;
                 hash = hash * 23 + bottom.GetHashCode();
                 hash = hash * 23 + top.GetHashCode();
                 hash = hash * 23 + middle.GetHashCode();
