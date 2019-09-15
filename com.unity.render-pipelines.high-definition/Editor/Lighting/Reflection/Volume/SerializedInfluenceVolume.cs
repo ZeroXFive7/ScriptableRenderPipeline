@@ -1,9 +1,10 @@
+using UnityEditor.Rendering;
 using UnityEngine;
-using UnityEngine.Rendering.HighDefinition;
+using UnityEngine.Experimental.Rendering.HDPipeline;
 
-namespace UnityEditor.Rendering.HighDefinition
+namespace UnityEditor.Experimental.Rendering.HDPipeline
 {
-    class SerializedInfluenceVolume
+    public class SerializedInfluenceVolume
     {
         internal SerializedProperty root;
 

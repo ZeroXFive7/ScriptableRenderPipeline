@@ -4,10 +4,11 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEditor.Experimental;
-using UnityEditor.VFX;
+using UnityEditor.Experimental.VFX;
 using UnityEditor.SceneManagement;
 using UnityEngine;
-using UnityEngine.VFX;
+using UnityEngine.Experimental.VFX;
+using UnityEditor.VFX;
 using UnityEditor.VFX.UI;
 
 using Object = UnityEngine.Object;
@@ -16,12 +17,10 @@ using System.Reflection;
 
 [CustomEditor(typeof(VFXContext), true)]
 [CanEditMultipleObjects]
-class VFXContextEditor : VFXSlotContainerEditor
+public class VFXContextEditor : VFXSlotContainerEditor
 {
     SerializedProperty spaceProperty;
     SerializedObject dataObject;
-
-    SerializedObject srpSubOutputObject;
 
     float m_Width;
 
@@ -35,6 +34,7 @@ class VFXContextEditor : VFXSlotContainerEditor
         if (allData.Length > 0)
         {
             dataObject = new SerializedObject(allData);
+
             spaceProperty = dataObject.FindProperty("m_Space");
         }
         else
@@ -42,9 +42,6 @@ class VFXContextEditor : VFXSlotContainerEditor
             dataObject = null;
             spaceProperty = null;
         }
-
-        UnityEngine.Object[] allSRPSubOutputs = targets.OfType<VFXAbstractRenderedOutput>().Select(t => t.subOutput).Where(t => t != null).ToArray();
-        srpSubOutputObject = allSRPSubOutputs.Length > 0 ? new SerializedObject(allSRPSubOutputs) : null;
 
         if (!serializedObject.isEditingMultipleObjects)
         {
@@ -66,17 +63,6 @@ class VFXContextEditor : VFXSlotContainerEditor
             m_ViewController.useCount--;
             m_ViewController = null;
         }
-    }
-
-    protected override SerializedProperty FindProperty(VFXSetting setting)
-    {
-        if (setting.instance is VFXContext)
-            return serializedObject.FindProperty(setting.name);
-        if (setting.instance is VFXSRPSubOutput)
-            return srpSubOutputObject.FindProperty(setting.name);
-        if (setting.instance is VFXData)
-            return dataObject.FindProperty(setting.name);
-        throw new ArgumentException("VFXSetting is from an unexpected instance: " + setting.instance);
     }
 
     public override void DoInspectorGUI()
@@ -154,9 +140,6 @@ class VFXContextEditor : VFXSlotContainerEditor
         if (dataObject != null)
             dataObject.Update();
 
-        if (srpSubOutputObject != null)
-            srpSubOutputObject.Update();
-
         if (m_ContextController != null && m_ContextController.letter != '\0')
         {
             GUILayout.Label(m_ContextController.letter.ToString(),Styles.letter);
@@ -164,15 +147,15 @@ class VFXContextEditor : VFXSlotContainerEditor
 
         base.OnInspectorGUI();
 
-        bool invalidateContext = (dataObject != null && dataObject.ApplyModifiedProperties()) || (srpSubOutputObject != null && srpSubOutputObject.ApplyModifiedProperties());
-        if (invalidateContext)
-        {
-            foreach (VFXContext ctx in targets.OfType<VFXContext>())
+        if (dataObject != null)
+            if (dataObject.ApplyModifiedProperties())
             {
-                // notify that something changed.
-                ctx.GetData().Invalidate(VFXModel.InvalidationCause.kSettingChanged); // This will also invalidate contexts
+                foreach (VFXContext ctx in targets.OfType<VFXContext>())
+                {
+                    // notify that something changed.
+                    ctx.Invalidate(VFXModel.InvalidationCause.kSettingChanged);
+                }
             }
-        }
 
         if (serializedObject.isEditingMultipleObjects) return; // Summary Only visible for single selection
 
@@ -184,13 +167,13 @@ class VFXContextEditor : VFXSlotContainerEditor
         var data = (VFXData)dataObject.targetObject;
 
         // Particle context data
-        if (data.type == VFXDataType.Particle)
+        if (data.type == VFXDataType.kParticle)
         {
             VFXDataParticle particleData = data as VFXDataParticle;
             EditorGUILayout.Space();
             {
                 Styles.Row(Styles.header, "Name", "Value");
-                Styles.Row(Styles.cell, "Capacity", particleData.GetSettingValue("capacity").ToString());
+                Styles.Row(Styles.cell, "Capacity", particleData.capacity.ToString());
 
                 EditorGUILayout.Space();
 
@@ -255,6 +238,7 @@ class VFXContextEditor : VFXSlotContainerEditor
                 }
                 catch
                 {
+                    EditorGUILayout.HelpBox("Context is not connected or results in invalid system, please ensure all flow connections are correct.", MessageType.Warning, true);
                     return;
                 }
 

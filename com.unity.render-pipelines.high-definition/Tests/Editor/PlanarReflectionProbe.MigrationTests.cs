@@ -1,8 +1,8 @@
 using NUnit.Framework;
-using UnityEditor.Rendering.TestFramework;
-using System;
+using UnityEditor.Experimental.Rendering.TestFramework;
+using UnityEngine.Rendering;
 
-namespace UnityEngine.Rendering.HighDefinition.Tests
+namespace UnityEngine.Experimental.Rendering.HDPipeline.Tests
 {
     //duplicate formerly used enum RenderingPath here for migration test
     enum LegacyRenderingPath
@@ -12,7 +12,7 @@ namespace UnityEngine.Rendering.HighDefinition.Tests
         FullscreenPassthrough
     }
 
-    partial class PlanarReflectionProbeTests
+    public partial class PlanarReflectionProbeTests
     {
         public class MigratePlanarProbeFromVersion_ModeAndTextures
         {
@@ -33,7 +33,7 @@ namespace UnityEngine.Rendering.HighDefinition.Tests
                 public float shadowDistance;
                 public Vector3 mirrorPositionWS;
                 public Quaternion mirrorRotationWS;
-                public int captureSettingsOverride = 0;
+                public int captureSettingsOverride;
                 public float influenceYOffset;
             }
 
@@ -153,7 +153,7 @@ namespace UnityEngine.Rendering.HighDefinition.Tests
             }
 
             string GeneratePrefabYAML(LegacyProbeData legacyProbeData)
-                => FormattableString.Invariant($@"%YAML 1.1
+                => $@"%YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
 --- !u!1 &6171638715142251291
 GameObject:
@@ -196,8 +196,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {{fileID: 11500000, guid: a4ee7c3a3b205a14a94094d01ff91d6b, type: 3}}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   m_ProxyVolume: {{fileID: 0}}
   m_InfiniteProjection: 1
   m_InfluenceVolume:
@@ -299,7 +299,7 @@ MonoBehaviour:
   m_ObsoleteOverrideFieldOfView: 0
   m_ObsoleteFieldOfViewOverride: 90
   m_ObsoleteCaptureNearPlane: 0.3
-  m_ObsoleteCaptureFarPlane: 1000");
+  m_ObsoleteCaptureFarPlane: 1000";
         }
     }
 }

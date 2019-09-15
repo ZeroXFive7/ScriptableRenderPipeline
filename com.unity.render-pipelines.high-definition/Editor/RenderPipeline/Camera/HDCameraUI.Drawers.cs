@@ -1,11 +1,11 @@
 using System;
 using System.Linq;
 using System.Reflection;
-using UnityEngine;
-using UnityEngine.Rendering.HighDefinition;
 using UnityEditor.Rendering;
+using UnityEngine;
+using UnityEngine.Experimental.Rendering.HDPipeline;
 
-namespace UnityEditor.Rendering.HighDefinition
+namespace UnityEditor.Experimental.Rendering.HDPipeline
 {
     using CED = CoreEditorDrawer<SerializedHDCamera>;
 
@@ -126,10 +126,6 @@ namespace UnityEditor.Rendering.HighDefinition
                 ),
             CED.space,
             CED.Group(
-                Drawer_AllowDynamicResolution
-                ),
-            CED.space,
-            CED.Group(
                 Drawer_CameraWarnings,
                 Drawer_FieldRenderingPath
                 )
@@ -174,7 +170,7 @@ namespace UnityEditor.Rendering.HighDefinition
         public static readonly CED.IDrawer SectionFrameSettings = CED.Conditional(
             (serialized, owner) => k_ExpandedState[Expandable.General],
             CED.Group((serialized, owner) =>
-            {
+            { 
                 if (!serialized.passThrough.boolValue && serialized.customRenderingSettings.boolValue)
                     FrameSettingsUI.Inspector().Draw(serialized.frameSettings, owner);
                 else
@@ -429,10 +425,6 @@ namespace UnityEditor.Rendering.HighDefinition
         static void Drawer_Antialiasing(SerializedHDCamera p, Editor owner)
         {
             p.antialiasing.intValue = EditorGUILayout.Popup(antialiasingContent, p.antialiasing.intValue, antialiasingModeNames);
-            if(p.antialiasing.intValue == (int)HDAdditionalCameraData.AntialiasingMode.SubpixelMorphologicalAntiAliasing)
-            {
-                EditorGUILayout.PropertyField(p.SMAAQuality, SMAAQualityPresetContent);
-            }
         }
 
         static void Drawer_Dithering(SerializedHDCamera p, Editor owner)
@@ -443,12 +435,6 @@ namespace UnityEditor.Rendering.HighDefinition
         static void Drawer_StopNaNs(SerializedHDCamera p, Editor owner)
         {
             EditorGUILayout.PropertyField(p.stopNaNs, stopNaNsContent);
-        }
-
-        static void Drawer_AllowDynamicResolution(SerializedHDCamera p, Editor owner)
-        {
-            EditorGUILayout.PropertyField(p.allowDynamicResolution, allowDynResContent);
-            p.baseCameraSettings.allowDynamicResolution.boolValue = p.allowDynamicResolution.boolValue;
         }
 
         static void Drawer_FieldRenderingPath(SerializedHDCamera p, Editor owner)

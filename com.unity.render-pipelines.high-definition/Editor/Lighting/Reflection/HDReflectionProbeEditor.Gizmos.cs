@@ -1,7 +1,7 @@
 using UnityEngine;
-using UnityEngine.Rendering.HighDefinition;
+using UnityEngine.Experimental.Rendering.HDPipeline;
 
-namespace UnityEditor.Rendering.HighDefinition
+namespace UnityEditor.Experimental.Rendering.HDPipeline
 {
     sealed partial class HDReflectionProbeEditor
     {
@@ -24,8 +24,7 @@ namespace UnityEditor.Rendering.HighDefinition
                 InfluenceVolumeUI.HandleType.Base | InfluenceVolumeUI.HandleType.Influence
             );
 
-            if (e.showChromeGizmo)
-                Gizmos_CapturePoint(reflectionProbe);
+            Gizmos_CapturePoint(reflectionProbe);
         }
 
         static void Gizmos_CapturePoint(ReflectionProbe target)
@@ -38,7 +37,7 @@ namespace UnityEditor.Rendering.HighDefinition
             var probePositionSettings = ProbeCapturePositionSettings.ComputeFrom(probe, null);
             HDRenderUtilities.ComputeCameraSettingsFromProbeSettings(
                 probe.settings, probePositionSettings,
-                out _, out var cameraPositionSettings
+                out CameraSettings cameraSettings, out CameraPositionSettings cameraPositionSettings
             );
             var capturePosition = cameraPositionSettings.position;
 

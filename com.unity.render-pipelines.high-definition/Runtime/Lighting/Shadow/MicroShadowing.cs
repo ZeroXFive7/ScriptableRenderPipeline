@@ -1,6 +1,7 @@
 using System;
+using UnityEngine.Rendering;
 
-namespace UnityEngine.Rendering.HighDefinition
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
     [Serializable, VolumeComponentMenu("Shadowing/Micro Shadows")]
     public class MicroShadowing : VolumeComponent
@@ -11,6 +12,6 @@ namespace UnityEngine.Rendering.HighDefinition
         MicroShadowing()
         {
             displayName = "Micro Shadows";
-        }
+        }        
     }
 }

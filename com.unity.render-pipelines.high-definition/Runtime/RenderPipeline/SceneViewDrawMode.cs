@@ -2,9 +2,9 @@
 using System.Collections;
 using UnityEditor;
 
-namespace UnityEngine.Rendering.HighDefinition
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
-    class SceneViewDrawMode
+    public class SceneViewDrawMode
     {
         static private bool RejectDrawMode(SceneView.CameraMode cameraMode)
         {

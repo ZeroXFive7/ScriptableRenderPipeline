@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEditor.VFX.Block;
 using UnityEngine;
-using UnityEngine.VFX;
+using UnityEngine.Experimental.VFX;
 
 namespace UnityEditor.VFX
 {
@@ -15,7 +15,6 @@ namespace UnityEditor.VFX
         public override VFXTaskType taskType { get { return VFXTaskType.ParticleHexahedronOutput; } }
 
         public override bool supportsUV { get { return true; } }
-        public override bool implementsMotionVector { get { return true; } }
 
         public override CullMode defaultCullMode { get { return CullMode.Back; } }
 
@@ -58,16 +57,6 @@ namespace UnityEditor.VFX
         public class InputProperties
         {
             public Texture2D mainTexture = VFXResources.defaultResources.particleTexture;
-        }
-        protected override IEnumerable<string> filteredOutSettings
-        {
-            get
-            {
-                foreach (var setting in base.filteredOutSettings)
-                    yield return setting;
-
-                yield return "colorMappingMode";
-            }
         }
     }
 }

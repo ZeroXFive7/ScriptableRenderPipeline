@@ -42,7 +42,6 @@ CBUFFER_START(UnityPerCamera)
     float4 _SinTime; // sin(t/8), sin(t/4), sin(t/2), sin(t)
     float4 _CosTime; // cos(t/8), cos(t/4), cos(t/2), cos(t)
     float4 unity_DeltaTime; // dt, 1/dt, smoothdt, 1/smoothdt
-    float4 _TimeParameters;
 
 #if !defined(USING_STEREO_MATRICES)
     float3 _WorldSpaceCameraPos;
@@ -277,8 +276,11 @@ float4x4 OptimizeProjectionMatrix(float4x4 M)
     return M;
 }
 
-// For the shader graph node preview, we use the legacy unity matrices because they are pipeline agnostic.
-#include "ShaderVariablesMatrixDefsLegacyUnity.hlsl"
+#ifdef USE_LEGACY_UNITY_MATRIX_VARIABLES
+    #include "ShaderVariablesMatrixDefsLegacyUnity.hlsl"
+#else
+    #include "ShaderVariablesMatrixDefsHDCamera.hlsl"
+#endif
 
 #include "ShaderVariablesFunctions.hlsl"
 

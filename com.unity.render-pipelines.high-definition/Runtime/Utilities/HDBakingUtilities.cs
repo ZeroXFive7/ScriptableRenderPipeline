@@ -3,7 +3,7 @@ using System.IO;
 using System.Text.RegularExpressions;
 using System.Xml.Serialization;
 
-namespace UnityEngine.Rendering.HighDefinition
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
     internal static class HDBakingUtilities
     {

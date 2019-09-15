@@ -1,5 +1,5 @@
 using UnityEditor.Rendering;
-using UnityEngine.Rendering.HighDefinition;
+using UnityEngine.Experimental.Rendering.HDPipeline;
 using UnityEditorInternal;
 using UnityEngine;
 using System.Collections.Generic;
@@ -8,7 +8,7 @@ using System.Linq;
 using System;
 using Object = UnityEngine.Object;
 
-namespace UnityEditor.Rendering.HighDefinition
+namespace UnityEditor.Experimental.Rendering.HDPipeline
 {
     [VolumeComponentEditor(typeof(DiffusionProfileOverride))]
     sealed class DiffusionProfileOverrideEditor : VolumeComponentEditor
@@ -39,7 +39,7 @@ namespace UnityEditor.Rendering.HighDefinition
             // So we can't access the bounds of the volume to fill diffusion profiles used in the volume
             if (m_Volume != null && !m_Volume.isGlobal)
             {
-                if (GUILayout.Button("Fill Profile List With Scene Materials"))
+                if (GUILayout.Button("Fill profiles with scene materials"))
                     FillProfileListWithScene();
             }
         }
@@ -69,7 +69,7 @@ namespace UnityEditor.Rendering.HighDefinition
                     foreach (var mat in meshRenderer.sharedMaterials)
                     {
                         var profile = GetMaterialDiffusionProfile(mat);
-
+                        
                         if (profiles.Count == DiffusionProfileConstants.DIFFUSION_PROFILE_COUNT - 1)
                             break ;
 
@@ -92,12 +92,12 @@ namespace UnityEditor.Rendering.HighDefinition
         {
             if (!mat.HasProperty(HDShaderIDs._DiffusionProfileAsset))
                 return null;
-
+            
             string guid = HDUtils.ConvertVector4ToGUID(mat.GetVector(HDShaderIDs._DiffusionProfileAsset));
-
+            
             if (String.IsNullOrEmpty(guid))
                 return null;
-
+            
             return AssetDatabase.LoadAssetAtPath<DiffusionProfileSettings>(AssetDatabase.GUIDToAssetPath(guid));
         }
     }

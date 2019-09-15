@@ -1,4 +1,4 @@
-namespace UnityEngine.Rendering.HighDefinition
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
     public enum InfluenceShape
     {

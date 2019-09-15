@@ -1,6 +1,9 @@
-namespace UnityEngine.Rendering.HighDefinition
+using System;
+using UnityEngine.Rendering;
+
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
-    partial class SPTDistribution
+    public partial class SPTDistribution
     {
         static SPTDistribution s_Instance;
 

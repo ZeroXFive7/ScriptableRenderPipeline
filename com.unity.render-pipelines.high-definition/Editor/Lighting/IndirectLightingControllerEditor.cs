@@ -1,10 +1,11 @@
-using UnityEngine.Rendering.HighDefinition;
+using UnityEditor;
+using UnityEditor.Rendering;
 
-namespace UnityEditor.Rendering.HighDefinition
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
     [CanEditMultipleObjects]
     [VolumeComponentEditor(typeof(IndirectLightingController))]
-    class IndirectLightingControllerEditor : VolumeComponentEditor
+    public class IndirectLightingControllerEditor : VolumeComponentEditor
     {
         SerializedDataParameter m_IndirectDiffuseIntensity;
         SerializedDataParameter m_IndirectSpecularIntensity;

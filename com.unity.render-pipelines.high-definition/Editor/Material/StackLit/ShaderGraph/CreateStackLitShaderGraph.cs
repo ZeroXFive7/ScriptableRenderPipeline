@@ -1,6 +1,8 @@
+using System.IO;
+using UnityEditor.ProjectWindowCallback;
 using UnityEditor.ShaderGraph;
 
-namespace UnityEditor.Rendering.HighDefinition
+namespace UnityEditor.Experimental.Rendering.HDPipeline
 {
     static class CreateStackLitShaderGraph
     {

@@ -3,18 +3,38 @@ using System.Text;
 using UnityEditor.Graphing;
 using UnityEngine;
 
-namespace UnityEditor.ShaderGraph.Internal
+namespace UnityEditor.ShaderGraph
 {
     [Serializable]
-    public abstract class VectorShaderProperty : AbstractShaderProperty<Vector4>
+    abstract class VectorShaderProperty : AbstractShaderProperty<Vector4>
     {
-        internal override bool isBatchable => true;
-        internal override bool isExposable => true;
-        internal override bool isRenamable => true;
+        [SerializeField]
+        bool    m_Hidden = false;
 
-        internal override string GetPropertyBlockString()
+        public bool hidden
         {
-            return $"{hideTagString}{referenceName}(\"{displayName}\", Vector) = ({NodeUtils.FloatToShaderValue(value.x)}, {NodeUtils.FloatToShaderValue(value.y)}, {NodeUtils.FloatToShaderValue(value.z)}, {NodeUtils.FloatToShaderValue(value.w)})";
+            get { return m_Hidden; }
+            set { m_Hidden = value; }
+        }
+
+        public override string GetPropertyBlockString()
+        {
+            var result = new StringBuilder();
+            if (hidden)
+                result.Append("[HideInInspector] ");
+            result.Append(referenceName);
+            result.Append("(\"");
+            result.Append(displayName);
+            result.Append("\", Vector) = (");
+            result.Append(NodeUtils.FloatToShaderValue(value.x));
+            result.Append(",");
+            result.Append(NodeUtils.FloatToShaderValue(value.y));
+            result.Append(",");
+            result.Append(NodeUtils.FloatToShaderValue(value.z));
+            result.Append(",");
+            result.Append(NodeUtils.FloatToShaderValue(value.w));
+            result.Append(")");
+            return result.ToString();
         }
     }
 }

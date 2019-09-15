@@ -1,6 +1,9 @@
-namespace UnityEngine.Rendering.HighDefinition
+using UnityEngine.Rendering;
+
+
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
-    struct ZonalHarmonicsL2
+    public struct ZonalHarmonicsL2
     {
         public float[] coeffs; // Must have the size of 3
 
@@ -21,14 +24,14 @@ namespace UnityEngine.Rendering.HighDefinition
         public static void GetCornetteShanksPhaseFunction(ZonalHarmonicsL2 zh, float anisotropy)
         {
             float g = anisotropy;
-
+                      
             zh.coeffs[0] = 0.282095f;
             zh.coeffs[1] = 0.293162f * g * (4.0f + (g * g)) / (2.0f + (g * g));
             zh.coeffs[2] = (0.126157f + 1.44179f * (g * g) + 0.324403f * (g * g) * (g * g)) / (2.0f + (g * g));
         }
     }
 
-    class SphericalHarmonicMath
+    public class SphericalHarmonicMath
     {
         // Ref: "Stupid Spherical Harmonics Tricks", p. 6.
         public static SphericalHarmonicsL2 Convolve(SphericalHarmonicsL2 sh, ZonalHarmonicsL2 zh)
@@ -68,7 +71,7 @@ namespace UnityEngine.Rendering.HighDefinition
         // to obtain the canonical values of SH.
         public static SphericalHarmonicsL2 UndoCosineRescaling(SphericalHarmonicsL2 sh)
         {
-
+            
             for (int c = 0; c < 3; c++)
             {
                 for (int i = 0; i < 9; i++)

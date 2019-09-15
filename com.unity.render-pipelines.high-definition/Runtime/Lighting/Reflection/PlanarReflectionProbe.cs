@@ -2,9 +2,8 @@ using System;
 
 // define ENABLE_BAKED_PLANAR to enable baked planar
 
-namespace UnityEngine.Rendering.HighDefinition
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
-    [HelpURL(Documentation.baseURL + Documentation.version + Documentation.subURL + "Planar-Reflection-Probe" + Documentation.endURL)]
     [ExecuteAlways]
     public sealed partial class PlanarReflectionProbe : HDProbe
     {

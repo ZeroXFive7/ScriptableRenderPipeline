@@ -18,11 +18,6 @@ namespace UnityEngine.Rendering
         }
     }
 
-    [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
-    public sealed class VolumeComponentDeprecated : Attribute
-    {
-    }
-
     [Serializable]
     public class VolumeComponent : ScriptableObject
     {
@@ -32,7 +27,7 @@ namespace UnityEngine.Rendering
 
         public string displayName { get; protected set; } = "";
 
-        public ReadOnlyCollection<VolumeParameter> parameters { get; private set; }
+        internal ReadOnlyCollection<VolumeParameter> parameters { get; private set; }
 
 #pragma warning disable 414
         [SerializeField]
@@ -43,7 +38,7 @@ namespace UnityEngine.Rendering
         {
             // Automatically grab all fields of type VolumeParameter for this instance
             parameters = this.GetType()
-                .GetFields(BindingFlags.Public | BindingFlags.NonPublic  | BindingFlags.Instance)
+                .GetFields(BindingFlags.Public | BindingFlags.Instance)
                 .Where(t => t.FieldType.IsSubclassOf(typeof(VolumeParameter)))
                 .OrderBy(t => t.MetadataToken) // Guaranteed order
                 .Select(t => (VolumeParameter)t.GetValue(this))
@@ -120,8 +115,8 @@ namespace UnityEngine.Rendering
 
                 int hash = 17;
 
-                for (int i = 0; i < parameters.Count; i++)
-                    hash = hash * 23 + parameters[i].GetHashCode();
+                foreach (var p in parameters)
+                    hash = hash * 23 + p.GetHashCode();
 
                 return hash;
             }

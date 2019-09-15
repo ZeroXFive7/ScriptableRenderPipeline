@@ -1,6 +1,6 @@
 using System;
 
-namespace UnityEngine.Rendering.HighDefinition
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
     /// <summary>Implement this interface to use with <see cref="MigrationDescription{TVersion, TTarget}"/></summary>
     /// <typeparam name="TVersion">An enum to use to describe the version.</typeparam>

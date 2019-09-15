@@ -1,7 +1,7 @@
-.sgblackboardFieldView * {
+.sgblackboardFieldPropertyView * {
     font-size: 11px;
 }
-.sgblackboardFieldView > .rowView {
+.sgblackboardFieldPropertyView > .rowView {
     flex-direction: row;
     padding-left: 10px;
     padding-right: 2px;
@@ -9,20 +9,13 @@
     padding-bottom: 2px;
 }
 
-.sgblackboardFieldView > .rowView > .rowViewLabel {
+.sgblackboardFieldPropertyView > .rowView > .rowViewLabel {
     min-width: 50px;
 }
 
-.sgblackboardFieldView > .rowView > .rowViewControl {
+.sgblackboardFieldPropertyView > .rowView > .rowViewControl {
     flex: 1;
 }
-
-.sgblackboardFieldView > .unity-imgui-container {
-    margin-top: 4;
-    margin-bottom: 4;
-    margin-left: 16;
-    margin-right: 4;
-} 
 
 .unity-object-field-display__icon {
     margin-top: 0;

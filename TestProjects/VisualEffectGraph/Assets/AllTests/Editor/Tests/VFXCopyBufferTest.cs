@@ -1,4 +1,4 @@
-#if !UNITY_EDITOR_OSX || MAC_FORCE_TESTS
+﻿#if !UNITY_EDITOR_OSX || MAC_FORCE_TESTS
 using NUnit.Framework;
 
 namespace UnityEditor.VFX.Test
@@ -9,7 +9,7 @@ namespace UnityEditor.VFX.Test
         [Test]
         public void ProcessBasicTest()
         {
-            Assert.IsTrue(UnityEditor.VFX.VisualEffectTest.DebugCopyBufferComputeTest());
+            Assert.IsTrue(UnityEditor.Experimental.VFX.VisualEffectTest.DebugCopyBufferComputeTest());
         }
     }
 }

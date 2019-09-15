@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEditor.Graphing;
 using UnityEditor.ShaderGraph.Drawing.Slots;
-using UnityEditor.ShaderGraph.Internal;
 using UnityEngine;
 
 using UnityEngine.UIElements;
@@ -68,7 +67,7 @@ namespace UnityEditor.ShaderGraph
 
         public override void GetPreviewProperties(List<PreviewProperty> properties, string name)
         {
-            var propType = concreteValueType.ToPropertyType();
+            var propType = ConvertConcreteSlotValueTypeToPropertyType(concreteValueType);
             var pp = new PreviewProperty(propType) { name = name };
             if (propType == PropertyType.Vector1)
                 pp.floatValue = value.x;
@@ -77,7 +76,7 @@ namespace UnityEditor.ShaderGraph
             properties.Add(pp);
         }
 
-        protected override string ConcreteSlotValueAsVariable()
+        protected override string ConcreteSlotValueAsVariable(AbstractMaterialNode.OutputPrecision precision)
         {
             var channelCount = SlotValueHelper.GetChannelCount(concreteValueType);
             string values = NodeUtils.FloatToShaderValue(value.x);
@@ -85,7 +84,7 @@ namespace UnityEditor.ShaderGraph
                 return values;
             for (var i = 1; i < channelCount; i++)
                 values += ", " + NodeUtils.FloatToShaderValue(value[i]);
-            return string.Format("$precision{0}({1})", channelCount, values);
+            return string.Format("{0}{1}({2})", precision, channelCount, values);
         }
 
         public override void AddDefaultProperty(PropertyCollector properties, GenerationMode generationMode)
@@ -113,10 +112,7 @@ namespace UnityEditor.ShaderGraph
                     property = new Vector1ShaderProperty();
                     break;
                 default:
-                    // This shouldn't happen due to edge validation. The generated shader will
-                    // have errors.
-                    Debug.LogError($"Invalid value type {concreteValueType} passed to Vector Slot {displayName}. Value will be ignored, please plug in an edge with a vector type.");
-                    return;
+                    throw new ArgumentOutOfRangeException();
             }
 
             property.overrideReferenceName = matOwner.GetVariableNameForSlot(id);

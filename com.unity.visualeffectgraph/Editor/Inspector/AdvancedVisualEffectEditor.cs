@@ -6,7 +6,7 @@ using UnityEditor;
 using UnityEditor.Experimental;
 using UnityEditor.SceneManagement;
 using UnityEngine;
-using UnityEngine.VFX;
+using UnityEngine.Experimental.VFX;
 
 using UnityEditor.VFX;
 using UnityEditor.VFX.UI;
@@ -99,7 +99,7 @@ namespace UnityEditor.VFX
 
     [CustomEditor(typeof(VisualEffect))]
     [CanEditMultipleObjects]
-    class AdvancedVisualEffectEditor : VisualEffectEditor, IToolModeOwner
+    public class AdvancedVisualEffectEditor : VisualEffectEditor, IToolModeOwner
     {
         new void OnEnable()
         {
@@ -178,7 +178,7 @@ namespace UnityEditor.VFX
         {
             EditMode.DoEditModeInspectorModeButton(
                 EditMode.SceneViewEditMode.Collider,
-                "Show Property Gizmos",
+                "Show Parameters",
                 EditorGUIUtility.IconContent("EditCollider"),
                 this
             );
@@ -236,23 +236,16 @@ namespace UnityEditor.VFX
 
             GUILayout.BeginHorizontal();
 
-
-            GUILayout.Space(overrideWidth);
-            // Make the label half the width to make the tooltip
-            EditorGUILayout.LabelField(GetGUIContent(name, tooltip), EditorStyles.boldLabel, GUILayout.Width(EditorGUIUtility.labelWidth));
-
-            GUILayout.FlexibleSpace();
-
-            // Toggle Button
             EditorGUI.BeginChangeCheck();
-            bool result = GUILayout.Toggle(m_GizmoedParameter == parameter, new GUIContent("Edit Gizmo"), EditorStyles.miniButton);
-
+            bool result = GUILayout.Toggle(m_GizmoedParameter == parameter, new GUIContent(Resources.Load<Texture2D>(EditorGUIUtility.pixelsPerPoint > 1 ? "VFX/gizmos@2x" : "VFX/gizmos")), GetCurrentSkin().button, GUILayout.Width(overrideWidth));
             if (EditorGUI.EndChangeCheck() && result)
             {
                 m_GizmoedParameter = parameter;
             }
 
-            //GUILayout.FlexibleSpace();
+            // Make the label half the width to make the tooltip
+            EditorGUILayout.LabelField(GetGUIContent(name, tooltip));
+            GUILayout.FlexibleSpace();
             GUILayout.EndHorizontal();
         }
 

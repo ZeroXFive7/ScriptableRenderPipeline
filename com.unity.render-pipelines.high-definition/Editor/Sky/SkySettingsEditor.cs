@@ -1,6 +1,7 @@
-using UnityEngine.Rendering.HighDefinition;
+using UnityEditor;
+using UnityEditor.Rendering;
 
-namespace UnityEditor.Rendering.HighDefinition
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
     public abstract class SkySettingsEditor : VolumeComponentEditor
     {
@@ -39,7 +40,7 @@ namespace UnityEditor.Rendering.HighDefinition
 
         protected void CommonSkySettingsGUI()
         {
-
+            
             if ((m_CommonUIElementsMask & (uint)SkySettingsUIElement.IndentExposureAndMultiplier) != 0)
                 EditorGUI.indentLevel++;
             if ((m_CommonUIElementsMask & (uint)SkySettingsUIElement.Exposure) != 0)
@@ -54,7 +55,7 @@ namespace UnityEditor.Rendering.HighDefinition
             if ((m_CommonUIElementsMask & (uint)SkySettingsUIElement.UpdateMode) != 0)
             {
                 PropertyField(m_EnvUpdateMode);
-                if (!m_EnvUpdateMode.value.hasMultipleDifferentValues && m_EnvUpdateMode.value.intValue == (int)EnvironmentUpdateMode.Realtime)
+                if (!m_EnvUpdateMode.value.hasMultipleDifferentValues && m_EnvUpdateMode.value.intValue == (int)EnvironementUpdateMode.Realtime)
                 {
                     EditorGUI.indentLevel++;
                     PropertyField(m_EnvUpdatePeriod);

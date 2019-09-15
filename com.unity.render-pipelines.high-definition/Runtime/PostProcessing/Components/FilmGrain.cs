@@ -1,6 +1,7 @@
 using System;
+using UnityEngine.Rendering;
 
-namespace UnityEngine.Rendering.HighDefinition
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
     public enum FilmGrainLookup
     {
@@ -17,19 +18,19 @@ namespace UnityEngine.Rendering.HighDefinition
         Custom
     }
 
-    [Serializable, VolumeComponentMenu("Post-processing/Film Grain")]
+    [Serializable, VolumeComponentMenu("Post-processing/FilmGrain")]
     public sealed class FilmGrain : VolumeComponent, IPostProcessComponent
     {
-        [Tooltip("Specifies the type of grain to use. Select a preset or select \"Custom\" to provide your own Texture.")]
+        [Tooltip("The type of grain to use. You can select a preset or provide your own texture by selecting Custom.")]
         public FilmGrainLookupParameter type = new FilmGrainLookupParameter(FilmGrainLookup.Thin1);
 
-        [Tooltip("Controls the strength of the film grain effect.")]
+        [Tooltip("Amount of vignetting on screen.")]
         public ClampedFloatParameter intensity = new ClampedFloatParameter(0f, 0f, 1f);
 
-        [Tooltip("Controls the noisiness response curve. The higher you set this value, the less noise there is in brighter areas.")]
+        [Tooltip("Controls the noisiness response curve based on scene luminance. Higher values mean less noise in light areas.")]
         public ClampedFloatParameter response = new ClampedFloatParameter(0.8f, 0f, 1f);
 
-        [Tooltip("Specifies a tileable Texture to use for the grain. The neutral value for this Texture is 0.5 which means that HDRP does not apply grain at this value.")]
+        [Tooltip("A tileable texture to use for the grain. The neutral value is 0.5 where no grain is applied.")]
         public NoInterpTextureParameter texture = new NoInterpTextureParameter(null);
 
         public bool IsActive()

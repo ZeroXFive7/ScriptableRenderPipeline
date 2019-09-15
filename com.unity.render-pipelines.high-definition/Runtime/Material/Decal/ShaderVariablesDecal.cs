@@ -1,7 +1,8 @@
-namespace UnityEngine.Rendering.HighDefinition
+
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
     [GenerateHLSL(needAccessors = false, omitStructDeclaration = true)]
-    struct ShaderVariablesDecal
+    public struct ShaderVariablesDecal
     {
         public Vector2  _DecalAtlasResolution;
         public uint    _EnableDecals;

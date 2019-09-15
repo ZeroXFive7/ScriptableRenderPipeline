@@ -2,18 +2,17 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEditor.VFX.Block;
 using UnityEngine;
-using UnityEngine.VFX;
+using UnityEngine.Experimental.VFX;
 
 namespace UnityEditor.VFX
 {
     [VFXInfo]
-    class VFXMeshOutput : VFXShaderGraphParticleOutput
+    class VFXMeshOutput : VFXAbstractParticleOutput
     {
         public override string name { get { return "Mesh Output"; } }
         public override string codeGeneratorTemplate { get { return RenderPipeTemplate("VFXParticleMeshes"); } }
         public override VFXTaskType taskType { get { return VFXTaskType.ParticleMeshOutput; } }
-        public override bool supportsUV { get { return shaderGraph == null; } }
-        public override bool implementsMotionVector { get { return true; } }
+        public override bool supportsUV { get { return true; } }
         public override CullMode defaultCullMode { get { return CullMode.Back;  } }
 
         public override IEnumerable<VFXAttributeInfo> attributes
@@ -48,32 +47,17 @@ namespace UnityEditor.VFX
         {
             foreach (var exp in base.CollectGPUExpressions(slotExpressions))
                 yield return exp;
-            if( shaderGraph == null)
-                yield return slotExpressions.First(o => o.name == "mainTexture");
+
+            yield return slotExpressions.First(o => o.name == "mainTexture");
         }
 
-        protected override IEnumerable<VFXPropertyWithValue> inputProperties
-        {
-            get
-            {
-                if( shaderGraph == null)
-                    foreach (var property in PropertiesFromType("OptionalInputProperties"))
-                        yield return property;
-                foreach (var property in base.inputProperties)
-                    yield return property;
-            }
-        }
-
-        public class OptionalInputProperties
+        public class InputProperties
         {
             [Tooltip("Texture to be applied to the mesh.")]
             public Texture2D mainTexture = VFXResources.defaultResources.particleTexture;
-        }
-        public class InputProperties
-        {
             [Tooltip("Mesh to be used for particle rendering.")]
             public Mesh mesh = VFXResources.defaultResources.mesh;
-            [Tooltip("Define a bitmask to control which submeshes are rendered."), BitField]
+            [Tooltip("Define a bitmask to control which submeshes are rendered.")]
             public uint subMeshMask = 0xffffffff;
         }
 

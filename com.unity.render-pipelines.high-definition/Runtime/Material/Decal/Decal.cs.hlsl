@@ -5,30 +5,30 @@
 #ifndef DECAL_CS_HLSL
 #define DECAL_CS_HLSL
 //
-// UnityEngine.Rendering.HighDefinition.Decal+DBufferMaterial:  static fields
+// UnityEngine.Experimental.Rendering.HDPipeline.Decal+DBufferMaterial:  static fields
 //
 #define DBUFFERMATERIAL_COUNT (4)
 
 //
-// UnityEngine.Rendering.HighDefinition.Decal+DBufferHTileBit:  static fields
+// UnityEngine.Experimental.Rendering.HDPipeline.Decal+DBufferHTileBit:  static fields
 //
 #define DBUFFERHTILEBIT_DIFFUSE (1)
 #define DBUFFERHTILEBIT_NORMAL (2)
 #define DBUFFERHTILEBIT_MASK (4)
 
-// Generated from UnityEngine.Rendering.HighDefinition.Decal+DecalSurfaceData
+// Generated from UnityEngine.Experimental.Rendering.HDPipeline.Decal+DecalSurfaceData
 // PackingRules = Exact
 struct DecalSurfaceData
 {
     float4 baseColor;
     float4 normalWS;
     float4 mask;
-    float3 emissive;
+    float4 emissive;
     float2 MAOSBlend;
     uint HTileMask;
 };
 
-// Generated from UnityEngine.Rendering.HighDefinition.DecalData
+// Generated from UnityEngine.Experimental.Rendering.HDPipeline.DecalData
 // PackingRules = Exact
 struct DecalData
 {

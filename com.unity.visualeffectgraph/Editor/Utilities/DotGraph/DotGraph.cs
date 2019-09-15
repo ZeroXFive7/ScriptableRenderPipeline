@@ -6,7 +6,7 @@ using System.Text;
 
 namespace UnityEditor.Dot
 {
-    class DotGraph
+    public class DotGraph
     {
         public void AddElement(DotElement element)
         {

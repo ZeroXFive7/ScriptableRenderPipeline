@@ -1,6 +1,9 @@
 #if UNITY_EDITOR //file must be in realtime assembly folder to be found in HDRPAsset
+using System;
+using UnityEngine.Serialization;
+using UnityEngine.Experimental.Rendering;
 
-namespace UnityEngine.Rendering.HighDefinition
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
     public partial class HDRenderPipelineEditorResources
     {

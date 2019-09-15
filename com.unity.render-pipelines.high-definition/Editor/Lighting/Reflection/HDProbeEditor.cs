@@ -2,11 +2,11 @@ using System.Collections.Generic;
 using System.Linq.Expressions;
 using UnityEngine;
 using System.Reflection;
-using UnityEngine.Rendering.HighDefinition;
+using UnityEngine.Experimental.Rendering.HDPipeline;
 using Object = UnityEngine.Object;
 using System;
 
-namespace UnityEditor.Rendering.HighDefinition
+namespace UnityEditor.Experimental.Rendering.HDPipeline
 {
     interface IHDProbeEditor
     {
@@ -27,10 +27,7 @@ namespace UnityEditor.Rendering.HighDefinition
         HDProbe IHDProbeEditor.GetTarget(Object editorTarget) => GetTarget(editorTarget);
 
         TSerialized m_SerializedHDProbe;
-        Dictionary<Object, TSerialized> m_SerializedHDProbePerTarget;
         protected HDProbe[] m_TypedTargets;
-
-        protected bool showChromeGizmo { get; private set; }
 
         public override void OnInspectorGUI()
         {
@@ -44,15 +41,11 @@ namespace UnityEditor.Rendering.HighDefinition
         protected virtual void OnEnable()
         {
             m_SerializedHDProbe = NewSerializedObject(serializedObject);
-            showChromeGizmo = true;
 
-            m_SerializedHDProbePerTarget = new Dictionary<Object, TSerialized>(targets.Length);
             m_TypedTargets = new HDProbe[targets.Length];
             for (var i = 0; i < m_TypedTargets.Length; i++)
             {
                 m_TypedTargets[i] = GetTarget(targets[i]);
-                var so = new SerializedObject(targets[i]);
-                m_SerializedHDProbePerTarget[targets[i]] = NewSerializedObject(so);
             }
 
             foreach (var target in serializedObject.targetObjects)
@@ -71,10 +64,6 @@ namespace UnityEditor.Rendering.HighDefinition
         protected virtual void Draw(TSerialized serialized, Editor owner)
         {
             HDProbeUI.Drawer<TProvider>.DrawToolbars(serialized, owner);
-            EditorGUI.BeginChangeCheck();
-            showChromeGizmo = EditorGUILayout.Toggle(EditorGUIUtility.TrTextContent("Show Chrome Gizmo"), showChromeGizmo);
-            if (EditorGUI.EndChangeCheck())
-                SceneView.RepaintAll();
             HDProbeUI.Drawer<TProvider>.DrawPrimarySettings(serialized, owner);
 
             //note: cannot use 'using CED = something' due to templated type passed.
@@ -85,14 +74,9 @@ namespace UnityEditor.Rendering.HighDefinition
                     HDProbeUI.Drawer<TProvider>.DrawInfluenceSettings,
                     HDProbeUI.Drawer_DifferentShapeError
                     ),
-                CoreEditorDrawer<TSerialized>.AdvancedFoldoutGroup(HDProbeUI.k_CaptureSettingsHeader, HDProbeUI.Expandable.Capture, HDProbeUI.k_ExpandedState,
-                    (s, o) => s.GetEditorOnlyData(SerializedHDProbe.EditorOnlyData.CaptureSettingsIsAdvanced),
-                    (s, o) => s.ToggleEditorOnlyData(SerializedHDProbe.EditorOnlyData.CaptureSettingsIsAdvanced),
-                    CoreEditorDrawer<TSerialized>.Group(DrawAdditionalCaptureSettings,
-                        HDProbeUI.Drawer<TProvider>.DrawCaptureSettings
-                    ),
-                    HDProbeUI.Drawer<TProvider>.DrawAdvancedCaptureSettings
-                    ),
+                CoreEditorDrawer<TSerialized>.FoldoutGroup(HDProbeUI.k_CaptureSettingsHeader, HDProbeUI.Expandable.Capture, HDProbeUI.k_ExpandedState,
+                    DrawAdditionalCaptureSettings,
+                    HDProbeUI.Drawer<TProvider>.DrawCaptureSettings),
                 CoreEditorDrawer<TSerialized>.FoldoutGroup(HDProbeUI.k_CustomSettingsHeader, HDProbeUI.Expandable.Custom, HDProbeUI.k_ExpandedState,
                     HDProbeUI.Drawer<TProvider>.DrawCustomSettings),
                 CoreEditorDrawer<TSerialized>.Group(HDProbeUI.Drawer<TProvider>.DrawBakeButton)
@@ -104,15 +88,14 @@ namespace UnityEditor.Rendering.HighDefinition
 
         protected void OnSceneGUI()
         {
-            EditorGUI.BeginChangeCheck();
-            var soo = m_SerializedHDProbePerTarget[target];
-            soo.Update();
-            HDProbeUI.DrawHandles(soo, this);
+            m_SerializedHDProbe.Update();
 
+            EditorGUI.BeginChangeCheck();
+            HDProbeUI.DrawHandles(m_SerializedHDProbe, this);
             HDProbeUI.Drawer<TProvider>.DoToolbarShortcutKey(this);
-            DrawHandles(soo, this);
+            DrawHandles(m_SerializedHDProbe, this);
             if (EditorGUI.EndChangeCheck())
-                soo.Apply();
+                m_SerializedHDProbe.Apply();
         }
 
         static Func<float> s_CapturePointPreviewSizeGetter = ComputeCapturePointPreviewSizeGetter();

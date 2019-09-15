@@ -2,8 +2,9 @@ using System;
 using System.Collections.Generic;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine.Assertions;
+using UnityEngine.Rendering;
 
-namespace UnityEngine.Rendering.HighDefinition
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
     internal static class HDProbeSystem
     {
@@ -30,15 +31,14 @@ namespace UnityEngine.Rendering.HighDefinition
         public static IList<HDProbe> realtimeViewDependentProbes => s_Instance.realtimeViewDependentProbes;
         public static IList<HDProbe> realtimeViewIndependentProbes => s_Instance.realtimeViewIndependentProbes;
         public static IList<HDProbe> bakedProbes => s_Instance.bakedProbes;
-
+    
         public static void RegisterProbe(HDProbe probe) => s_Instance.RegisterProbe(probe);
         public static void UnregisterProbe(HDProbe probe) => s_Instance.UnregisterProbe(probe);
 
         public static void Render(
             HDProbe probe, Transform viewerTransform,
             Texture outTarget, out HDProbe.RenderData outRenderData,
-            bool forceFlipY = false,
-            float referenceFieldOfView = 90
+            bool forceFlipY = false
         )
         {
             var positionSettings = ProbeCapturePositionSettings.ComputeFrom(probe, viewerTransform);
@@ -46,9 +46,8 @@ namespace UnityEngine.Rendering.HighDefinition
                 probe.settings,
                 positionSettings,
                 outTarget,
-                out var cameraSettings, out var cameraPosition,
-                forceFlipY,
-                referenceFieldOfView: referenceFieldOfView
+                out CameraSettings cameraSettings, out CameraPositionSettings cameraPosition,
+                forceFlipY: forceFlipY
             );
 
             outRenderData = new HDProbe.RenderData(cameraSettings, cameraPosition);
@@ -109,7 +108,7 @@ namespace UnityEngine.Rendering.HighDefinition
                                 );
                                 break;
                             case ProbeSettings.ProbeType.ReflectionProbe:
-                                target = HDRenderUtilities.CreateReflectionProbeRenderTarget(
+                                target = HDRenderUtilities.CreateReflectionProbeTarget(
                                     (int)hd.currentPlatformRenderPipelineSettings.lightLoopSettings.reflectionCubemapSize
                                 );
                                 break;
@@ -184,10 +183,6 @@ namespace UnityEngine.Rendering.HighDefinition
             switch (settings.mode)
             {
                 case ProbeSettings.Mode.Baked:
-                    // TODO: Remove the duplicate check
-                    // In theory, register/unregister are called by pair, never twice register in a row
-                    // So there should not any "duplicate" calls. still it happens and we must prevent
-                    // duplicate entries.
                     if (!m_BakedProbes.Contains(probe))
                         m_BakedProbes.Add(probe);
                     break;
@@ -209,25 +204,18 @@ namespace UnityEngine.Rendering.HighDefinition
             switch (settings.type)
             {
                 case ProbeSettings.ProbeType.PlanarProbe:
-                {
-                    // TODO: Remove the duplicate check
-                    // In theory, register/unregister are called by pair, never twice register in a row
-                    // So there should not any "duplicate" calls. still it happens and we must prevent
-                    // duplicate entries.
-                    if (Array.IndexOf(m_PlanarProbes, (PlanarReflectionProbe) probe) != -1)
-                        break;
-
-                    // Grow the arrays
-                    if (m_PlanarProbeCount == m_PlanarProbes.Length)
                     {
-                        Array.Resize(ref m_PlanarProbes, m_PlanarProbes.Length * 2);
-                        Array.Resize(ref m_PlanarProbeBounds, m_PlanarProbeBounds.Length * 2);
+                        // Grow the arrays
+                        if (m_PlanarProbeCount == m_PlanarProbes.Length)
+                        {
+                            Array.Resize(ref m_PlanarProbes, m_PlanarProbes.Length * 2);
+                            Array.Resize(ref m_PlanarProbeBounds, m_PlanarProbeBounds.Length * 2);
+                        }
+                        m_PlanarProbes[m_PlanarProbeCount] = (PlanarReflectionProbe)probe;
+                        m_PlanarProbeBounds[m_PlanarProbeCount] = ((PlanarReflectionProbe)probe).boundingSphere;
+                        ++m_PlanarProbeCount;
+                        break;
                     }
-                    m_PlanarProbes[m_PlanarProbeCount] = (PlanarReflectionProbe)probe;
-                    m_PlanarProbeBounds[m_PlanarProbeCount] = ((PlanarReflectionProbe)probe).boundingSphere;
-                    ++m_PlanarProbeCount;
-                    break;
-                }
             }
         }
 
@@ -254,7 +242,7 @@ namespace UnityEngine.Rendering.HighDefinition
         internal HDProbeCullState PrepareCull(Camera camera)
         {
             // Can happens right before a domain reload
-            // The CullingGroup is disposed at that point
+            // The CullingGroup is disposed at that point 
             if (m_PlanarProbeCullingGroup == null)
                 return default;
 

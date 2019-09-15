@@ -1,20 +1,18 @@
 using System;
 using System.Collections.Generic;
-using UnityEditor.Rendering.HighDefinition.Drawing.Slots;
+using UnityEditor.Experimental.Rendering.HDPipeline.Drawing.Slots;
 using UnityEditor.Graphing;
 using UnityEditor.ShaderGraph;
 using UnityEngine;
 using UnityEngine.UIElements;
 using UnityEditor.ShaderGraph.Drawing.Controls;
-using UnityEditor.ShaderGraph.Internal;
-using UnityEngine.Rendering.HighDefinition;
+using UnityEngine.Experimental.Rendering.HDPipeline;
 using UnityEngine.Rendering;
 
-namespace UnityEditor.Rendering.HighDefinition
+namespace UnityEditor.Experimental.Rendering.HDPipeline
 {
     [Serializable]
     [FormerName("UnityEditor.ShaderGraph.DiffusionProfileInputMaterialSlot")]
-    [FormerName("UnityEditor.Experimental.Rendering.HDPipeline.DiffusionProfileInputMaterialSlot")]
     class DiffusionProfileInputMaterialSlot : Vector1MaterialSlot
     {
         [SerializeField, Obsolete("Use m_DiffusionProfileAsset instead.")]
@@ -36,7 +34,7 @@ namespace UnityEditor.Rendering.HighDefinition
 
         [SerializeField]
         int m_Version;
-
+        
         DiffusionProfileSlotControlView view;
 
         public DiffusionProfileSettings diffusionProfile
@@ -45,7 +43,7 @@ namespace UnityEditor.Rendering.HighDefinition
             {
                 if (String.IsNullOrEmpty(m_SerializedDiffusionProfile))
                     return null;
-
+                
                 if (m_DiffusionProfileAsset == null)
                 {
                     var serializedProfile = new DiffusionProfileSerializer();
@@ -59,7 +57,7 @@ namespace UnityEditor.Rendering.HighDefinition
             {
                 if (m_DiffusionProfileAsset == value)
                     return ;
-
+                
                 var serializedProfile = new DiffusionProfileSerializer();
                 serializedProfile.diffusionProfileAsset = value;
                 m_SerializedDiffusionProfile = EditorJsonUtility.ToJson(serializedProfile, true);
@@ -140,7 +138,7 @@ namespace UnityEditor.Rendering.HighDefinition
             {
                 // We need to warn the user that we can't upgrade the diffusion profile but this upgrade code
                 // does not work currently :(
-                // Debug.LogError("Failed to upgrade the diffusion profile slot value, reseting to default value: " + hdAsset.diffusionProfileSettingsList[m_DiffusionProfile.selectedEntry] +
+                // Debug.LogError("Failed to upgrade the diffusion profile slot value, reseting to default value: " + hdAsset.diffusionProfileSettingsList[m_DiffusionProfile.selectedEntry] + 
                 //     "\nTo remove this message save the shader graph with the new diffusion profile reference");
                 // m_DiffusionProfileAsset = hdAsset.diffusionProfileSettingsList[m_DiffusionProfile.selectedEntry];
                 m_Version = 1;

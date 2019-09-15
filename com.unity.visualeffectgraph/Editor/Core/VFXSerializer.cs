@@ -12,7 +12,7 @@ using TangentMode = UnityEditor.AnimationUtility.TangentMode;
 namespace UnityEditor.VFX
 {
     [Serializable]
-    class SerializableType : ISerializationCallbackReceiver
+    public class SerializableType : ISerializationCallbackReceiver
     {
         public static implicit operator SerializableType(Type value)
         {
@@ -98,7 +98,7 @@ namespace UnityEditor.VFX
     }
 
     [Serializable]
-    class VFXSerializableObject
+    public class VFXSerializableObject
     {
         private VFXSerializableObject() {}
 
@@ -170,7 +170,7 @@ namespace UnityEditor.VFX
     }
 
 
-    static class VFXSerializer
+    public static class VFXSerializer
     {
         [System.Serializable]
         public struct TypedSerializedData
@@ -461,8 +461,6 @@ namespace UnityEditor.VFX
             }
             else if (type == typeof(string))
             {
-                if (string.IsNullOrEmpty(text))
-                    return "";
                 return text.Substring(1, text.Length - 2).Replace("\\\"", "\"");
             }
             else if (type == typeof(SerializableType))
@@ -492,7 +490,7 @@ namespace UnityEditor.VFX
                 else //List
                 {
                     int listCount = elements.Count;
-                    IList listObj = (IList)Activator.CreateInstance(type, new object[0]);
+                    IList listObj = (Array)Activator.CreateInstance(type, new object[] { listCount });
                     for (int index = 0; index < listCount; index++)
                     {
                         listObj.Add(Load(type.GetElementType(), elements[index], null));

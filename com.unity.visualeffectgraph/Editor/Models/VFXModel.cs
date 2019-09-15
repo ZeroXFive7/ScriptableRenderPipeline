@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
-using UnityEditor.VFX;
-using UnityEngine.VFX;
+using UnityEditor.Experimental.VFX;
+using UnityEngine.Experimental.VFX;
 using UnityEngine.Profiling;
 
 namespace UnityEditor.VFX
@@ -31,6 +31,7 @@ namespace UnityEditor.VFX
         {
             kStructureChanged,      // Model structure (hierarchy) has changed
             kParamChanged,          // Some parameter values have changed
+            kParamPropagated,       // Some parameter values have change and was propagated from the parents
             kSettingChanged,        // A setting value has changed
             kSpaceChanged,          // Space has been changed
             kConnectionChanged,     // Connection have changed
@@ -59,7 +60,7 @@ namespace UnityEditor.VFX
             {
                 int nbRemoved = m_Children.RemoveAll(c => c == null);// Remove bad references if any
                 if (nbRemoved > 0)
-                    Debug.LogWarning(String.Format("Remove {0} child(ren) that couldnt be deserialized from {1} of type {2}", nbRemoved, name, GetType()));
+                    Debug.Log(String.Format("Remove {0} child(ren) that couldnt be deserialized from {1} of type {2}", nbRemoved, name, GetType()));
             }
         }
 
@@ -69,12 +70,12 @@ namespace UnityEditor.VFX
         {
         }
 
-        public virtual void CollectDependencies(HashSet<ScriptableObject> objs, bool ownedOnly = true)
+        public virtual void CollectDependencies(HashSet<ScriptableObject> objs)
         {
             foreach (var child in children)
             {
                 objs.Add(child);
-                child.CollectDependencies(objs, ownedOnly);
+                child.CollectDependencies(objs);
             }
         }
 
@@ -231,67 +232,28 @@ namespace UnityEditor.VFX
             return m_Children.IndexOf(child);
         }
 
-        public object GetSettingValue(string name)
-        {
-            var setting = GetSetting(name);
-            if (setting.field == null)
-            {
-                throw new ArgumentException(string.Format("Unable to find field {0} in {1}", name, GetType().ToString()));
-            }
-            return setting.value;
-        }
-
         public void SetSettingValue(string name, object value)
         {
-            SetSettingValue(name, value, true);         
+            SetSettingValue(name, value, true);
         }
 
-        public void SetSettingValues(IEnumerable<KeyValuePair<string, object>> nameValues)
-        {
-            bool hasChanged = false;
-            foreach (var kvp in nameValues)
-            {
-                if (SetSettingValueAndReturnIfChanged(kvp.Key, kvp.Value))
-                    hasChanged = true;
-            }
-
-            if (hasChanged)
-                Invalidate(InvalidationCause.kSettingChanged);
-        }
         protected void SetSettingValue(string name, object value, bool notify)
         {
-            bool hasChanged = SetSettingValueAndReturnIfChanged(name, value);
-            if (hasChanged && notify)
-                Invalidate(InvalidationCause.kSettingChanged);
-        }
-
-        private bool SetSettingValueAndReturnIfChanged(string name, object value)
-        {
-            var setting = GetSetting(name);
-            if (setting.field == null)
+            var field = GetType().GetField(name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+            if (field == null)
             {
                 throw new ArgumentException(string.Format("Unable to find field {0} in {1}", name, GetType().ToString()));
             }
 
-            var currentValue = setting.value;
+            var currentValue = field.GetValue(this);
             if (currentValue != value)
             {
-                setting.field.SetValue(setting.instance, value);
-                OnSettingModified(setting);
-                if (setting.instance != this)
-                    setting.instance.OnSettingModified(setting);
-                return true;
+                field.SetValue(this, value);
+                if (notify)
+                {
+                    Invalidate(InvalidationCause.kSettingChanged);
+                }
             }
-            return false;
-        }
-
-        // Override this method to update other settings based on a setting modification
-        // Use OnIvalidate with KSettingChanged and not this method to handle other side effects
-        protected virtual void OnSettingModified(VFXSetting setting) {}
-
-        public virtual VFXSetting GetSetting(string name)
-        {
-            return new VFXSetting(GetType().GetField(name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance), this);
         }
 
         public void Invalidate(InvalidationCause cause)
@@ -309,14 +271,14 @@ namespace UnityEditor.VFX
             }
         }
 
-        protected internal virtual void Invalidate(VFXModel model, InvalidationCause cause)
+        protected virtual void Invalidate(VFXModel model, InvalidationCause cause)
         {
             OnInvalidate(model, cause);
             if (m_Parent != null)
                 m_Parent.Invalidate(model, cause);
         }
 
-        public virtual IEnumerable<VFXSetting> GetSettings(bool listHidden, VFXSettingAttribute.VisibleFlags flags = VFXSettingAttribute.VisibleFlags.All)
+        public IEnumerable<FieldInfo> GetSettings(bool listHidden, VFXSettingAttribute.VisibleFlags flags = VFXSettingAttribute.VisibleFlags.All)
         {
             return GetType().GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance).Where(f =>
             {
@@ -330,7 +292,7 @@ namespace UnityEditor.VFX
                     return (attr.visibleFlags & flags) != 0 && !filteredOutSettings.Contains(f.Name);
                 }
                 return false;
-            }).Select(field => new VFXSetting(field,this));
+            });
         }
 
         static public VFXExpression ConvertSpace(VFXExpression input, VFXSlot targetSlot, VFXCoordinateSpace space)

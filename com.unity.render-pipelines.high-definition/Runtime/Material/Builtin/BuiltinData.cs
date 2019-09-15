@@ -1,12 +1,9 @@
 //-----------------------------------------------------------------------------
 // structure definition
 //-----------------------------------------------------------------------------
-using UnityEngine.Rendering.HighDefinition.Attributes;
-using UnityEngine.Experimental.Rendering;
-
-namespace UnityEngine.Rendering.HighDefinition
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
-    class Builtin // Note: This particular class doesn't derive from RenderPipelineMaterial
+    public class Builtin // Note: This particular class doesn't derive from RenderPipelineMaterial
     {
         //-----------------------------------------------------------------------------
         // BuiltinData
@@ -17,41 +14,40 @@ namespace UnityEngine.Rendering.HighDefinition
         [GenerateHLSL(PackingRules.Exact, false, false, true, 100)]
         public struct BuiltinData
         {
-            [MaterialSharedPropertyMapping(MaterialSharedProperty.Alpha)]
-            [SurfaceDataAttributes("Opacity", precision = FieldPrecision.Real)]
+            [SurfaceDataAttributes("Opacity")]
             public float opacity;
 
             // These are lighting data.
             // We would prefer to split lighting and material information but for performance reasons,
             // those lighting information are fill
             // at the same time than material information.
-            [SurfaceDataAttributes("Bake Diffuse Lighting", false, true, FieldPrecision.Real)]
+            [SurfaceDataAttributes("Bake Diffuse Lighting", false, true)]
             public Vector3 bakeDiffuseLighting; // This is the result of sampling lightmap/lightprobe/proxyvolume
-            [SurfaceDataAttributes("Back Bake Diffuse Lighting", false, true, FieldPrecision.Real)]
+            [SurfaceDataAttributes("Back Bake Diffuse Lighting", false, true)]
             public Vector3 backBakeDiffuseLighting; // This is the result of sampling lightmap/lightprobe/proxyvolume from the back for transmission
 
             // Use for float instead of vector4 to ease the debug (no performance impact)
             // Note: We have no way to remove these value automatically based on either SHADEROPTIONS_BAKED_SHADOW_MASK_ENABLE or s_BakedShadowMaskEnable here. Unless we make two structure... For now always keep this value
-            [SurfaceDataAttributes("Shadow Mask 0", precision = FieldPrecision.Real)]
+            [SurfaceDataAttributes("Shadow Mask 0")]
             public float shadowMask0;
-            [SurfaceDataAttributes("Shadow Mask 1", precision = FieldPrecision.Real)]
+            [SurfaceDataAttributes("Shadow Mask 1")]
             public float shadowMask1;
-            [SurfaceDataAttributes("Shadow Mask 2", precision = FieldPrecision.Real)]
+            [SurfaceDataAttributes("Shadow Mask 2")]
             public float shadowMask2;
-            [SurfaceDataAttributes("Shadow Mask 3", precision = FieldPrecision.Real)]
+            [SurfaceDataAttributes("Shadow Mask 3")]
             public float shadowMask3;
 
-            [SurfaceDataAttributes("Emissive Color", false, false, FieldPrecision.Real)]
+            [SurfaceDataAttributes("Emissive Color", false, false)]
             public Vector3 emissiveColor;
 
             // These is required for motion blur and temporalAA
-            [SurfaceDataAttributes("MotionVector", precision = FieldPrecision.Real)]
-            public Vector2 motionVector;
+            [SurfaceDataAttributes("Velocity")]
+            public Vector2 velocity;
 
             // Distortion
-            [SurfaceDataAttributes("Distortion", precision = FieldPrecision.Real)]
+            [SurfaceDataAttributes("Distortion")]
             public Vector2 distortion;
-            [SurfaceDataAttributes("Distortion Blur", precision = FieldPrecision.Real)]
+            [SurfaceDataAttributes("Distortion Blur")]
             public float distortionBlur;           // Define the color buffer mipmap level to use
 
             // Misc
@@ -69,9 +65,8 @@ namespace UnityEngine.Rendering.HighDefinition
         [GenerateHLSL(PackingRules.Exact, false)]
         public struct LightTransportData
         {
-            [SurfaceDataAttributes("", false, true, FieldPrecision.Real)]
+            [SurfaceDataAttributes("", false, true)]
             public Vector3 diffuseColor;
-            [SurfaceDataAttributes(precision = FieldPrecision.Real)]
             public Vector3 emissiveColor; // HDR value
         };
 
@@ -85,7 +80,7 @@ namespace UnityEngine.Rendering.HighDefinition
             return GraphicsFormat.R8G8B8A8_UNorm;
         }
 
-        public static GraphicsFormat GetMotionVectorFormat()
+        public static GraphicsFormat GetVelocityBufferFormat()
         {
             return GraphicsFormat.R16G16_SFloat; // TODO: We should use 16bit normalized instead, better precision // RGInt
         }

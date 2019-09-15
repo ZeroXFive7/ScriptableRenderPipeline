@@ -4,16 +4,14 @@
 
 #ifndef HDRAYTRACINGLIGHTCLUSTER_CS_HLSL
 #define HDRAYTRACINGLIGHTCLUSTER_CS_HLSL
-// Generated from UnityEngine.Rendering.HighDefinition.LightVolume
+// Generated from UnityEngine.Experimental.Rendering.HDPipeline.LightVolume
 // PackingRules = Exact
 struct LightVolume
 {
     int active;
-    int shape;
     float3 position;
-    float3 range;
+    float range;
     uint lightType;
-    uint lightIndex;
 };
 
 

@@ -2,7 +2,7 @@ using System;
 using UnityEditor.UIElements;
 using UnityEditor.Experimental.GraphView;
 using UnityEngine;
-using UnityEngine.VFX;
+using UnityEngine.Experimental.VFX;
 using UnityEngine.UIElements;
 using UnityEditor.VFX;
 using System.Collections.Generic;
@@ -50,14 +50,9 @@ namespace  UnityEditor.VFX.UI
 
         public void SelfChange()
         {
-            if(controller.isOutput)
+            if (controller.exposed)
             {
-                icon = AssetDatabase.LoadAssetAtPath<Texture2D>(VisualEffectGraphPackageInfo.assetPackagePath + "/Editor Default Resources/VFX/output dot.png");
-
-            }
-            else if (controller.exposed)
-            {
-                icon = AssetDatabase.LoadAssetAtPath<Texture2D>(VisualEffectGraphPackageInfo.assetPackagePath + "/Editor Default Resources/VFX/exposed dot.png");
+                icon = Resources.Load<Texture2D>("VFX/exposed dot");
             }
             else
             {

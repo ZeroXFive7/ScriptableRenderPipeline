@@ -30,7 +30,7 @@ namespace UnityEngine.Rendering
             return ((VolumeParameter<T>) this).value;
         }
 
-        public abstract void SetValue(VolumeParameter parameter);
+        internal abstract void SetValue(VolumeParameter parameter);
 
         // This is used in case you need to access fields/properties that can't be accessed in the
         // constructor of a ScriptableObject (VolumeParameter are generally declared and inited in
@@ -99,7 +99,7 @@ namespace UnityEngine.Rendering
             m_Value = x;
         }
 
-        public override void SetValue(VolumeParameter parameter)
+        internal override void SetValue(VolumeParameter parameter)
         {
             m_Value = parameter.GetValue<T>();
         }
@@ -111,7 +111,7 @@ namespace UnityEngine.Rendering
                 int hash = 17;
                 hash = hash * 23 + overrideState.GetHashCode();
 
-                if (!ReferenceEquals(value, null))
+                if (value != null)
                     hash = hash * 23 + value.GetHashCode();
 
                 return hash;
@@ -120,7 +120,7 @@ namespace UnityEngine.Rendering
 
         public override string ToString() => $"{value} ({overrideState})";
 
-        public static bool operator==(VolumeParameter<T> lhs, T rhs) => lhs != null && !ReferenceEquals(lhs.value, null) && lhs.value.Equals(rhs);
+        public static bool operator==(VolumeParameter<T> lhs, T rhs) => lhs != null && lhs.value != null && lhs.value.Equals(rhs);
 
         public static bool operator!=(VolumeParameter<T> lhs, T rhs) => !(lhs == rhs);
 
@@ -149,7 +149,22 @@ namespace UnityEngine.Rendering
             return Equals((VolumeParameter<T>)obj);
         }
 
-        public static explicit operator T(VolumeParameter<T> prop) => prop.m_Value;
+        //
+        // Implicit conversion; assuming the following:
+        //
+        //   var myFloatProperty = new ParameterOverride<float> { value = 42f; };
+        //
+        // It allows for implicit casts:
+        //
+        //   float myFloat = myFloatProperty.value; // No implicit cast
+        //   float myFloat = myFloatProperty;       // Implicit cast
+        //
+        // For safety reason this is one-way only.
+        //
+        public static implicit operator T(VolumeParameter<T> prop)
+        {
+            return prop.m_Value;
+        }
     }
 
     //
@@ -166,13 +181,6 @@ namespace UnityEngine.Rendering
     public class BoolParameter : VolumeParameter<bool>
     {
         public BoolParameter(bool value, bool overrideState = false)
-            : base(value, overrideState) {}
-    }
-
-    [Serializable, DebuggerDisplay(k_DebuggerDisplay)]
-    public class LayerMaskParameter : VolumeParameter<LayerMask>
-    {
-        public LayerMaskParameter(LayerMask value, bool overrideState = false)
             : base(value, overrideState) {}
     }
 

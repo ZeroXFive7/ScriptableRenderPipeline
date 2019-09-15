@@ -5,7 +5,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using UnityEditor.Experimental.UIElements.GraphView;
-using UnityEditor.VFX;
+using UnityEditor.Experimental.VFX;
 using UnityEngine;
 using UnityEngine.Profiling;
 

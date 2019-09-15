@@ -1,6 +1,5 @@
 using System;
 using UnityEditor.Graphing;
-using UnityEditor.ShaderGraph.Internal;
 using UnityEngine;
 
 namespace UnityEditor.ShaderGraph
@@ -10,18 +9,25 @@ namespace UnityEditor.ShaderGraph
     {
         public Matrix2ShaderProperty()
         {
-            displayName = "Matrix2x2";
-            value = Matrix4x4.identity;
+            displayName = "Matrix2";
         }
 
-        public override PropertyType propertyType => PropertyType.Matrix2;
-
-        internal override string GetPropertyAsArgumentString()
+        public override PropertyType propertyType
         {
-            return $"{concretePrecision.ToShaderString()}2x2 {referenceName}";
+            get { return PropertyType.Matrix2; }
         }
 
-        internal override AbstractMaterialNode ToConcreteNode()
+        public override bool isBatchable
+        {
+            get { return true; }
+        }
+
+        public override string GetPropertyDeclarationString(string delimiter = ";")
+        {
+            return "float4x4 " + referenceName + " = float4x4(1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)" + delimiter;
+        }
+
+        public override AbstractMaterialNode ToConcreteNode()
         {
             return new Matrix2Node
             {
@@ -30,23 +36,12 @@ namespace UnityEditor.ShaderGraph
             };
         }
 
-        internal override PreviewProperty GetPreviewMaterialProperty()
+        public override AbstractShaderProperty Copy()
         {
-            return new PreviewProperty(propertyType)
-            {
-                name = referenceName,
-                matrixValue = value
-            };
-        }
-
-        internal override ShaderInput Copy()
-        {
-            return new Matrix2ShaderProperty()
-            {
-                displayName = displayName,
-                hidden = hidden,
-                value = value
-            };
+            var copied = new Matrix2ShaderProperty();
+            copied.displayName = displayName;
+            copied.value = value;
+            return copied;
         }
     }
 }

@@ -3,15 +3,15 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using UnityEngine;
-using UnityEngine.VFX;
+using UnityEngine.Experimental.VFX;
 
 namespace UnityEditor.VFX
 {
     [AttributeUsage(AttributeTargets.Struct)]
-    class VFXTypeAttribute : Attribute
+    public class VFXTypeAttribute : Attribute
     {}
 
-    enum SpaceableType
+    public enum SpaceableType
     {
         None,
         Position,
@@ -21,7 +21,7 @@ namespace UnityEditor.VFX
     }
 
     [AttributeUsage(AttributeTargets.Field | AttributeTargets.Struct)]
-    class VFXSpaceAttribute : PropertyAttribute
+    public class VFXSpaceAttribute : PropertyAttribute
     {
         public readonly SpaceableType type;
         public VFXSpaceAttribute(SpaceableType type)
@@ -30,7 +30,7 @@ namespace UnityEditor.VFX
         }
     }
 
-    class ShowAsColorAttribute : Attribute
+    public class ShowAsColorAttribute : Attribute
     {}
 
     class CoordinateSpaceInfo
@@ -295,22 +295,7 @@ namespace UnityEditor.VFX
         public float aspectRatio;
         [Min(0.0f), Tooltip("The width and height of the camera in pixels.")]
         public Vector2 pixelDimensions;
-        [Tooltip("The depth buffer of the camera")]
-        public Texture2DArray depthBuffer;
-        [Tooltip("The color buffer of the camera")]
-        public Texture2DArray colorBuffer;
 
         public static CameraType defaultValue = new CameraType { transform = Transform.defaultValue, fieldOfView = 60.0f * Mathf.Deg2Rad, nearPlane = 0.3f, farPlane = 1000.0f, aspectRatio = 1.0f, pixelDimensions = new Vector2(1920, 1080) };
-    }
-
-    [VFXType, Serializable]
-    struct TerrainType
-    {
-        [Tooltip("Bounds of the Terrain")]
-        public AABox Bounds;
-        [Tooltip("HeightMap of the Terrain")]
-        public Texture2D HeightMap;
-        [Tooltip("Height of the Terrain")]
-        public float Height;
     }
 }

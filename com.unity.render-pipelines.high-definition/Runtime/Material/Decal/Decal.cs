@@ -1,9 +1,9 @@
 using System;
-using UnityEngine.Experimental.Rendering;
+using UnityEngine.Rendering;
 
-namespace UnityEngine.Rendering.HighDefinition
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
-    partial class Decal
+    public partial class Decal
     {
         // Main structure that store the user data (i.e user input of master node in material graph)
         [GenerateHLSL(PackingRules.Exact, false)]
@@ -13,10 +13,10 @@ namespace UnityEngine.Rendering.HighDefinition
             public Vector4 baseColor;
             [SurfaceDataAttributes("Normal", true)]
             public Vector4 normalWS;
-            [SurfaceDataAttributes("Mask", true)]
+            [SurfaceDataAttributes("Mask", true)]            
             public Vector4 mask; // Metal, AmbientOcclusion, Smoothness, smoothness opacity
             [SurfaceDataAttributes("Emissive")]
-            public Vector3 emissive;
+            public Vector4 emissive;
             [SurfaceDataAttributes("AOSBlend", true)]
             public Vector2 MAOSBlend; // Metal opacity and Ambient occlusion opacity
             [SurfaceDataAttributes("HTileMask")]
@@ -26,7 +26,7 @@ namespace UnityEngine.Rendering.HighDefinition
 
         [GenerateHLSL(PackingRules.Exact)]
         public enum DBufferMaterial
-        {
+        {           
             Count = 4
         };
 
@@ -72,7 +72,7 @@ namespace UnityEngine.Rendering.HighDefinition
     // float2 uvScale = float2(decalData.normalToWorld[3][0], decalData.normalToWorld[3][1]);
     // float2 uvBias = float2(decalData.normalToWorld[3][2], decalData.normalToWorld[3][3]);
     [GenerateHLSL(PackingRules.Exact, false)]
-    struct DecalData
+    public struct DecalData
     {
         public Matrix4x4 worldToDecal;
         public Matrix4x4 normalToWorld;

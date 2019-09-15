@@ -1,7 +1,7 @@
 using UnityEngine;
-using UnityEngine.Rendering.HighDefinition;
+using UnityEngine.Experimental.Rendering.HDPipeline;
 
-namespace UnityEditor.Rendering.HighDefinition
+namespace UnityEditor.Experimental.Rendering.HDPipeline
 {
     [CustomEditorForRenderPipeline(typeof(Cubemap), typeof(HDRenderPipelineAsset))]
     class HDCubemapInspector : Editor
@@ -103,9 +103,11 @@ namespace UnityEditor.Rendering.HighDefinition
             GUI.enabled = true;
 
             GUILayout.Box(s_ExposureLow, s_PreLabel, GUILayout.MaxWidth(20));
+            GUI.changed = false;
             previewExposure = GUILayout.HorizontalSlider(previewExposure, -20f, 20f, GUILayout.MaxWidth(80));
             GUILayout.Space(5);
             GUILayout.Box(s_MipMapHigh, s_PreLabel, GUILayout.MaxWidth(20));
+            GUI.changed = false;
             mipLevelPreview = GUILayout.HorizontalSlider(mipLevelPreview, 0, mipmapCount, GUILayout.MaxWidth(80));
             GUILayout.Box(s_MipMapLow, s_PreLabel, GUILayout.MaxWidth(20));
         }

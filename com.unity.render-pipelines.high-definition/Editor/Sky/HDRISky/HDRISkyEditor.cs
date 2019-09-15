@@ -1,21 +1,22 @@
+using UnityEditor.Rendering;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Experimental.Rendering;
-using UnityEngine.Rendering.HighDefinition;
+using UnityEngine.Experimental.Rendering.HDPipeline;
 
-namespace UnityEditor.Rendering.HighDefinition
+namespace UnityEditor.Experimental.Rendering.HDPipeline
 {
     [CanEditMultipleObjects]
     [VolumeComponentEditor(typeof(HDRISky))]
-    class HDRISkyEditor
+    public class HDRISkyEditor
         : SkySettingsEditor
     {
         SerializedDataParameter m_hdriSky;
         SerializedDataParameter m_DesiredLuxValue;
         SerializedDataParameter m_IntensityMode;
         SerializedDataParameter m_UpperHemisphereLuxValue;
-
-        RTHandle m_IntensityTexture;
+        
+        RTHandleSystem.RTHandle m_IntensityTexture;
         Material m_IntegrateHDRISkyMaterial; // Compute the HDRI sky intensity in lux for the skybox
         Texture2D readBackTexture;
 
@@ -31,9 +32,9 @@ namespace UnityEditor.Rendering.HighDefinition
             m_DesiredLuxValue = Unpack(o.Find(x => x.desiredLuxValue));
             m_IntensityMode = Unpack(o.Find(x => x.skyIntensityMode));
             m_UpperHemisphereLuxValue = Unpack(o.Find(x => x.upperHemisphereLuxValue));
-
+            
             m_IntensityTexture = RTHandles.Alloc(1, 1, colorFormat: GraphicsFormat.R32G32B32A32_SFloat);
-            var hdrp = HDRenderPipeline.defaultAsset;
+            var hdrp = GraphicsSettings.renderPipelineAsset as HDRenderPipelineAsset;
             m_IntegrateHDRISkyMaterial = CoreUtils.CreateEngineMaterial(hdrp.renderPipelineResources.shaders.integrateHdriSkyPS);
             readBackTexture = new Texture2D(1, 1, TextureFormat.RGBAFloat, false, false);
         }
@@ -42,7 +43,7 @@ namespace UnityEditor.Rendering.HighDefinition
         {
             if (m_IntensityTexture != null)
                 RTHandles.Release(m_IntensityTexture);
-
+            
             readBackTexture = null;
         }
 
@@ -73,9 +74,9 @@ namespace UnityEditor.Rendering.HighDefinition
             EditorGUI.BeginChangeCheck();
             {
                 PropertyField(m_hdriSky);
-
+    
                 EditorGUILayout.Space();
-
+                
                 PropertyField(m_IntensityMode);
             }
             if (EditorGUI.EndChangeCheck())

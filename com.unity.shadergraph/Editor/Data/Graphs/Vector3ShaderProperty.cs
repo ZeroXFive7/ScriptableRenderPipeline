@@ -2,20 +2,46 @@ using System;
 using UnityEditor.Graphing;
 using UnityEngine;
 
-namespace UnityEditor.ShaderGraph.Internal
+namespace UnityEditor.ShaderGraph
 {
     [Serializable]
-    [FormerName("UnityEditor.ShaderGraph.Vector3ShaderProperty")]
-    public sealed class Vector3ShaderProperty : VectorShaderProperty
+    class Vector3ShaderProperty : VectorShaderProperty
     {
-        internal Vector3ShaderProperty()
+        public Vector3ShaderProperty()
         {
             displayName = "Vector3";
         }
 
-        public override PropertyType propertyType => PropertyType.Vector3;
+        public override PropertyType propertyType
+        {
+            get { return PropertyType.Vector3; }
+        }
 
-        internal override AbstractMaterialNode ToConcreteNode()
+        public override Vector4 defaultValue
+        {
+            get { return new Vector4(value.x, value.y, value.z, 0); }
+        }
+
+        public override bool isBatchable
+        {
+            get { return true; }
+        }
+
+        public override string GetPropertyDeclarationString(string delimiter = ";")
+        {
+            return string.Format("float3 {0}{1}", referenceName, delimiter);
+        }
+
+        public override PreviewProperty GetPreviewMaterialProperty()
+        {
+            return new PreviewProperty(PropertyType.Vector3)
+            {
+                name = referenceName,
+                vector4Value = value
+            };
+        }
+
+        public override AbstractMaterialNode ToConcreteNode()
         {
             var node = new Vector3Node();
             node.FindInputSlot<Vector1MaterialSlot>(Vector3Node.InputSlotXId).value = value.x;
@@ -24,23 +50,12 @@ namespace UnityEditor.ShaderGraph.Internal
             return node;
         }
 
-        internal override PreviewProperty GetPreviewMaterialProperty()
+        public override AbstractShaderProperty Copy()
         {
-            return new PreviewProperty(propertyType)
-            {
-                name = referenceName,
-                vector4Value = value
-            };
-        }
-
-        internal override ShaderInput Copy()
-        {
-            return new Vector3ShaderProperty()
-            {
-                displayName = displayName,
-                hidden = hidden,
-                value = value
-            };
+            var copied = new Vector3ShaderProperty();
+            copied.displayName = displayName;
+            copied.value = value;
+            return copied;
         }
     }
 }

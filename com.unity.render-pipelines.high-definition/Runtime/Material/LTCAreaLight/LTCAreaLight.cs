@@ -1,6 +1,9 @@
-namespace UnityEngine.Rendering.HighDefinition
+using System;
+using UnityEngine.Rendering;
+
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
-    partial class LTCAreaLight
+    public partial class LTCAreaLight
     {
         static LTCAreaLight s_Instance;
 

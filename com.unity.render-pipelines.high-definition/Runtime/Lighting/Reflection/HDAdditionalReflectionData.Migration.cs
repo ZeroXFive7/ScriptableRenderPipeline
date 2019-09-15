@@ -1,6 +1,6 @@
 using UnityEngine.Serialization;
 
-namespace UnityEngine.Rendering.HighDefinition
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
     public sealed partial class HDAdditionalReflectionData : IVersionable<HDAdditionalReflectionData.ReflectionProbeVersion>
     {

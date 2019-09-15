@@ -1,9 +1,9 @@
 using UnityEngine;
 using UnityEditor.Rendering;
 
-namespace UnityEditor.Rendering.HighDefinition
+namespace UnityEditor.Experimental.Rendering.HDPipeline
 {
-    class UnlitsToHDUnlitUpgrader : MaterialUpgrader
+    public class UnlitsToHDUnlitUpgrader : MaterialUpgrader
     {
         string Unlit_Color = "Unlit/Color";
         //string Unlit_Texture = "Unlit/Texture";
@@ -37,7 +37,7 @@ namespace UnityEditor.Rendering.HighDefinition
 
             base.Convert(srcMaterial, dstMaterial);
 
-            HDShaderUtils.ResetMaterialKeywords(dstMaterial);
+            HDEditorUtils.ResetMaterialKeywords(dstMaterial);
         }
     }
 }

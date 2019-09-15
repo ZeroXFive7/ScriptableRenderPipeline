@@ -1,6 +1,6 @@
 using System;
 
-namespace UnityEngine.Rendering.HighDefinition
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
     public enum CameraProjection { Perspective, Orthographic };
 
@@ -45,7 +45,7 @@ namespace UnityEngine.Rendering.HighDefinition
         public LayerMask cullingMask = -1; //= 0xFFFFFFFF which is c++ default
         public bool useOcclusionCulling = true;
 
-        public LayerMask volumeLayerMask = 1;
+        public LayerMask volumeLayerMask = -1; //= 0xFFFFFFFF which is c++ default
         public Transform volumeAnchorOverride;
 
         public CameraProjection projection = CameraProjection.Perspective;

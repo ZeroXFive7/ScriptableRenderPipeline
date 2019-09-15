@@ -1,4 +1,4 @@
-namespace UnityEngine.Rendering
+namespace UnityEngine.Experimental.Rendering
 {
     public static class HaltonSequence
     {

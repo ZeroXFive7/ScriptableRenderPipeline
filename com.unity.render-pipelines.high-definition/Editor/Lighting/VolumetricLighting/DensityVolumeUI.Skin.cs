@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace UnityEditor.Rendering.HighDefinition
+namespace UnityEditor.Experimental.Rendering.HDPipeline
 {
     static partial class DensityVolumeUI
     {

@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using UnityEngine.Assertions;
 using UnityEngine.SceneManagement;
 
-namespace UnityEngine.Rendering.HighDefinition
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
-    class SceneObjectIDMap
+    public class SceneObjectIDMap
     {
         public static bool TryGetSceneObjectID<TCategory>(GameObject gameObject, out int index, out TCategory category)
             where TCategory : struct, IConvertible
@@ -250,7 +250,7 @@ namespace UnityEngine.Rendering.HighDefinition
                     break;
                 }
             }
-
+            
             if (index == -1)
             {
                 index = m_Entries.Count;

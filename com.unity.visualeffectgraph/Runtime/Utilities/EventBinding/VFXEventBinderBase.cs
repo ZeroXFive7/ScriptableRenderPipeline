@@ -1,10 +1,10 @@
 using System.Collections;
 using System.Collections.Generic;
-using UnityEngine.VFX;
+using UnityEngine.Experimental.VFX;
 
-namespace UnityEngine.VFX.Utility
+namespace UnityEngine.VFX.Utils
 {
-    abstract class VFXEventBinderBase : MonoBehaviour
+    public abstract class VFXEventBinderBase : MonoBehaviour
     {
         [SerializeField]
         protected VisualEffect target;

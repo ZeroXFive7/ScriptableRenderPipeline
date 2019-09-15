@@ -3,7 +3,6 @@ using System.Linq;
 using UnityEditor.ShaderGraph.Drawing.Controls;
 using UnityEngine;
 using UnityEditor.Graphing;
-using UnityEditor.ShaderGraph.Internal;
 
 namespace UnityEditor.ShaderGraph
 {
@@ -37,17 +36,18 @@ namespace UnityEditor.ShaderGraph
             RemoveSlotsNameNotMatching(new[] { OutputSlotId, InputSlotXId, InputSlotYId });
         }
 
-        public void GenerateNodeCode(ShaderStringBuilder sb, GenerationMode generationMode)
+        public void GenerateNodeCode(ShaderGenerator visitor, GraphContext graphContext, GenerationMode generationMode)
         {
             var inputXValue = GetSlotValue(InputSlotXId, generationMode);
             var inputYValue = GetSlotValue(InputSlotYId, generationMode);
             var outputName = GetVariableNameForSlot(OutputSlotId);
 
-            var s = string.Format("$precision2 {0} = $precision2({1}, {2});",
+            var s = string.Format("{0}2 {1} = {0}2({2},{3});",
+                    precision,
                     outputName,
                     inputXValue,
                     inputYValue);
-            sb.AppendLine(s);
+            visitor.AddShaderChunk(s, false);
         }
 
         public AbstractShaderProperty AsShaderProperty()

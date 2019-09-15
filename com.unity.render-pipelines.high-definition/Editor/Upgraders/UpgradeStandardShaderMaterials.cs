@@ -3,9 +3,9 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEditor.Rendering;
 
-namespace UnityEditor.Rendering.HighDefinition
+namespace UnityEditor.Experimental.Rendering.HDPipeline
 {
-    class UpgradeStandardShaderMaterials
+    public class UpgradeStandardShaderMaterials
     {
         static List<MaterialUpgrader> GetHDUpgraders()
         {
@@ -22,19 +22,19 @@ namespace UnityEditor.Rendering.HighDefinition
         }
 
         [MenuItem("Edit/Render Pipeline/Upgrade Project Materials to High Definition Materials", priority = CoreUtils.editMenuPriority2)]
-        internal static void UpgradeMaterialsProject()
+        static void UpgradeMaterialsProject()
         {
             MaterialUpgrader.UpgradeProjectFolder(GetHDUpgraders(), "Upgrade to HD Material");
         }
 
         [MenuItem("Edit/Render Pipeline/Upgrade Selected Materials to High Definition Materials", priority = CoreUtils.editMenuPriority2)]
-        internal static void UpgradeMaterialsSelection()
+        static void UpgradeMaterialsSelection()
         {
             MaterialUpgrader.UpgradeSelection(GetHDUpgraders(), "Upgrade to HD Material");
         }
 
-        [MenuItem("Edit/Render Pipeline/Upgrade Unity Builtin Scene Light Intensity for High Definition", priority = CoreUtils.editMenuPriority2)]
-        internal static void UpgradeLights()
+        [MenuItem("Edit/Render Pipeline/Upgrade Scene Light Intensity for High Definition", priority = CoreUtils.editMenuPriority2)]
+        static void UpgradeLights()
         {
             Light[] lights = Light.GetLights(LightType.Directional, 0);
             foreach (var l in lights)

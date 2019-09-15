@@ -1,6 +1,6 @@
-using UnityEngine.Rendering.HighDefinition;
+using UnityEngine.Experimental.Rendering.HDPipeline;
 
-namespace UnityEditor.Rendering.HighDefinition
+namespace UnityEditor.Experimental.Rendering.HDPipeline
 {
     [CanEditMultipleObjects]
     [CustomEditor(typeof(HDAdditionalCameraData))]

@@ -1,10 +1,10 @@
 using System.Collections;
 using System.Collections.Generic;
 
-namespace UnityEngine.VFX.Utility
+namespace UnityEngine.VFX.Utils
 {
     [RequireComponent(typeof(Collider))]
-    class VFXTriggerEventBinder : VFXEventBinderBase
+    public class VFXTriggerEventBinder : VFXEventBinderBase
     {
         public enum Activation
         {
@@ -17,7 +17,7 @@ namespace UnityEngine.VFX.Utility
 
         public Activation activation = Activation.OnEnter;
 
-        private ExposedProperty positionParameter = "position";
+        private ExposedParameter positionParameter = "position";
 
         protected override void SetEventAttribute(object[] parameters)
         {

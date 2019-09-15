@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using UnityEngine.VFX;
+using UnityEngine.Experimental.VFX;
 
 namespace UnityEditor.VFX.Operator
 {
@@ -13,7 +13,7 @@ namespace UnityEditor.VFX.Operator
         private bool m_IntegratedRandom = true;
 
         [VFXSetting, Tooltip("Generate a random number for each particle, or one that is shared by the whole system."), SerializeField]
-        public VFXSeedMode m_Seed = VFXSeedMode.PerParticle;
+        public Random.SeedMode m_Seed = Random.SeedMode.PerParticle;
 
         [VFXSetting, Tooltip("The random number may either remain constant, or change every time it is evaluated."), SerializeField]
         public bool m_Constant = true;
@@ -68,11 +68,11 @@ namespace UnityEditor.VFX.Operator
             }
         }
 
-        protected override void OnInvalidate(VFXModel model, InvalidationCause cause)
+        protected override void Invalidate(VFXModel model, InvalidationCause cause)
         {
             if (m_EntryCount < 2) m_EntryCount = 2;
             if (m_EntryCount > 32) m_EntryCount = 32;
-            base.OnInvalidate(model, cause);
+            base.Invalidate(model, cause);
         }
 
         protected sealed override IEnumerable<VFXPropertyWithValue> inputProperties
@@ -112,9 +112,9 @@ namespace UnityEditor.VFX.Operator
             if (m_IntegratedRandom)
             {
                 if (m_Constant)
-                    rand = VFXOperatorUtility.FixedRandom(inputExpression.Last(), m_Seed);
+                    rand = VFXOperatorUtility.FixedRandom(inputExpression.Last(), m_Seed == Random.SeedMode.PerParticle);
                 else
-                    rand = new VFXExpressionRandom(m_Seed == VFXSeedMode.PerParticle);
+                    rand = new VFXExpressionRandom(m_Seed == Random.SeedMode.PerParticle);
             }
             else
             {

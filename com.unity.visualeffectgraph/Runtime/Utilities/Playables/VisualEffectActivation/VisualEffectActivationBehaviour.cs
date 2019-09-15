@@ -3,11 +3,11 @@ using System;
 using UnityEngine;
 using UnityEngine.Timeline;
 using UnityEngine.Playables;
-using UnityEngine.VFX;
-using UnityEngine.VFX.Utility;
+using UnityEngine.Experimental.VFX;
+using UnityEngine.VFX.Utils;
 
 [Serializable]
-class VisualEffectActivationBehaviour : PlayableBehaviour
+public class VisualEffectActivationBehaviour : PlayableBehaviour
 {
     [Serializable]
     public enum AttributeType
@@ -25,17 +25,15 @@ class VisualEffectActivationBehaviour : PlayableBehaviour
     [Serializable]
     public struct EventState
     {
-#pragma warning disable 649
-        public ExposedProperty attribute;
+        public ExposedParameter attribute;
         public AttributeType type;
         public float[] values; //double could cover precision of integer and float within the same container, but not needed for now
-#pragma warning restore 649
     }
 
     [SerializeField]
-    private ExposedProperty onClipEnter = "OnPlay";
+    private ExposedParameter onClipEnter = "OnPlay";
     [SerializeField]
-    private ExposedProperty onClipExit = "OnStop";
+    private ExposedParameter onClipExit = "OnStop";
     [SerializeField]
     private EventState[] clipEnterEventAttributes = null;
     [SerializeField]

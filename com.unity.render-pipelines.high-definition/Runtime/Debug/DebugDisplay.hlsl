@@ -13,18 +13,16 @@ CBUFFER_START(UnityDebugDisplay)
 // Set of parameters available when switching to debug shader mode
 int _DebugLightingMode; // Match enum DebugLightingMode
 int _DebugShadowMapMode;
-float _DebugViewMaterialArray[11]; // Contain the id (define in various materialXXX.cs.hlsl) of the property to display
+int _DebugViewMaterial; // Contain the id (define in various materialXXX.cs.hlsl) of the property to display
 int _DebugMipMapMode; // Match enum DebugMipMapMode
 int _DebugMipMapModeTerrainTexture; // Match enum DebugMipMapModeTerrainTexture
 int _ColorPickerMode; // Match enum ColorPickerDebugMode
 int _DebugStep;
 int _DebugDepthPyramidMip;
 int _DebugFullScreenMode;
-float _DebugTransparencyOverdrawWeight;
 float4 _DebugLightingAlbedo; // x == bool override, yzw = albedo for diffuse
 float4 _DebugLightingSmoothness; // x == bool override, y == override value
 float4 _DebugLightingNormal; // x == bool override
-float4 _DebugLightingAmbientOcclusion; // x == bool override, y == override value
 float4 _DebugLightingSpecularColor; // x == bool override, yzw = specular color
 float4 _DebugLightingEmissiveColor; // x == bool override, yzw = emissive color
 float4 _DebugLightingMaterialValidateHighColor; // user can specific the colors for the validator error conditions
@@ -33,13 +31,10 @@ float4 _DebugLightingMaterialValidatePureMetalColor;
 float4 _MousePixelCoord;  // xy unorm, zw norm
 float4 _MouseClickPixelCoord;  // xy unorm, zw norm
 float _DebugExposure;
-int _MatcapMixAlbedo;
-int _MatcapViewScale;
-uint _DebugContactShadowLightIndex;
 CBUFFER_END
 
 // Local shader variables
-static float g_DebugShadowAttenuation = 0;
+float debugShadowAttenuation = 0;
 
 StructuredBuffer<int2>  _DebugDepthPyramidOffsets;
 
@@ -50,7 +45,6 @@ StructuredBuffer<int2>  _DebugDepthPyramidOffsets;
 #define LUXMETER_COMPRESSION_RATIO  4
 
 TEXTURE2D(_DebugFont); // Debug font to write string in shader
-TEXTURE2D(_DebugMatCapTexture);
 
 void GetPropertiesDataDebug(uint paramId, inout float3 result, inout bool needLinearToSRGB)
 {

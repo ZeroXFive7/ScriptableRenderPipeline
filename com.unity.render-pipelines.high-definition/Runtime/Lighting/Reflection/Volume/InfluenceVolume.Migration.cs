@@ -1,9 +1,10 @@
 using System;
 using UnityEngine.Serialization;
+using UnityEngine.Experimental.Rendering;
 
-namespace UnityEngine.Rendering.HighDefinition
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
-    partial class InfluenceVolume : IVersionable<InfluenceVolume.Version>, ISerializationCallbackReceiver
+    public partial class InfluenceVolume : IVersionable<InfluenceVolume.Version>, ISerializationCallbackReceiver
     {
         enum Version
         {

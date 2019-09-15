@@ -1,6 +1,8 @@
-namespace UnityEngine.Rendering.HighDefinition
+using UnityEngine.Rendering;
+
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
-    class GradientSkyRenderer : SkyRenderer
+    public class GradientSkyRenderer : SkyRenderer
     {
         Material m_GradientSkyMaterial; // Renders a cubemap into a render texture (can be cube or 2D)
         MaterialPropertyBlock m_PropertyBlock;
@@ -19,7 +21,7 @@ namespace UnityEngine.Rendering.HighDefinition
 
         public override void Build()
         {
-            var hdrp = HDRenderPipeline.defaultAsset;
+            var hdrp = GraphicsSettings.renderPipelineAsset as HDRenderPipelineAsset;
             m_GradientSkyMaterial = CoreUtils.CreateEngineMaterial(hdrp.renderPipelineResources.shaders.gradientSkyPS);
         }
 
@@ -28,12 +30,24 @@ namespace UnityEngine.Rendering.HighDefinition
             CoreUtils.Destroy(m_GradientSkyMaterial);
         }
 
+        public override void SetRenderTargets(BuiltinSkyParameters builtinParams)
+        {
+            if (builtinParams.depthBuffer == BuiltinSkyParameters.nullRT)
+            {
+                HDUtils.SetRenderTarget(builtinParams.commandBuffer, builtinParams.hdCamera, builtinParams.colorBuffer);
+            }
+            else
+            {
+                HDUtils.SetRenderTarget(builtinParams.commandBuffer, builtinParams.hdCamera, builtinParams.colorBuffer, builtinParams.depthBuffer);
+            }
+        }
+
         public override void RenderSky(BuiltinSkyParameters builtinParams, bool renderForCubemap, bool renderSunDisk)
         {
-            m_GradientSkyMaterial.SetColor(_GradientBottom, m_GradientSkyParams.bottom.value);
-            m_GradientSkyMaterial.SetColor(_GradientMiddle, m_GradientSkyParams.middle.value);
-            m_GradientSkyMaterial.SetColor(_GradientTop, m_GradientSkyParams.top.value);
-            m_GradientSkyMaterial.SetFloat(_GradientDiffusion, m_GradientSkyParams.gradientDiffusion.value);
+            m_GradientSkyMaterial.SetColor(_GradientBottom, m_GradientSkyParams.bottom);
+            m_GradientSkyMaterial.SetColor(_GradientMiddle, m_GradientSkyParams.middle);
+            m_GradientSkyMaterial.SetColor(_GradientTop, m_GradientSkyParams.top);
+            m_GradientSkyMaterial.SetFloat(_GradientDiffusion, m_GradientSkyParams.gradientDiffusion);
             m_GradientSkyMaterial.SetVector(HDShaderIDs._SkyParam, new Vector2(GetExposure(m_GradientSkyParams, builtinParams.debugSettings), m_GradientSkyParams.multiplier.value));
 
             // This matrix needs to be updated at the draw call frequency.

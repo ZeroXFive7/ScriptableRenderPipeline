@@ -1,11 +1,17 @@
 using System;
 using System.Diagnostics;
+using UnityEngine.Rendering;
 
-namespace UnityEngine.Rendering.HighDefinition
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
-    // Deprecated, kept for migration
+    // Keep this class first in the file. Otherwise it seems that the script type is not registered properly.
     public abstract class AtmosphericScattering : VolumeComponent
     {
+        // Fog Color
+        static readonly int m_ColorModeParam = Shader.PropertyToID("_FogColorMode");
+        static readonly int m_FogColorDensityParam = Shader.PropertyToID("_FogColorDensity");
+        static readonly int m_MipFogParam = Shader.PropertyToID("_MipFogParameters");
+
         // Fog Color
         public FogColorParameter     colorMode = new FogColorParameter(FogColorMode.SkyColor);
         [Tooltip("Specifies the constant color of the fog.")]
@@ -21,14 +27,49 @@ namespace UnityEngine.Rendering.HighDefinition
         [Tooltip("Sets the distance at which HDRP uses the maximum mip image of the blurred sky texture as the fog color.")]
         public MinFloatParameter     mipFogFar = new MinFloatParameter(1000.0f, 0.0f);
 
-        internal abstract void PushShaderParameters(HDCamera hdCamera, CommandBuffer cmd);
+        public abstract void PushShaderParameters(HDCamera hdCamera, CommandBuffer cmd);
+
+        public void PushShaderParametersCommon(HDCamera hdCamera, CommandBuffer cmd, FogType type)
+        {
+            Debug.Assert(hdCamera.frameSettings.IsEnabled(FrameSettingsField.AtmosphericScattering));
+
+            cmd.SetGlobalInt(HDShaderIDs._AtmosphericScatteringType, (int)type);
+            cmd.SetGlobalFloat(HDShaderIDs._MaxFogDistance, maxFogDistance.value);
+
+            // Fog Color
+            cmd.SetGlobalFloat(m_ColorModeParam, (float)colorMode.value);
+            cmd.SetGlobalColor(m_FogColorDensityParam, new Color(color.value.r, color.value.g, color.value.b, density));
+            cmd.SetGlobalVector(m_MipFogParam, new Vector4(mipFogNear, mipFogFar, mipFogMaxMip, 0.0f));
+        }
     }
 
-    // Deprecated, kept for migration
+    [GenerateHLSL]
     public enum FogType
     {
-        None = 0,
-        Exponential = 2,
-        Volumetric = 3,
+        None,
+        Linear,
+        Exponential,
+        Volumetric
+    }
+
+    [GenerateHLSL]
+    public enum FogColorMode
+    {
+        ConstantColor,
+        SkyColor,
+    }
+
+    [Serializable, DebuggerDisplay(k_DebuggerDisplay)]
+    public sealed class FogTypeParameter : VolumeParameter<FogType>
+    {
+        public FogTypeParameter(FogType value, bool overrideState = false)
+            : base(value, overrideState) {}
+    }
+
+    [Serializable, DebuggerDisplay(k_DebuggerDisplay)]
+    public sealed class FogColorParameter : VolumeParameter<FogColorMode>
+    {
+        public FogColorParameter(FogColorMode value, bool overrideState = false)
+            : base(value, overrideState) {}
     }
 }

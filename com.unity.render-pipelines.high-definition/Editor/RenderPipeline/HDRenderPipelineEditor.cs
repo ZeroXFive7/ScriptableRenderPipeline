@@ -1,14 +1,12 @@
-using UnityEngine.Rendering.HighDefinition;
+using UnityEngine.Experimental.Rendering.HDPipeline;
 
-namespace UnityEditor.Rendering.HighDefinition
+namespace UnityEditor.Experimental.Rendering.HDPipeline
 {
     [CustomEditor(typeof(HDRenderPipelineAsset))]
     [CanEditMultipleObjects]
-    sealed class HDRenderPipelineEditor : Editor
+    public sealed class HDRenderPipelineEditor : Editor
     {
         SerializedHDRenderPipelineAsset m_SerializedHDRenderPipeline;
-
-        internal bool largeLabelWidth = true;
 
         void OnEnable()
         {
@@ -18,15 +16,10 @@ namespace UnityEditor.Rendering.HighDefinition
         public override void OnInspectorGUI()
         {
             var serialized = m_SerializedHDRenderPipeline;
-
+            
             serialized.Update();
 
-            // In the quality window use more space for the labels
-            if (!largeLabelWidth)
-                EditorGUIUtility.labelWidth *= 2;
             HDRenderPipelineUI.Inspector.Draw(serialized, this);
-            if (!largeLabelWidth)
-                EditorGUIUtility.labelWidth *= 0.5f;
 
             serialized.Apply();
         }

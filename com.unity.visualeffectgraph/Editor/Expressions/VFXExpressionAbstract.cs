@@ -1,13 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using UnityEditor.VFX;
+using UnityEditor.Experimental.VFX;
 using UnityEngine;
-using UnityEngine.VFX;
+using UnityEngine.Experimental.VFX;
 
 namespace UnityEditor.VFX
 {
-    static class VFXReflectionHelper
+    public static class VFXReflectionHelper
     {
         public static T[] CollectStaticReadOnlyExpression<T>(Type expressionType, System.Reflection.BindingFlags additionnalFlag = System.Reflection.BindingFlags.Public)
         {

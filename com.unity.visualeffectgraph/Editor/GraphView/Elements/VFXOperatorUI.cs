@@ -5,7 +5,7 @@ using System.Text;
 using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 using UnityEngine.UIElements;
-using UnityEngine.VFX;
+using UnityEngine.Experimental.VFX;
 using UnityEditor.VFX.UIElements;
 using Branch = UnityEditor.VFX.Operator.VFXOperatorDynamicBranch;
 
@@ -131,20 +131,14 @@ namespace UnityEditor.VFX.UI
         {
             if (evt.target == this && controller != null && controller.model is VFXInlineOperator)
             {
-                evt.menu.AppendAction("Convert to Exposed Property", OnConvertToExposedProperty, e => DropdownMenuAction.Status.Normal);
-                evt.menu.AppendAction("Convert to Property", OnConvertToProperty, e => DropdownMenuAction.Status.Normal);
+                evt.menu.AppendAction("Convert to Parameter", OnConvertToParameter, e => DropdownMenuAction.Status.Normal);
                 evt.menu.AppendSeparator();
             }
         }
 
-        void OnConvertToProperty(DropdownMenuAction evt)
+        void OnConvertToParameter(DropdownMenuAction evt)
         {
-            controller.ConvertToProperty(false);
-        }
-
-        void OnConvertToExposedProperty(DropdownMenuAction evt)
-        {
-            controller.ConvertToProperty(true);
+            controller.ConvertToParameter();
         }
 
         public override bool superCollapsed

@@ -1,11 +1,12 @@
 using System;
-using UnityEngine.Experimental.Rendering;
+using UnityEngine.Rendering;
+using UnityEngine.Serialization;
 
-namespace UnityEngine.Rendering.HighDefinition
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
     // RenderPipelineSettings define settings that can't be change during runtime. It is equivalent to the GraphicsSettings of Unity (Tiers + shader variant removal).
     // This allow to allocate resource or not for a given feature.
-    // FrameSettings control within a frame what is enable or not(enableShadow, enableDistortion...).
+    // FrameSettings control within a frame what is enable or not(enableShadow, enableStereo, enableDistortion...).
     // HDRenderPipelineAsset reference the current RenderPipelineSettings used, there is one per supported platform(Currently this feature is not implemented and only one GlobalFrameSettings is available).
     // A Camera with HDAdditionalData has one FrameSettings that configures how it will render. For example a camera used for reflection will disable distortion and post-process.
     // Additionally, on a Camera there is another FrameSettings called ActiveFrameSettings that is created on the fly based on FrameSettings and allows modifications for debugging purpose at runtime without being serialized on disk.
@@ -26,18 +27,6 @@ namespace UnityEngine.Rendering.HighDefinition
             Both = ForwardOnly | DeferredOnly
         }
 
-        public enum RaytracingTier
-        {
-            Tier1 = 1 << 0,
-            Tier2 = 1 << 1
-        }
-
-        public enum ColorBufferFormat
-        {
-            R11G11B10 = GraphicsFormat.B10G11R11_UFloatPack32,
-            R16G16B16A16 = GraphicsFormat.R16G16B16A16_SFloat
-        }
-
         /// <summary>Default RenderPipelineSettings</summary>
         public static readonly RenderPipelineSettings @default = new RenderPipelineSettings()
         {
@@ -49,33 +38,18 @@ namespace UnityEngine.Rendering.HighDefinition
             supportTransparentBackface = true,
             supportTransparentDepthPrepass = true,
             supportTransparentDepthPostpass = true,
-            colorBufferFormat = ColorBufferFormat.R11G11B10,
             supportedLitShaderMode = SupportedLitShaderMode.DeferredOnly,
             supportDecals = true,
             msaaSampleCount = MSAASamples.None,
             supportMotionVectors = true,
             supportRuntimeDebugDisplay = true,
             supportDitheringCrossFade = true,
-            supportTerrainHole = false,
             lightLoopSettings = GlobalLightLoopSettings.@default,
             hdShadowInitParams = HDShadowInitParameters.@default,
             decalSettings = GlobalDecalSettings.@default,
             postProcessSettings = GlobalPostProcessSettings.@default,
-            dynamicResolutionSettings = GlobalDynamicResolutionSettings.@default,
-            lowresTransparentSettings = GlobalLowResolutionTransparencySettings.@default,
-            xrSettings = GlobalXRSettings.@default,
-            postProcessQualitySettings = GlobalPostProcessingQualitySettings.@default,
-            supportRayTracing = false,
-            supportedRaytracingTier = RaytracingTier.Tier2,
-            lodBias = new FloatScalableSetting { low = 1, medium = 1, high = 1 },
-            maximumLODLevel = new IntScalableSetting(),
+            dynamicResolutionSettings = GlobalDynamicResolutionSettings.@default
         };
-
-        [Serializable]
-        public struct LightSettings
-        {
-            public BoolScalableSetting useContactShadow;
-        }
 
         // Lighting
         public bool supportShadowMask;
@@ -90,7 +64,6 @@ namespace UnityEngine.Rendering.HighDefinition
         public bool supportTransparentBackface;
         public bool supportTransparentDepthPrepass;
         public bool supportTransparentDepthPostpass;
-        public ColorBufferFormat colorBufferFormat;
         public SupportedLitShaderMode supportedLitShaderMode;
 
         // Engine
@@ -108,21 +81,12 @@ namespace UnityEngine.Rendering.HighDefinition
         public bool supportMotionVectors;
         public bool supportRuntimeDebugDisplay;
         public bool supportDitheringCrossFade;
-        public bool supportTerrainHole;
         public bool supportRayTracing;
-        public RaytracingTier supportedRaytracingTier;
 
         public GlobalLightLoopSettings lightLoopSettings;
         public HDShadowInitParameters hdShadowInitParams;
         public GlobalDecalSettings decalSettings;
         public GlobalPostProcessSettings postProcessSettings;
         public GlobalDynamicResolutionSettings dynamicResolutionSettings;
-        public GlobalLowResolutionTransparencySettings lowresTransparentSettings;
-        public GlobalXRSettings xrSettings;
-        public GlobalPostProcessingQualitySettings postProcessQualitySettings;
-
-        public LightSettings lightSettings;
-        public IntScalableSetting maximumLODLevel;
-        public FloatScalableSetting lodBias;
     }
 }

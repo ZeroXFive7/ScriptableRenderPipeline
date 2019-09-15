@@ -1,9 +1,9 @@
 using System;
 using UnityEngine.Serialization;
 
-namespace UnityEngine.Rendering.HighDefinition
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
-    partial class ProxyVolume : IVersionable<ProxyVolume.Version>, ISerializationCallbackReceiver
+    public partial class ProxyVolume : IVersionable<ProxyVolume.Version>, ISerializationCallbackReceiver
     {
         enum Version
         {

@@ -2,9 +2,9 @@ using UnityEngine;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEngine.Rendering;
-using UnityEngine.Rendering.HighDefinition;
+using UnityEngine.Experimental.Rendering.HDPipeline;
 
-namespace UnityEditor.Rendering.HighDefinition
+namespace UnityEditor.Experimental.Rendering.HDPipeline
 {
     class HDRPPreprocessBuild : IPreprocessBuildWithReport
     {
@@ -42,7 +42,7 @@ namespace UnityEditor.Rendering.HighDefinition
                 && HDUtils.IsOperatingSystemSupported(SystemInfo.operatingSystem)
                 && HDUtils.AreGraphicsAPIsSupported(report.summary.platform, out unsupportedGraphicDevice))
                 return;
-
+            
             unsupportedGraphicDevice = (unsupportedGraphicDevice == GraphicsDeviceType.Null) ? SystemInfo.graphicsDeviceType : unsupportedGraphicDevice;
             string msg = "The platform " + report.summary.platform.ToString() + " with the graphic API " +  unsupportedGraphicDevice + " is not supported with High Definition Render Pipeline";
 

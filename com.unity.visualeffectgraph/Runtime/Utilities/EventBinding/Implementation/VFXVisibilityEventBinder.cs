@@ -2,10 +2,10 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace UnityEngine.VFX.Utility
+namespace UnityEngine.VFX.Utils
 {
     [RequireComponent(typeof(Renderer))]
-    class VFXVisibilityEventBinder : VFXEventBinderBase
+    public class VFXVisibilityEventBinder : VFXEventBinderBase
     {
         public enum Activation
         {

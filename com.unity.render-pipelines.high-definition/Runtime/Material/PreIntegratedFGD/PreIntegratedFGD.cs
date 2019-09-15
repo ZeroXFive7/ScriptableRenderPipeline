@@ -1,6 +1,9 @@
-namespace UnityEngine.Rendering.HighDefinition
+using System;
+using UnityEngine.Rendering;
+
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
-    partial class PreIntegratedFGD
+    public partial class PreIntegratedFGD
     {
         [GenerateHLSL]
         public enum FGDTexture
@@ -35,7 +38,7 @@ namespace UnityEngine.Rendering.HighDefinition
         RenderTexture[] m_PreIntegratedFGD = new RenderTexture[(int)FGDIndex.Count];
 
         PreIntegratedFGD()
-        {
+        {            
             for (int i = 0; i < (int)FGDIndex.Count; ++i)
             {
                 m_isInit[i] = false;
@@ -50,7 +53,7 @@ namespace UnityEngine.Rendering.HighDefinition
 
             if (m_refCounting[(int)index] == 0)
             {
-                var hdrp = HDRenderPipeline.defaultAsset;
+                var hdrp = GraphicsSettings.renderPipelineAsset as HDRenderPipelineAsset;
                 int res  = (int)FGDTexture.Resolution;
 
                 switch(index)

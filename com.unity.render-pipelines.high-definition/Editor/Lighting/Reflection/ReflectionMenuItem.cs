@@ -1,11 +1,11 @@
 using UnityEditor.Rendering;
 using UnityEngine;
 using UnityEngine.Rendering;
-using UnityEngine.Rendering.HighDefinition;
+using UnityEngine.Experimental.Rendering.HDPipeline;
 
-namespace UnityEditor.Rendering.HighDefinition
+namespace UnityEditor.Experimental.Rendering.HDPipeline
 {
-    class ReflectionMenuItems
+    public class ReflectionMenuItems
     {
         [MenuItem("GameObject/3D Object/Mirror", priority = CoreUtils.gameObjectMenuPriority)]
         static void CreateMirrorGameObject(MenuCommand menuCommand)

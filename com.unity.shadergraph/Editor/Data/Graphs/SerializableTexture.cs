@@ -1,10 +1,10 @@
 using System;
 using UnityEngine;
 
-namespace UnityEditor.ShaderGraph.Internal
+namespace UnityEditor.ShaderGraph
 {
     [Serializable]
-    public sealed class SerializableTexture : ISerializationCallbackReceiver
+    class SerializableTexture
     {
         [SerializeField]
         string m_SerializedTexture;
@@ -32,32 +32,22 @@ namespace UnityEditor.ShaderGraph.Internal
                     var textureHelper = new TextureHelper();
                     EditorJsonUtility.FromJsonOverwrite(m_SerializedTexture, textureHelper);
                     m_SerializedTexture = null;
-                    m_Guid = null;
+                    m_Guid = AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(textureHelper.texture));
                     m_Texture = textureHelper.texture;
                 }
                 else if (!string.IsNullOrEmpty(m_Guid) && m_Texture == null)
                 {
                     m_Texture = AssetDatabase.LoadAssetAtPath<Texture>(AssetDatabase.GUIDToAssetPath(m_Guid));
-                    m_Guid = null;
                 }
 
                 return m_Texture;
             }
             set
             {
-                m_Texture = value;
-                m_Guid = null;
                 m_SerializedTexture = null;
+                m_Guid = AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(value));
+                m_Texture = value;
             }
-        }
-
-        public void OnBeforeSerialize()
-        {
-            m_SerializedTexture = EditorJsonUtility.ToJson(new TextureHelper { texture = texture }, false);
-        }
-
-        public void OnAfterDeserialize()
-        {
         }
     }
 }

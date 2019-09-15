@@ -2,27 +2,14 @@ using System.Linq;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
-using UnityEngine.Experimental.Rendering.HighDefinition;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
 
-namespace UnityEngine.Rendering.HighDefinition
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
 #if ENABLE_RAYTRACING
-    class HDRayTracingLights
-    {
-        // The list of non-directional lights in the sub-scene
-        public List<HDAdditionalLightData> hdLightArray = null;
-
-        // The list of directional lights in the sub-scene
-        public List<HDAdditionalLightData> hdDirectionalLightArray = null;
-
-        // The list of reflection probes
-        public List<HDProbe> reflectionProbeArray = null;
-    }
-
-    class HDRaytracingManager
+    public class HDRaytracingManager
     {
         // The list of ray-tracing environments that have been registered
         List<HDRaytracingEnvironment> m_Environments = new List<HDRaytracingEnvironment>();
@@ -51,7 +38,7 @@ namespace UnityEngine.Rendering.HighDefinition
                 m_Environments.Remove(targetEnvironment);
                 m_DirtyEnvironment = true;
 
-                // Now that a new environment has been removed, we need to update
+                // Now that a new environement has been removed, we need to update
                 UpdateEnvironmentSubScenes();
             }
         }
@@ -63,7 +50,7 @@ namespace UnityEngine.Rendering.HighDefinition
             public LayerMask mask = -1;
 
             // The native acceleration structure that matches this sub-scene
-            public Experimental.Rendering.RayTracingAccelerationStructure accelerationStructure = null;
+            public RaytracingAccelerationStructure accelerationStructure = null;
 
             // Flag that tracks if the acceleration needs to be updated
             public bool needUpdate = false;
@@ -71,8 +58,11 @@ namespace UnityEngine.Rendering.HighDefinition
             // The list of renderers in the sub-scene
             public List<Renderer> targetRenderers = null;
 
-            // Structure that holds all the lights that are bound to this sub scene
-            public HDRayTracingLights lights = null;
+            // The list of non-directional lights in the sub-scene
+            public List<HDAdditionalLightData> hdLightArray = null;
+
+            // The list of directional lights in the sub-scene
+            public List<HDAdditionalLightData> hdDirectionalLightArray = null;
 
             // Flag that defines if this sub-scene should be re-evaluated
             public bool obsolete = false;
@@ -93,34 +83,27 @@ namespace UnityEngine.Rendering.HighDefinition
         // This list tracks for each effect of the current layer mask index that is assigned to them
         int[] m_EffectsMaks = new int[HDRaytracingEnvironment.numRaytracingPasses];
 
-        // The HDRPAsset data that needs to be
+        // The HDRPAsset data that needs to be 
         RenderPipelineResources m_Resources = null;
-        HDRenderPipelineRayTracingResources m_RTResources = null;
         RenderPipelineSettings m_Settings;
-        HDRenderPipeline m_RenderPipeline = null;
+        LightLoop m_LightLoop = null;
         SharedRTManager m_SharedRTManager = null;
         BlueNoise m_BlueNoise = null;
-
-        // Denoisers
-        HDTemporalFilter m_TemporalFilter = new HDTemporalFilter();
-        HDSimpleDenoiser m_SimpleDenoiser = new HDSimpleDenoiser();
-        HDDiffuseDenoiser m_DiffuseDenoiser = new HDDiffuseDenoiser();
 
         // Ray-count manager data
         RayCountManager m_RayCountManager = new RayCountManager();
         public RayCountManager rayCountManager { get { return m_RayCountManager; } }
 
-        public void Init(RenderPipelineSettings settings, RenderPipelineResources rpResources, HDRenderPipelineRayTracingResources rayTracingResources, BlueNoise blueNoise, HDRenderPipeline renderPipeline, SharedRTManager sharedRTManager, DebugDisplaySettings currentDebugDisplaySettings)
+        public void Init(RenderPipelineSettings settings, RenderPipelineResources resources, BlueNoise blueNoise, LightLoop lightloop, SharedRTManager sharedRTManager, DebugDisplaySettings currentDebugDisplaySettings)
         {
             // Keep track of the resources
-            m_Resources = rpResources;
-            m_RTResources = rayTracingResources;
+            m_Resources = resources;
 
             // Keep track of the settings
             m_Settings = settings;
 
-            // Keep track of the render pipeline
-            m_RenderPipeline = renderPipeline;
+            // Keep track of the lightloop
+            m_LightLoop = lightloop;
 
             // Keep track of the shared RT manager
             m_SharedRTManager = sharedRTManager;
@@ -138,13 +121,8 @@ namespace UnityEngine.Rendering.HighDefinition
                 RegisterEnvironment(environmentArray[envIdx]);
             }
 
-            // Init the denoisers
-            m_TemporalFilter.Init(rayTracingResources, m_SharedRTManager);
-            m_SimpleDenoiser.Init(rayTracingResources, m_SharedRTManager);
-            m_DiffuseDenoiser.Init(rpResources, rayTracingResources, m_SharedRTManager);
-
             // Init the ray count manager
-            m_RayCountManager.Init(rayTracingResources, currentDebugDisplaySettings);
+            m_RayCountManager.Init(resources, currentDebugDisplaySettings);
 
 #if UNITY_EDITOR
             // We need to invalidate the acceleration structures in case the hierarchy changed
@@ -178,10 +156,6 @@ namespace UnityEngine.Rendering.HighDefinition
 
             // Clear the sub-scenes list
             m_SubScenes.Clear();
-
-            m_TemporalFilter.Release();
-            m_SimpleDenoiser.Release();
-            m_DiffuseDenoiser.Release();
             m_RayCountManager.Release();
         }
 
@@ -192,21 +166,16 @@ namespace UnityEngine.Rendering.HighDefinition
                 subScene.accelerationStructure.Dispose();
                 subScene.targetRenderers = null;
                 subScene.accelerationStructure = null;
+                subScene.hdLightArray = null;
                 subScene.lightCluster.ReleaseResources();
                 subScene.lightCluster = null;
-
-                // Clear the lights
-                subScene.lights.hdLightArray = null;
-                subScene.lights.hdDirectionalLightArray = null;
-                subScene.lights.reflectionProbeArray = null;
-                subScene.lights = null;
             }
         }
 
-        // This function is in charge of rebuilding the Sub-scenes in case the environment is flagged as obsolete
+        // This function is in charge of rebuilding the Subscenes in case the environment is flagged as obsolete
         public void CheckSubScenes()
         {
-            // If the environment is dirty we needs to destroy and rebuild all the sub-scenes
+            // If the environement is dirty we needs to destroy and rebuild all the sub-scenes
             if (m_DirtyEnvironment)
             {
                 // Let's lag all the sub-scenes as obsolete
@@ -315,7 +284,6 @@ namespace UnityEngine.Rendering.HighDefinition
             UpdateEffectSubScene(rtEnv.reflLayerMask.value, 1);
             UpdateEffectSubScene(rtEnv.shadowLayerMask.value, 2);
             UpdateEffectSubScene(rtEnv.raytracedLayerMask.value, 3);
-            UpdateEffectSubScene(rtEnv.indirectDiffuseLayerMask.value, 4);
 
             // Let's now go through all the sub-scenes and delete the ones that are not referenced by anyone
             var nonReferencedSubScenes = m_SubScenes.Where(x => x.Value.references == 0).ToArray();
@@ -345,37 +313,30 @@ namespace UnityEngine.Rendering.HighDefinition
             if (rtEnv == null) return;
 
             // If AO is on flag its RAS needUpdate
-            // if (rtEnv.raytracedAO)
+            if (rtEnv.raytracedAO)
             {
                 HDRayTracingSubScene currentSubScene = RequestSubScene(rtEnv.aoLayerMask);
                 currentSubScene.needUpdate = true;
             }
 
             // If Reflection is on flag its RAS needUpdate
-            // if (rtEnv.raytracedReflections)
+            if (rtEnv.raytracedReflections)
             {
                 HDRayTracingSubScene currentSubScene = RequestSubScene(rtEnv.reflLayerMask);
                 currentSubScene.needUpdate = true;
             }
 
             // If Area Shadow is on flag its RAS needUpdate
-            //if (rtEnv.raytracedShadows)
+            if (rtEnv.raytracedShadows)
             {
                 HDRayTracingSubScene currentSubScene = RequestSubScene(rtEnv.shadowLayerMask);
                 currentSubScene.needUpdate = true;
             }
 
             // If Primary Visibility is on flag its RAS needUpdate
-            // if (rtEnv.raytracedObjects)
+            if (rtEnv.raytracedObjects)
             {
                 HDRayTracingSubScene currentSubScene = RequestSubScene(rtEnv.raytracedLayerMask);
-                currentSubScene.needUpdate = true;
-            }
-
-            // If indirect diffuse is on flag its RAS needUpdate
-            // if (rtEnv.raytracedIndirectDiffuse)
-            {
-                HDRayTracingSubScene currentSubScene = RequestSubScene(rtEnv.indirectDiffuseLayerMask);
                 currentSubScene.needUpdate = true;
             }
 
@@ -414,23 +375,16 @@ namespace UnityEngine.Rendering.HighDefinition
             if (rtEnv == null) return;
 
             // If Reflection is on flag its light cluster
-            // if (rtEnv.raytracedReflections)
+            if (rtEnv.raytracedReflections)
             {
                 HDRayTracingSubScene currentSubScene = RequestSubScene(rtEnv.reflLayerMask);
                 currentSubScene.needUpdate = true;
             }
 
             // If Primary Visibility is on flag its light cluster
-            // if (rtEnv.raytracedObjects)
+            if (rtEnv.raytracedObjects)
             {
                 HDRayTracingSubScene currentSubScene = RequestSubScene(rtEnv.raytracedLayerMask);
-                currentSubScene.needUpdate = true;
-            }
-
-            // If indirect diffuse is on flag its light cluster
-            // if (rtEnv.raytracedIndirectDiffuse)
-            {
-                HDRayTracingSubScene currentSubScene = RequestSubScene(rtEnv.indirectDiffuseLayerMask);
                 currentSubScene.needUpdate = true;
             }
 
@@ -443,7 +397,7 @@ namespace UnityEngine.Rendering.HighDefinition
                 if (currentSubScene.needUpdate)
                 {
                     // Evaluate the light cluster
-                    currentSubScene.lightCluster.EvaluateLightClusters(cmd, hdCamera, currentSubScene.lights);
+                    currentSubScene.lightCluster.EvaluateLightClusters(cmd, hdCamera, currentSubScene.hdLightArray);
 
                     // It doesn't need RAS update anymore
                     currentSubScene.needUpdate = false;
@@ -463,7 +417,7 @@ namespace UnityEngine.Rendering.HighDefinition
                 subScene.targetRenderers = new List<Renderer>();
 
                 // Create the acceleration structure
-                subScene.accelerationStructure = new Experimental.Rendering.RayTracingAccelerationStructure();
+                subScene.accelerationStructure = new RaytracingAccelerationStructure();
 
                 // First of all let's process all the LOD groups
                 LODGroup[] lodGroupArray = UnityEngine.GameObject.FindObjectsOfType<LODGroup>();
@@ -540,7 +494,7 @@ namespace UnityEngine.Rendering.HighDefinition
                         subScene.targetRenderers.Add(currentRenderer);
                     }
 
-                    // Also, we need to contribute to the maximal number of sub-meshes
+                    // Also, we need to contribute to the maximal number of submeshes
                     MeshFilter currentFilter = currentRenderer.GetComponent<MeshFilter>();
                     if (currentFilter != null && currentFilter.sharedMesh != null)
                     {
@@ -611,11 +565,10 @@ namespace UnityEngine.Rendering.HighDefinition
                 subScene.accelerationStructure.Build();
 
                 // Allocate the array for the lights
-                subScene.lights = new HDRayTracingLights();
-                subScene.lights.hdLightArray = new List<HDAdditionalLightData>();
-                subScene.lights.hdDirectionalLightArray = new List<HDAdditionalLightData>();
+                subScene.hdLightArray = new List<HDAdditionalLightData>();
+                subScene.hdDirectionalLightArray = new List<HDAdditionalLightData>();
 
-                // fetch all the lights
+                // fetch all the hdrp lights
                 HDAdditionalLightData[] hdLightArray = UnityEngine.GameObject.FindObjectsOfType<HDAdditionalLightData>();
 
                 // Here an important thing is to make sure that the point lights are first in the list then line then area
@@ -634,7 +587,7 @@ namespace UnityEngine.Rendering.HighDefinition
                         {
                             if (hdLight.GetComponent<Light>().type == LightType.Directional)
                             {
-                                subScene.lights.hdDirectionalLightArray.Add(hdLight);
+                                subScene.hdDirectionalLightArray.Add(hdLight);
                             }
                             else
                             {
@@ -656,27 +609,13 @@ namespace UnityEngine.Rendering.HighDefinition
                     }
                 }
 
-                subScene.lights.hdLightArray.AddRange(pointLights);
-                subScene.lights.hdLightArray.AddRange(lineLights);
-                subScene.lights.hdLightArray.AddRange(rectLights);
-
-                // Fetch all the reflection probes in the scene
-                subScene.lights.reflectionProbeArray = new List<HDProbe>();
-
-                HDAdditionalReflectionData[] reflectionProbeArray = UnityEngine.GameObject.FindObjectsOfType<HDAdditionalReflectionData>();
-                for (int reflIdx = 0; reflIdx < reflectionProbeArray.Length; ++reflIdx)
-                {
-                    HDAdditionalReflectionData reflectionProbe = reflectionProbeArray[reflIdx];
-                    // Add it to the list if enabled
-                    if (reflectionProbe.enabled)
-                    {
-                        subScene.lights.reflectionProbeArray.Add(reflectionProbe);
-                    }
-                }
+                subScene.hdLightArray.AddRange(pointLights);
+                subScene.hdLightArray.AddRange(lineLights);
+                subScene.hdLightArray.AddRange(rectLights);
 
                 // Build the light cluster
                 subScene.lightCluster = new HDRaytracingLightCluster();
-                subScene.lightCluster.Initialize(m_Resources, m_RTResources, this, m_SharedRTManager, m_RenderPipeline);
+                subScene.lightCluster.Initialize(m_Resources, this, m_SharedRTManager, m_LightLoop);
 
                 // Mark this sub-scene as valid
                 subScene.valid = true;
@@ -687,7 +626,7 @@ namespace UnityEngine.Rendering.HighDefinition
             }
         }
 
-        public Experimental.Rendering.RayTracingAccelerationStructure RequestAccelerationStructure(LayerMask layerMask)
+        public RaytracingAccelerationStructure RequestAccelerationStructure(LayerMask layerMask)
         {
             HDRayTracingSubScene currentSubScene = null;
             if (m_SubScenes.TryGetValue(layerMask.value, out currentSubScene))
@@ -726,25 +665,6 @@ namespace UnityEngine.Rendering.HighDefinition
         public BlueNoise GetBlueNoiseManager()
         {
             return m_BlueNoise;
-        }
-        public HDTemporalFilter GetTemporalFilter()
-        {
-            return m_TemporalFilter;
-        }
-
-        public HDSimpleDenoiser GetSimpleDenoiser()
-        {
-            return m_SimpleDenoiser;
-        }
-
-        public HDDiffuseDenoiser GetDiffuseDenoiser()
-        {
-            return m_DiffuseDenoiser;
-        }
-
-        public HDRenderPipeline GetRenderPipeline()
-        {
-            return m_RenderPipeline;
         }
     }
 #endif

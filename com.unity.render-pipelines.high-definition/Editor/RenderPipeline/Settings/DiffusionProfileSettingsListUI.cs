@@ -1,21 +1,19 @@
 using UnityEngine;
 using UnityEngine.Rendering;
-using UnityEngine.Rendering.HighDefinition;
+using UnityEngine.Experimental.Rendering.HDPipeline;
 using UnityEditor.Rendering;
 using UnityEditorInternal;
 using System;
 
-namespace UnityEditor.Rendering.HighDefinition
+namespace UnityEditor.Experimental.Rendering.HDPipeline
 {
-    class DiffusionProfileSettingsListUI
+    public class DiffusionProfileSettingsListUI
     {
         ReorderableList         m_DiffusionProfileList;
         SerializedProperty      m_Property;
         string                  m_ListName;
 
         const string            k_DefaultListName = "Diffusion Profile List";
-        const string            k_MultiEditionUnsupported = "Diffusion Profile List: Multi-edition is not supported";
-
 
         public DiffusionProfileSettingsListUI(string listName = k_DefaultListName)
         {
@@ -24,14 +22,6 @@ namespace UnityEditor.Rendering.HighDefinition
 
         public void OnGUI(SerializedProperty parameter)
         {
-            if (parameter.hasMultipleDifferentValues)
-            {
-                using (new EditorGUI.DisabledScope(true))
-                    EditorGUILayout.LabelField(k_MultiEditionUnsupported);
-
-                return;
-            }
-
             if (m_DiffusionProfileList == null || m_Property != parameter)
                 CreateReorderableList(parameter);
 

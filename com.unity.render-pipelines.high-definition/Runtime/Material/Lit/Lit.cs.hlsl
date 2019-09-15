@@ -5,7 +5,7 @@
 #ifndef LIT_CS_HLSL
 #define LIT_CS_HLSL
 //
-// UnityEngine.Rendering.HighDefinition.Lit+MaterialFeatureFlags:  static fields
+// UnityEngine.Experimental.Rendering.HDPipeline.Lit+MaterialFeatureFlags:  static fields
 //
 #define MATERIALFEATUREFLAGS_LIT_STANDARD (1)
 #define MATERIALFEATUREFLAGS_LIT_SPECULAR_COLOR (2)
@@ -16,7 +16,7 @@
 #define MATERIALFEATUREFLAGS_LIT_CLEAR_COAT (64)
 
 //
-// UnityEngine.Rendering.HighDefinition.Lit+SurfaceData:  static fields
+// UnityEngine.Experimental.Rendering.HDPipeline.Lit+SurfaceData:  static fields
 //
 #define DEBUGVIEW_LIT_SURFACEDATA_MATERIAL_FEATURES (1000)
 #define DEBUGVIEW_LIT_SURFACEDATA_BASE_COLOR (1001)
@@ -43,7 +43,7 @@
 #define DEBUGVIEW_LIT_SURFACEDATA_TRANSMITTANCE_MASK (1022)
 
 //
-// UnityEngine.Rendering.HighDefinition.Lit+BSDFData:  static fields
+// UnityEngine.Experimental.Rendering.HDPipeline.Lit+BSDFData:  static fields
 //
 #define DEBUGVIEW_LIT_BSDFDATA_MATERIAL_FEATURES (1050)
 #define DEBUGVIEW_LIT_BSDFDATA_DIFFUSE_COLOR (1051)
@@ -73,62 +73,62 @@
 #define DEBUGVIEW_LIT_BSDFDATA_ABSORPTION_COEFFICIENT (1075)
 #define DEBUGVIEW_LIT_BSDFDATA_TRANSMITTANCE_MASK (1076)
 
-// Generated from UnityEngine.Rendering.HighDefinition.Lit+SurfaceData
+// Generated from UnityEngine.Experimental.Rendering.HDPipeline.Lit+SurfaceData
 // PackingRules = Exact
 struct SurfaceData
 {
     uint materialFeatures;
-    real3 baseColor;
-    real specularOcclusion;
+    float3 baseColor;
+    float specularOcclusion;
     float3 normalWS;
-    real perceptualSmoothness;
-    real ambientOcclusion;
-    real metallic;
-    real coatMask;
-    real3 specularColor;
+    float perceptualSmoothness;
+    float ambientOcclusion;
+    float metallic;
+    float coatMask;
+    float3 specularColor;
     uint diffusionProfileHash;
-    real subsurfaceMask;
-    real thickness;
+    float subsurfaceMask;
+    float thickness;
     float3 tangentWS;
-    real anisotropy;
-    real iridescenceThickness;
-    real iridescenceMask;
+    float anisotropy;
+    float iridescenceThickness;
+    float iridescenceMask;
     float3 geomNormalWS;
-    real ior;
-    real3 transmittanceColor;
-    real atDistance;
-    real transmittanceMask;
+    float ior;
+    float3 transmittanceColor;
+    float atDistance;
+    float transmittanceMask;
 };
 
-// Generated from UnityEngine.Rendering.HighDefinition.Lit+BSDFData
+// Generated from UnityEngine.Experimental.Rendering.HDPipeline.Lit+BSDFData
 // PackingRules = Exact
 struct BSDFData
 {
     uint materialFeatures;
-    real3 diffuseColor;
-    real3 fresnel0;
-    real ambientOcclusion;
-    real specularOcclusion;
+    float3 diffuseColor;
+    float3 fresnel0;
+    float ambientOcclusion;
+    float specularOcclusion;
     float3 normalWS;
-    real perceptualRoughness;
-    real coatMask;
+    float perceptualRoughness;
+    float coatMask;
     uint diffusionProfileIndex;
-    real subsurfaceMask;
-    real thickness;
+    float subsurfaceMask;
+    float thickness;
     bool useThickObjectMode;
-    real3 transmittance;
+    float3 transmittance;
     float3 tangentWS;
     float3 bitangentWS;
-    real roughnessT;
-    real roughnessB;
-    real anisotropy;
-    real iridescenceThickness;
-    real iridescenceMask;
-    real coatRoughness;
-    real3 geomNormalWS;
-    real ior;
-    real3 absorptionCoefficient;
-    real transmittanceMask;
+    float roughnessT;
+    float roughnessB;
+    float anisotropy;
+    float iridescenceThickness;
+    float iridescenceMask;
+    float coatRoughness;
+    float3 geomNormalWS;
+    float ior;
+    float3 absorptionCoefficient;
+    float transmittanceMask;
 };
 
 //

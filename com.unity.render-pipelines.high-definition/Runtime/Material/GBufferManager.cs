@@ -1,9 +1,9 @@
-using UnityEngine.Experimental.Rendering;
+using UnityEngine.Rendering;
 
-namespace UnityEngine.Rendering.HighDefinition
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
     // This enum allow to identify which render target is used for a specific feature
-    enum GBufferUsage
+    public enum GBufferUsage
     {
         None,
         SubsurfaceScattering,
@@ -12,7 +12,7 @@ namespace UnityEngine.Rendering.HighDefinition
         ShadowMask
     }
 
-    class GBufferManager : MRTBufferManager
+    public class GBufferManager : MRTBufferManager
     {
         RenderPipelineMaterial m_DeferredMaterial;
         // This contain the usage for all allocated buffer
@@ -46,7 +46,7 @@ namespace UnityEngine.Rendering.HighDefinition
 
             for (int gbufferIndex = 0; gbufferIndex < m_BufferCount; ++gbufferIndex)
             {
-                m_RTs[gbufferIndex] = RTHandles.Alloc(Vector2.one, TextureXR.slices, colorFormat: rtFormat[gbufferIndex], dimension: TextureXR.dimension, useDynamicScale: true, name: string.Format("GBuffer{0}", gbufferIndex), enableRandomWrite: enableWrite[gbufferIndex]);
+                m_RTs[gbufferIndex] = RTHandles.Alloc(Vector2.one, colorFormat: rtFormat[gbufferIndex], filterMode: FilterMode.Point, xrInstancing: true, useDynamicScale: true, name: string.Format("GBuffer{0}", gbufferIndex), enableRandomWrite: enableWrite[gbufferIndex]); 
                 m_RTIDs[gbufferIndex] = m_RTs[gbufferIndex].nameID;
                 m_TextureShaderIDs[gbufferIndex] = HDShaderIDs._GBufferTexture[gbufferIndex];
 
@@ -83,7 +83,7 @@ namespace UnityEngine.Rendering.HighDefinition
             int gbufferIndex = 0;
             for (int i = 0; i < m_BufferCount; ++i)
             {
-                if (m_GBufferUsage[i] == GBufferUsage.ShadowMask && !frameSettings.IsEnabled(FrameSettingsField.Shadowmask))
+                if (m_GBufferUsage[i] == GBufferUsage.ShadowMask && !frameSettings.IsEnabled(FrameSettingsField.ShadowMask))
                     continue; // Skip
 
                 if (m_GBufferUsage[i] == GBufferUsage.LightLayers && !frameSettings.IsEnabled(FrameSettingsField.LightLayers))
@@ -99,7 +99,7 @@ namespace UnityEngine.Rendering.HighDefinition
             // nameID can change from one frame to another depending on the msaa flag so so we need to update this array to be sure it's up to date.
             for (int i = 0; i < m_BufferCount; ++i)
             {
-                if (m_GBufferUsage[i] == GBufferUsage.ShadowMask && !frameSettings.IsEnabled(FrameSettingsField.Shadowmask))
+                if (m_GBufferUsage[i] == GBufferUsage.ShadowMask && !frameSettings.IsEnabled(FrameSettingsField.ShadowMask))
                     continue; // Skip
 
                 if (m_GBufferUsage[i] == GBufferUsage.LightLayers && !frameSettings.IsEnabled(FrameSettingsField.LightLayers))
@@ -112,7 +112,7 @@ namespace UnityEngine.Rendering.HighDefinition
             return m_RTIDsArrayCurrent;
         }
 
-        public RTHandle GetNormalBuffer(int index)
+        public RTHandleSystem.RTHandle GetNormalBuffer(int index)
         {
             int currentIndex = 0;
             for (int gbufferIndex = 0; gbufferIndex < m_BufferCount; ++gbufferIndex)
@@ -130,7 +130,7 @@ namespace UnityEngine.Rendering.HighDefinition
             return null;
         }
 
-        public RTHandle GetSubsurfaceScatteringBuffer(int index)
+        public RTHandleSystem.RTHandle GetSubsurfaceScatteringBuffer(int index)
         {
             int currentIndex = 0;
             for (int gbufferIndex = 0; gbufferIndex < m_BufferCount; ++gbufferIndex)

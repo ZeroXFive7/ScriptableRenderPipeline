@@ -1,8 +1,8 @@
 using UnityEditor.Rendering;
 using UnityEngine;
-using UnityEngine.Rendering.HighDefinition;
+using UnityEngine.Experimental.Rendering.HDPipeline;
 
-namespace UnityEditor.Rendering.HighDefinition
+namespace UnityEditor.Experimental.Rendering.HDPipeline
 {
     [VolumeComponentEditor(typeof(FilmGrain))]
     sealed class FilmGrainEditor : VolumeComponentEditor

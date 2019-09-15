@@ -1,6 +1,7 @@
 using System;
+using UnityEngine.Rendering;
 
-namespace UnityEngine.Rendering.HighDefinition
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
     [Serializable, VolumeComponentMenu("Post-processing/Color Curves")]
     public sealed class ColorCurves : VolumeComponent, IPostProcessComponent

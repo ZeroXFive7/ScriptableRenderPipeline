@@ -1,11 +1,11 @@
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
-using UnityEngine.VFX;
+using UnityEngine.Experimental.VFX;
 
 namespace UnityEditor.VFX
 {
-    static class VFXViewPreference
+    public static class VFXViewPreference
     {
         private static bool m_Loaded = false;
         private static bool m_DisplayExperimentalOperator = false;

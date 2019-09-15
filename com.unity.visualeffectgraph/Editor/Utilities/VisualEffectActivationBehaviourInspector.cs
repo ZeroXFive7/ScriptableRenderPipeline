@@ -4,16 +4,16 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.Playables;
 using UnityEngine.Timeline;
-using UnityEngine.VFX;
+using UnityEngine.Experimental.VFX;
 using UnityEditor;
 using UnityEditorInternal;
 using UnityEditor.VFX;
 using System.Collections.Generic;
 
-namespace UnityEditor.Experimental.VFX.Utility
+namespace UnityEditor.VFX.Utils
 {
     [CustomEditor(typeof(VisualEffectActivationClip))]
-    class VisualEffectActivationClipEditor : Editor
+    public class VisualEffectActivationClipEditor : Editor
     {
         private SerializedProperty onClipEnterProperty;
         private SerializedProperty onClipExitProperty;

@@ -1,8 +1,9 @@
 using UnityEngine;
 using UnityEditorInternal;
 using System.IO;
+using UnityEngine.Rendering;
 
-namespace UnityEditor.Rendering.HighDefinition
+namespace UnityEditor.Experimental.Rendering.HDPipeline
 {
     //As ScriptableSingleton is not usable due to internal FilePathAttribute,
     //copying mechanism here
@@ -26,11 +27,7 @@ namespace UnityEditor.Rendering.HighDefinition
         [SerializeField]
         string m_ProjectSettingFolderPath = "HDRPDefaultResources";
         [SerializeField]
-        bool m_WizardPopupAtStart = false;
-        [SerializeField]
-        string m_PackageVersionForMaterials = k_PackageFirstTimeVersionForMaterials;
-
-        internal const string k_PackageFirstTimeVersionForMaterials = "NeverSaved";
+        bool m_PopupAtStart = false;
 
         public static GameObject defaultScenePrefab
         {
@@ -52,22 +49,12 @@ namespace UnityEditor.Rendering.HighDefinition
             }
         }
 
-        public static bool wizardIsStartPopup
+        public static bool hasStartPopup
         {
-            get => instance.m_WizardPopupAtStart;
+            get => instance.m_PopupAtStart;
             set
             {
-                instance.m_WizardPopupAtStart = value;
-                Save();
-            }
-        }
-
-        public static string packageVersionForMaterialUpgrade
-        {
-            get => instance.m_PackageVersionForMaterials;
-            set
-            {
-                instance.m_PackageVersionForMaterials = value;
+                instance.m_PopupAtStart = value;
                 Save();
             }
         }
@@ -79,7 +66,7 @@ namespace UnityEditor.Rendering.HighDefinition
         {
             s_Instance = this;
         }
-
+        
         static HDProjectSettings CreateOrLoad()
         {
             //try load

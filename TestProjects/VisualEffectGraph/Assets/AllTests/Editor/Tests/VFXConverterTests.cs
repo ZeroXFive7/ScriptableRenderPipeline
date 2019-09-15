@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 using UnityEngine;
 using NUnit.Framework;
 using UnityEditor.VFX.UI;
-using UnityEngine.VFX;
+using UnityEngine.Experimental.VFX;
 using UnityEngine.TestTools;
 
 namespace UnityEditor.VFX.Test

@@ -1,17 +1,13 @@
 using System.Collections.Generic;
+using UnityEditor.Graphing;
 using UnityEditor.ShaderGraph;
-using UnityEngine.Rendering.HighDefinition;
+using UnityEngine.Experimental.Rendering.HDPipeline;
 using UnityEngine.Rendering;
-using Data.Util;
 
-namespace UnityEditor.Rendering.HighDefinition
+namespace UnityEditor.Experimental.Rendering.HDPipeline
 {
-    [FormerName("UnityEditor.Experimental.Rendering.HDPipeline.HDLitSubShader")]
     class HDLitSubShader : IHDLitSubShader
     {
-        internal static string DefineRaytracingKeyword(RayTracingNode.RaytracingVariant variant)
-            => $"#define {RayTracingNode.RaytracingVariantKeyword(variant)}";
-
         Pass m_PassGBuffer = new Pass()
         {
             Name = "GBuffer",
@@ -19,8 +15,7 @@ namespace UnityEditor.Rendering.HighDefinition
             TemplateName = "HDLitPass.template",
             MaterialName = "Lit",
             ShaderPassName = "SHADERPASS_GBUFFER",
-            ZTestOverride = HDSubShaderUtilities.zTestGBuffer,
-            CullOverride = HDSubShaderUtilities.defaultCullMode,
+
             ExtraDefines = new List<string>()
             {
                 "#pragma multi_compile _ DEBUG_DISPLAY",
@@ -30,7 +25,6 @@ namespace UnityEditor.Rendering.HighDefinition
                 "#pragma multi_compile _ SHADOWS_SHADOWMASK",
                 "#pragma multi_compile DECALS_OFF DECALS_3RT DECALS_4RT",
                 "#pragma multi_compile _ LIGHT_LAYERS",
-                DefineRaytracingKeyword(RayTracingNode.RaytracingVariant.High),
             },
             Includes = new List<string>()
             {
@@ -38,7 +32,7 @@ namespace UnityEditor.Rendering.HighDefinition
             },
             RequiredFields = new List<string>()
             {
-                "FragInputs.tangentToWorld",
+                "FragInputs.worldToTangent",
                 "FragInputs.positionRWS",
                 "FragInputs.texCoord1",
                 "FragInputs.texCoord2"
@@ -71,28 +65,32 @@ namespace UnityEditor.Rendering.HighDefinition
                 HDLitMasterNode.RefractionDistanceSlotId,
                 HDLitMasterNode.LightingSlotId,
                 HDLitMasterNode.BackLightingSlotId,
-                HDLitMasterNode.DepthOffsetSlotId,
             },
             VertexShaderSlots = new List<int>()
             {
-                HDLitMasterNode.PositionSlotId,
-                HDLitMasterNode.VertexNormalSlotID,
-                HDLitMasterNode.VertexTangentSlotID
+                HDLitMasterNode.PositionSlotId
             },
             UseInPreview = true,
 
             OnGeneratePassImpl = (IMasterNode node, ref Pass pass) =>
             {
                 var masterNode = node as HDLitMasterNode;
-                HDSubShaderUtilities.SetStencilStateForGBuffer(ref pass);
+                HDSubShaderUtilities.GetStencilStateForGBuffer(masterNode.receiveSSR.isOn, masterNode.RequiresSplitLighting(), ref pass);
 
                 // When we have alpha test, we will force a depth prepass so we always bypass the clip instruction in the GBuffer
                 // Don't do it with debug display mode as it is possible there is no depth prepass in this case
                 // This remove is required otherwise the code generate several time the define...
                 pass.ExtraDefines.Remove("#ifndef DEBUG_DISPLAY\n#define SHADERPASS_GBUFFER_BYPASS_ALPHA_TEST\n#endif");
-
-                if (masterNode.alphaTest.isOn)
+                
+                if (masterNode.surfaceType == SurfaceType.Opaque && masterNode.alphaTest.isOn)
+                {
                     pass.ExtraDefines.Add("#ifndef DEBUG_DISPLAY\n#define SHADERPASS_GBUFFER_BYPASS_ALPHA_TEST\n#endif");
+                    pass.ZTestOverride = "ZTest Equal";
+                }
+                else
+                {
+                    pass.ZTestOverride = null;
+                }
             }
         };
 
@@ -107,10 +105,6 @@ namespace UnityEditor.Rendering.HighDefinition
             Includes = new List<string>()
             {
                 "#include \"Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/ShaderPassLightTransport.hlsl\"",
-            },
-            ExtraDefines = new List<string>()
-            {
-                DefineRaytracingKeyword(RayTracingNode.RaytracingVariant.High),
             },
             RequiredFields = new List<string>()
             {
@@ -162,13 +156,12 @@ namespace UnityEditor.Rendering.HighDefinition
             TemplateName = "HDLitPass.template",
             MaterialName = "Lit",
             ShaderPassName = "SHADERPASS_SHADOWS",
+            BlendOverride = "Blend One Zero",
+            ZWriteOverride = "ZWrite On",
             ColorMaskOverride = "ColorMask 0",
-            ZClipOverride = HDSubShaderUtilities.zClipShadowCaster,
-            CullOverride = HDSubShaderUtilities.defaultCullMode,
-            ZWriteOverride = HDSubShaderUtilities.zWriteOn,
             ExtraDefines = new List<string>()
             {
-                DefineRaytracingKeyword(RayTracingNode.RaytracingVariant.High),
+                "#define USE_LEGACY_UNITY_MATRIX_VARIABLES",
             },
             Includes = new List<string>()
             {
@@ -179,15 +172,12 @@ namespace UnityEditor.Rendering.HighDefinition
                 HDLitMasterNode.AlphaSlotId,
                 HDLitMasterNode.AlphaThresholdSlotId,
                 HDLitMasterNode.AlphaThresholdShadowSlotId,
-                HDLitMasterNode.DepthOffsetSlotId,
             },
             VertexShaderSlots = new List<int>()
             {
-                HDLitMasterNode.PositionSlotId,
-                HDLitMasterNode.VertexNormalSlotID,
-                HDLitMasterNode.VertexTangentSlotID
+                HDLitMasterNode.PositionSlotId
             },
-            UseInPreview = false,
+            UseInPreview = false
         };
 
         Pass m_SceneSelectionPass = new Pass()
@@ -201,9 +191,7 @@ namespace UnityEditor.Rendering.HighDefinition
             ExtraDefines = new List<string>()
             {
                 "#define SCENESELECTIONPASS",
-                "#pragma editor_sync_compilation",
-                DefineRaytracingKeyword(RayTracingNode.RaytracingVariant.High),
-            },
+            },            
             Includes = new List<string>()
             {
                 "#include \"Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/ShaderPassDepthOnly.hlsl\"",
@@ -211,16 +199,13 @@ namespace UnityEditor.Rendering.HighDefinition
             PixelShaderSlots = new List<int>()
             {
                 HDLitMasterNode.AlphaSlotId,
-                HDLitMasterNode.AlphaThresholdSlotId,
-                HDLitMasterNode.DepthOffsetSlotId,
+                HDLitMasterNode.AlphaThresholdSlotId
             },
             VertexShaderSlots = new List<int>()
             {
-                HDLitMasterNode.PositionSlotId,
-                HDLitMasterNode.VertexNormalSlotID,
-                HDLitMasterNode.VertexTangentSlotID
+                HDLitMasterNode.PositionSlotId
             },
-            UseInPreview = false
+            UseInPreview = true
         };
 
         Pass m_PassDepthOnly = new Pass()
@@ -230,9 +215,9 @@ namespace UnityEditor.Rendering.HighDefinition
             TemplateName = "HDLitPass.template",
             MaterialName = "Lit",
             ShaderPassName = "SHADERPASS_DEPTH_ONLY",
-            CullOverride = HDSubShaderUtilities.defaultCullMode,
-            ExtraDefines = HDSubShaderUtilities.s_ExtraDefinesDepthOrMotion,
-            ZWriteOverride = HDSubShaderUtilities.zWriteOn,
+            ZWriteOverride = "ZWrite On",
+
+            ExtraDefines = HDSubShaderUtilities.s_ExtraDefinesDepthOrMotion,            
 
             Includes = new List<string>()
             {
@@ -243,8 +228,7 @@ namespace UnityEditor.Rendering.HighDefinition
                 HDLitMasterNode.NormalSlotId,
                 HDLitMasterNode.SmoothnessSlotId,
                 HDLitMasterNode.AlphaSlotId,
-                HDLitMasterNode.AlphaThresholdSlotId,
-                HDLitMasterNode.DepthOffsetSlotId,
+                HDLitMasterNode.AlphaThresholdSlotId
             },
 
             RequiredFields = new List<string>()
@@ -257,7 +241,7 @@ namespace UnityEditor.Rendering.HighDefinition
                 "AttributesMesh.uv2",           // SHADERPASS_LIGHT_TRANSPORT always uses uv2
                 "AttributesMesh.uv3",           // DEBUG_DISPLAY
 
-                "FragInputs.tangentToWorld",
+                "FragInputs.worldToTangent",
                 "FragInputs.positionRWS",
                 "FragInputs.texCoord0",
                 "FragInputs.texCoord1",
@@ -267,16 +251,14 @@ namespace UnityEditor.Rendering.HighDefinition
             },
             VertexShaderSlots = new List<int>()
             {
-                HDLitMasterNode.PositionSlotId,
-                HDLitMasterNode.VertexNormalSlotID,
-                HDLitMasterNode.VertexTangentSlotID
+                HDLitMasterNode.PositionSlotId
             },
             UseInPreview = true,
 
             OnGeneratePassImpl = (IMasterNode node, ref Pass pass) =>
             {
                 var masterNode = node as HDLitMasterNode;
-                HDSubShaderUtilities.SetStencilStateForDepth(ref pass);
+                HDSubShaderUtilities.GetStencilStateForDepthOrMV(false, masterNode.receiveSSR.isOn, false, ref pass);
             }
         };
 
@@ -286,13 +268,11 @@ namespace UnityEditor.Rendering.HighDefinition
             LightMode = "MotionVectors",
             TemplateName = "HDLitPass.template",
             MaterialName = "Lit",
-            ShaderPassName = "SHADERPASS_MOTION_VECTORS",
+            ShaderPassName = "SHADERPASS_VELOCITY",
             ExtraDefines = HDSubShaderUtilities.s_ExtraDefinesDepthOrMotion,
-            CullOverride = HDSubShaderUtilities.defaultCullMode,
-            ZWriteOverride = HDSubShaderUtilities.zWriteOn,
             Includes = new List<string>()
             {
-                "#include \"Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/ShaderPassMotionVectors.hlsl\"",
+                "#include \"Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/ShaderPassVelocity.hlsl\"",
             },
             RequiredFields = new List<string>()
             {
@@ -304,7 +284,7 @@ namespace UnityEditor.Rendering.HighDefinition
                 "AttributesMesh.uv2",           // SHADERPASS_LIGHT_TRANSPORT always uses uv2
                 "AttributesMesh.uv3",           // DEBUG_DISPLAY
 
-                "FragInputs.tangentToWorld",
+                "FragInputs.worldToTangent",
                 "FragInputs.positionRWS",
                 "FragInputs.texCoord0",
                 "FragInputs.texCoord1",
@@ -317,21 +297,18 @@ namespace UnityEditor.Rendering.HighDefinition
                 HDLitMasterNode.NormalSlotId,
                 HDLitMasterNode.SmoothnessSlotId,
                 HDLitMasterNode.AlphaSlotId,
-                HDLitMasterNode.AlphaThresholdSlotId,
-                HDLitMasterNode.DepthOffsetSlotId,
+                HDLitMasterNode.AlphaThresholdSlotId
             },
             VertexShaderSlots = new List<int>()
             {
-                HDLitMasterNode.PositionSlotId,
-                HDLitMasterNode.VertexNormalSlotID,
-                HDLitMasterNode.VertexTangentSlotID
+                HDLitMasterNode.PositionSlotId
             },
             UseInPreview = false,
 
             OnGeneratePassImpl = (IMasterNode node, ref Pass pass) =>
             {
                 var masterNode = node as HDLitMasterNode;
-                HDSubShaderUtilities.SetStencilStateForMotionVector(ref pass);
+                HDSubShaderUtilities.GetStencilStateForDepthOrMV(false, masterNode.receiveSSR.isOn, true, ref pass);
             }
         };
 
@@ -342,25 +319,10 @@ namespace UnityEditor.Rendering.HighDefinition
             TemplateName = "HDLitPass.template",
             MaterialName = "Lit",
             ShaderPassName = "SHADERPASS_DISTORTION",
-            ZWriteOverride = HDSubShaderUtilities.zWriteOff,
-            ExtraDefines = new List<string>()
-            {
-                DefineRaytracingKeyword(RayTracingNode.RaytracingVariant.High),
-            },
+            ZWriteOverride = "ZWrite Off",
             Includes = new List<string>()
             {
                 "#include \"Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/ShaderPassDistortion.hlsl\"",
-            },
-            StencilOverride = new List<string>()
-            {
-                "// Stencil setup",
-                "Stencil",
-                "{",
-                string.Format("   WriteMask {0}", (int)HDRenderPipeline.StencilBitMask.DistortionVectors),
-                string.Format("   Ref  {0}", (int)HDRenderPipeline.StencilBitMask.DistortionVectors),
-                "   Comp Always",
-                "   Pass Replace",
-                "}"
             },
             PixelShaderSlots = new List<int>()
             {
@@ -371,15 +333,12 @@ namespace UnityEditor.Rendering.HighDefinition
             },
             VertexShaderSlots = new List<int>()
             {
-                HDLitMasterNode.PositionSlotId,
-                HDLitMasterNode.VertexNormalSlotID,
-                HDLitMasterNode.VertexTangentSlotID
+                HDLitMasterNode.PositionSlotId
             },
             UseInPreview = true,
 
             OnGeneratePassImpl = (IMasterNode node, ref Pass pass) =>
             {
-                HDSubShaderUtilities.SetStencilStateForDistortionVector(ref pass);
                 var masterNode = node as HDLitMasterNode;
                 if (masterNode.distortionDepthTest.isOn)
                 {
@@ -407,7 +366,6 @@ namespace UnityEditor.Rendering.HighDefinition
             }
         };
 
-
         Pass m_PassTransparentDepthPrepass = new Pass()
         {
             Name = "TransparentDepthPrepass",
@@ -418,11 +376,9 @@ namespace UnityEditor.Rendering.HighDefinition
             BlendOverride = "Blend One Zero",
             ZWriteOverride = "ZWrite On",
             ColorMaskOverride = "ColorMask 0",
-            CullOverride = HDSubShaderUtilities.defaultCullMode,
             ExtraDefines = new List<string>()
             {
                 "#define CUTOFF_TRANSPARENT_DEPTH_PREPASS",
-                DefineRaytracingKeyword(RayTracingNode.RaytracingVariant.High),
             },
             Includes = new List<string>()
             {
@@ -432,15 +388,12 @@ namespace UnityEditor.Rendering.HighDefinition
             {
                 HDLitMasterNode.AlphaSlotId,
                 HDLitMasterNode.AlphaThresholdDepthPrepassSlotId,
-                HDLitMasterNode.DepthOffsetSlotId,
             },
             VertexShaderSlots = new List<int>()
             {
-                HDLitMasterNode.PositionSlotId,
-                HDLitMasterNode.VertexNormalSlotID,
-                HDLitMasterNode.VertexTangentSlotID
+                HDLitMasterNode.PositionSlotId
             },
-            UseInPreview = true,
+            UseInPreview = true
         };
 
         Pass m_PassTransparentBackface = new Pass()
@@ -452,16 +405,14 @@ namespace UnityEditor.Rendering.HighDefinition
             ShaderPassName = "SHADERPASS_FORWARD",
             CullOverride = "Cull Front",
             ExtraDefines = HDSubShaderUtilities.s_ExtraDefinesForwardTransparent,
-            ZTestOverride = HDSubShaderUtilities.zTestTransparent,
             ColorMaskOverride = "ColorMask [_ColorMaskTransparentVel] 1",
-            ZWriteOverride = HDSubShaderUtilities.ZWriteDefault,
             Includes = new List<string>()
             {
                 "#include \"Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/ShaderPassForward.hlsl\"",
             },
             RequiredFields = new List<string>()
             {
-                "FragInputs.tangentToWorld",
+                "FragInputs.worldToTangent",
                 "FragInputs.positionRWS",
                 "FragInputs.texCoord1",
                 "FragInputs.texCoord2"
@@ -492,19 +443,12 @@ namespace UnityEditor.Rendering.HighDefinition
                 HDLitMasterNode.RefractionIndexSlotId,
                 HDLitMasterNode.RefractionColorSlotId,
                 HDLitMasterNode.RefractionDistanceSlotId,
-                HDLitMasterNode.DepthOffsetSlotId,
             },
             VertexShaderSlots = new List<int>()
             {
-                HDLitMasterNode.PositionSlotId,
-                HDLitMasterNode.VertexNormalSlotID,
-                HDLitMasterNode.VertexTangentSlotID
+                HDLitMasterNode.PositionSlotId
             },
-            UseInPreview = true,
-            OnGeneratePassImpl = (IMasterNode node, ref Pass pass) =>
-            {
-                HDSubShaderUtilities.SetBlendModeForTransparentBackface(ref pass);
-            }
+            UseInPreview = true
         };
 
         Pass m_PassForward = new Pass()
@@ -514,21 +458,14 @@ namespace UnityEditor.Rendering.HighDefinition
             TemplateName = "HDLitPass.template",
             MaterialName = "Lit",
             ShaderPassName = "SHADERPASS_FORWARD",
-            CullOverride = HDSubShaderUtilities.cullModeForward,
-            ZTestOverride = HDSubShaderUtilities.zTestDepthEqualForOpaque,
-            ZWriteOverride = HDSubShaderUtilities.ZWriteDefault,
             // ExtraDefines are set when the pass is generated
             Includes = new List<string>()
             {
                 "#include \"Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/ShaderPassForward.hlsl\"",
             },
-            ExtraDefines = new List<string>()
-            {
-                DefineRaytracingKeyword(RayTracingNode.RaytracingVariant.High),
-            },
             RequiredFields = new List<string>()
             {
-                "FragInputs.tangentToWorld",
+                "FragInputs.worldToTangent",
                 "FragInputs.positionRWS",
                 "FragInputs.texCoord1",
                 "FragInputs.texCoord2"
@@ -561,21 +498,17 @@ namespace UnityEditor.Rendering.HighDefinition
                 HDLitMasterNode.RefractionDistanceSlotId,
                 HDLitMasterNode.LightingSlotId,
                 HDLitMasterNode.BackLightingSlotId,
-                HDLitMasterNode.DepthOffsetSlotId,
             },
             VertexShaderSlots = new List<int>()
             {
-                HDLitMasterNode.PositionSlotId,
-                HDLitMasterNode.VertexNormalSlotID,
-                HDLitMasterNode.VertexTangentSlotID
+                HDLitMasterNode.PositionSlotId
             },
             UseInPreview = true,
 
             OnGeneratePassImpl = (IMasterNode node, ref Pass pass) =>
             {
                 var masterNode = node as HDLitMasterNode;
-                HDSubShaderUtilities.SetStencilStateForForward(ref pass);
-                HDSubShaderUtilities.SetBlendModeForForward(ref pass);
+                HDSubShaderUtilities.GetStencilStateForForward(masterNode.RequiresSplitLighting(), ref pass);
 
                 pass.ExtraDefines.Remove("#ifndef DEBUG_DISPLAY\n#define SHADERPASS_FORWARD_BYPASS_ALPHA_TEST\n#endif");
 
@@ -586,6 +519,19 @@ namespace UnityEditor.Rendering.HighDefinition
                     // Don't do it with debug display mode as it is possible there is no depth prepass in this case
                     pass.ExtraDefines.Add("#ifndef DEBUG_DISPLAY\n#define SHADERPASS_FORWARD_BYPASS_ALPHA_TEST\n#endif");
                     pass.ZTestOverride = "ZTest Equal";
+                }
+                else
+                {
+                    pass.ZTestOverride = null;
+                }
+
+                if (masterNode.surfaceType == SurfaceType.Transparent && masterNode.backThenFrontRendering.isOn)
+                {
+                    pass.CullOverride = "Cull Back";
+                }
+                else
+                {
+                    pass.CullOverride = null;
                 }
             }
         };
@@ -600,11 +546,9 @@ namespace UnityEditor.Rendering.HighDefinition
             BlendOverride = "Blend One Zero",
             ZWriteOverride = "ZWrite On",
             ColorMaskOverride = "ColorMask 0",
-            CullOverride = HDSubShaderUtilities.defaultCullMode,
             ExtraDefines = new List<string>()
             {
                 "#define CUTOFF_TRANSPARENT_DEPTH_POSTPASS",
-                DefineRaytracingKeyword(RayTracingNode.RaytracingVariant.High),
             },
             Includes = new List<string>()
             {
@@ -614,37 +558,31 @@ namespace UnityEditor.Rendering.HighDefinition
             {
                 HDLitMasterNode.AlphaSlotId,
                 HDLitMasterNode.AlphaThresholdDepthPostpassSlotId,
-                HDLitMasterNode.DepthOffsetSlotId,
             },
             VertexShaderSlots = new List<int>()
             {
-                HDLitMasterNode.PositionSlotId,
-                HDLitMasterNode.VertexNormalSlotID,
-                HDLitMasterNode.VertexTangentSlotID
+                HDLitMasterNode.PositionSlotId
             },
-            UseInPreview = true,
+            UseInPreview = true
         };
 
-        Pass m_PassRaytracingIndirect = new Pass()
+        Pass m_PassRaytracingReflection = new Pass()
         {
-            Name = "IndirectDXR",
-            LightMode = "IndirectDXR",
+            Name = "ReflectionDXR",
+            LightMode = "ReflectionDXR",
             TemplateName = "HDLitRaytracingPass.template",
             MaterialName = "Lit",
-            ShaderPassName = "SHADERPASS_RAYTRACING_INDIRECT",
+            ShaderPassName = "SHADERPASS_RAYTRACING_REFLECTION",
             ExtraDefines = new List<string>()
             {
                 "#pragma multi_compile _ LIGHTMAP_ON",
                 "#pragma multi_compile _ DIRLIGHTMAP_COMBINED",
                 "#pragma multi_compile _ DYNAMICLIGHTMAP_ON",
-                "#pragma multi_compile _ DIFFUSE_LIGHTING_ONLY",
                 "#define SHADOW_LOW",
-                "#define SKIP_RASTERIZED_SHADOWS",
-                DefineRaytracingKeyword(RayTracingNode.RaytracingVariant.Low)
             },
             Includes = new List<string>()
             {
-                "#include \"Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/ShaderPassRaytracingIndirect.hlsl\"",
+                "#include \"Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/ShaderpassRaytracingReflection.hlsl\"",
             },
             PixelShaderSlots = new List<int>()
             {
@@ -675,9 +613,7 @@ namespace UnityEditor.Rendering.HighDefinition
             },
             VertexShaderSlots = new List<int>()
             {
-                HDLitMasterNode.PositionSlotId,
-                HDLitMasterNode.VertexNormalSlotID,
-                HDLitMasterNode.VertexTangentSlotID
+                HDLitMasterNode.PositionSlotId
             },
             UseInPreview = false
         };
@@ -689,13 +625,9 @@ namespace UnityEditor.Rendering.HighDefinition
             TemplateName = "HDLitRaytracingPass.template",
             MaterialName = "Lit",
             ShaderPassName = "SHADERPASS_RAYTRACING_VISIBILITY",
-            ExtraDefines = new List<string>()
-            {
-                DefineRaytracingKeyword(RayTracingNode.RaytracingVariant.Low)
-            },
             Includes = new List<string>()
             {
-                "#include \"Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/ShaderPassRaytracingVisibility.hlsl\"",
+                "#include \"Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/ShaderpassRaytracingVisibility.hlsl\"",
             },
             PixelShaderSlots = new List<int>()
             {
@@ -726,9 +658,7 @@ namespace UnityEditor.Rendering.HighDefinition
             },
             VertexShaderSlots = new List<int>()
             {
-                HDLitMasterNode.PositionSlotId,
-                HDLitMasterNode.VertexNormalSlotID,
-                HDLitMasterNode.VertexTangentSlotID
+                HDLitMasterNode.PositionSlotId
             },
             UseInPreview = false
         };
@@ -746,12 +676,10 @@ namespace UnityEditor.Rendering.HighDefinition
                 "#pragma multi_compile _ DIRLIGHTMAP_COMBINED",
                 "#pragma multi_compile _ DYNAMICLIGHTMAP_ON",
                 "#define SHADOW_LOW",
-                "#define SKIP_RASTERIZED_SHADOWS",
-                DefineRaytracingKeyword(RayTracingNode.RaytracingVariant.High)
             },
             Includes = new List<string>()
             {
-                "#include \"Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/ShaderPassRaytracingForward.hlsl\"",
+                "#include \"Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/ShaderpassRaytracingForward.hlsl\"",
             },
             PixelShaderSlots = new List<int>()
             {
@@ -782,68 +710,10 @@ namespace UnityEditor.Rendering.HighDefinition
             },
             VertexShaderSlots = new List<int>()
             {
-                HDLitMasterNode.PositionSlotId,
-                HDLitMasterNode.VertexNormalSlotID,
-                HDLitMasterNode.VertexTangentSlotID
+                HDLitMasterNode.PositionSlotId
             },
             UseInPreview = false
         };
-
-        Pass m_PassRaytracingGBuffer = new Pass()
-        {
-            Name = "GBufferDXR",
-            LightMode = "GBufferDXR",
-            TemplateName = "HDLitRaytracingPass.template",
-            MaterialName = "Lit",
-            ShaderPassName = "SHADERPASS_RAYTRACING_GBUFFER",
-            ExtraDefines = new List<string>()
-            {
-                "#pragma multi_compile _ LIGHTMAP_ON",
-                "#pragma multi_compile _ DIRLIGHTMAP_COMBINED",
-                "#pragma multi_compile _ DYNAMICLIGHTMAP_ON",
-                "#define SHADOW_LOW",
-                DefineRaytracingKeyword(RayTracingNode.RaytracingVariant.High)
-            },
-            Includes = new List<string>()
-            {
-                "#include \"Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/ShaderpassRaytracingGBuffer.hlsl\"",
-            },
-            PixelShaderSlots = new List<int>()
-            {
-                HDLitMasterNode.AlbedoSlotId,
-                HDLitMasterNode.NormalSlotId,
-                HDLitMasterNode.BentNormalSlotId,
-                HDLitMasterNode.TangentSlotId,
-                HDLitMasterNode.SubsurfaceMaskSlotId,
-                HDLitMasterNode.ThicknessSlotId,
-                HDLitMasterNode.DiffusionProfileHashSlotId,
-                HDLitMasterNode.IridescenceMaskSlotId,
-                HDLitMasterNode.IridescenceThicknessSlotId,
-                HDLitMasterNode.SpecularColorSlotId,
-                HDLitMasterNode.CoatMaskSlotId,
-                HDLitMasterNode.MetallicSlotId,
-                HDLitMasterNode.EmissionSlotId,
-                HDLitMasterNode.SmoothnessSlotId,
-                HDLitMasterNode.AmbientOcclusionSlotId,
-                HDLitMasterNode.SpecularOcclusionSlotId,
-                HDLitMasterNode.AlphaSlotId,
-                HDLitMasterNode.AlphaThresholdSlotId,
-                HDLitMasterNode.AnisotropySlotId,
-                HDLitMasterNode.SpecularAAScreenSpaceVarianceSlotId,
-                HDLitMasterNode.SpecularAAThresholdSlotId,
-                HDLitMasterNode.RefractionIndexSlotId,
-                HDLitMasterNode.RefractionColorSlotId,
-                HDLitMasterNode.RefractionDistanceSlotId,
-            },
-            VertexShaderSlots = new List<int>()
-            {
-                HDLitMasterNode.PositionSlotId,
-                HDLitMasterNode.VertexNormalSlotID,
-                HDLitMasterNode.VertexTangentSlotID
-            },
-            UseInPreview = false
-        };
-        public int GetPreviewPassIndex() { return 0; }
 
         private static List<string> GetInstancingOptionsFromMasterNode(AbstractMaterialNode iMasterNode)
         {
@@ -859,70 +729,71 @@ namespace UnityEditor.Rendering.HighDefinition
             else
             {
                 instancingOption.Add("#pragma instancing_options renderinglayer");
-            }
+            }            
 
             return instancingOption;
         }
+        
 
-
-        private static ActiveFields GetActiveFieldsFromMasterNode(AbstractMaterialNode iMasterNode, Pass pass)
+        private static HashSet<string> GetActiveFieldsFromMasterNode(AbstractMaterialNode iMasterNode, Pass pass)
         {
-            var activeFields = new ActiveFields();
-            var baseActiveFields = activeFields.baseInstance;
+            HashSet<string> activeFields = new HashSet<string>();
 
             HDLitMasterNode masterNode = iMasterNode as HDLitMasterNode;
             if (masterNode == null)
+            {
                 return activeFields;
+            }
 
             if (masterNode.doubleSidedMode != DoubleSidedMode.Disabled)
             {
-                baseActiveFields.AddAll("DoubleSided");
-                if (pass.ShaderPassName != "SHADERPASS_MOTION_VECTORS")   // HACK to get around lack of a good interpolator dependency system
+                activeFields.Add("DoubleSided");
+                if (pass.ShaderPassName != "SHADERPASS_VELOCITY")   // HACK to get around lack of a good interpolator dependency system
                 {                                                   // we need to be able to build interpolators using multiple input structs
                                                                     // also: should only require isFrontFace if Normals are required...
                     if (masterNode.doubleSidedMode == DoubleSidedMode.FlippedNormals)
                     {
-                        baseActiveFields.AddAll("DoubleSided.Flip");
+                        activeFields.Add("DoubleSided.Flip");
                     }
                     else if (masterNode.doubleSidedMode == DoubleSidedMode.MirroredNormals)
                     {
-                        baseActiveFields.AddAll("DoubleSided.Mirror");
+                        activeFields.Add("DoubleSided.Mirror");
                     }
                     // Important: the following is used in SharedCode.template.hlsl for determining the normal flip mode
-                    baseActiveFields.AddAll("FragInputs.isFrontFace");
+                    activeFields.Add("FragInputs.isFrontFace");
                 }
             }
 
             switch (masterNode.materialType)
             {
                 case HDLitMasterNode.MaterialType.Anisotropy:
-                    baseActiveFields.AddAll("Material.Anisotropy");
+                    activeFields.Add("Material.Anisotropy");
                     break;
                 case HDLitMasterNode.MaterialType.Iridescence:
-                    baseActiveFields.AddAll("Material.Iridescence");
+                    activeFields.Add("Material.Iridescence");
                     break;
                 case HDLitMasterNode.MaterialType.SpecularColor:
-                    baseActiveFields.AddAll("Material.SpecularColor");
+                    activeFields.Add("Material.SpecularColor");
                     break;
                 case HDLitMasterNode.MaterialType.Standard:
-                    baseActiveFields.AddAll("Material.Standard");
+                    activeFields.Add("Material.Standard");
                     break;
                 case HDLitMasterNode.MaterialType.SubsurfaceScattering:
                     {
                         if (masterNode.surfaceType != SurfaceType.Transparent)
                         {
-                            baseActiveFields.AddAll("Material.SubsurfaceScattering");
-                        }
+                            activeFields.Add("Material.SubsurfaceScattering");
+                        }                        
                         if (masterNode.sssTransmission.isOn)
                         {
-                            baseActiveFields.AddAll("Material.Transmission");
+                            activeFields.Add("Material.Transmission");
                         }
                     }
                     break;
                 case HDLitMasterNode.MaterialType.Translucent:
                     {
-                        baseActiveFields.AddAll("Material.Translucent");
-                        baseActiveFields.AddAll("Material.Transmission");
+                        activeFields.Add("Material.Translucent");
+                        activeFields.Add("Material.Transmission");
                     }
                     break;
                 default:
@@ -936,23 +807,23 @@ namespace UnityEditor.Rendering.HighDefinition
                 // If alpha test shadow is enable, we use it, otherwise we use the regular test
                 if (pass.PixelShaderUsesSlot(HDLitMasterNode.AlphaThresholdShadowSlotId) && masterNode.alphaTestShadow.isOn)
                 {
-                    baseActiveFields.AddAll("AlphaTestShadow");
+                    activeFields.Add("AlphaTestShadow");
                     ++count;
                 }
                 else if (pass.PixelShaderUsesSlot(HDLitMasterNode.AlphaThresholdSlotId))
                 {
-                    baseActiveFields.AddAll("AlphaTest");
+                    activeFields.Add("AlphaTest");
                     ++count;
                 }
 
                 if (pass.PixelShaderUsesSlot(HDLitMasterNode.AlphaThresholdDepthPrepassSlotId))
                 {
-                    baseActiveFields.AddAll("AlphaTestPrepass");
+                    activeFields.Add("AlphaTestPrepass");
                     ++count;
                 }
                 if (pass.PixelShaderUsesSlot(HDLitMasterNode.AlphaThresholdDepthPostpassSlotId))
                 {
-                    baseActiveFields.AddAll("AlphaTestPostpass");
+                    activeFields.Add("AlphaTestPostpass");
                     ++count;
                 }
                 UnityEngine.Debug.Assert(count == 1, "Alpha test value not set correctly");
@@ -960,58 +831,69 @@ namespace UnityEditor.Rendering.HighDefinition
 
             if (masterNode.surfaceType != SurfaceType.Opaque)
             {
-                if (masterNode.transparencyFog.isOn)
-                {
-                    baseActiveFields.AddAll("AlphaFog");
-                }
+                activeFields.Add("SurfaceType.Transparent");
 
-                if (masterNode.transparentWritesMotionVec.isOn)
+                if (masterNode.alphaMode == AlphaMode.Alpha)
                 {
-                    baseActiveFields.AddAll("TransparentWritesMotionVec");
+                    activeFields.Add("BlendMode.Alpha");
+                }
+                else if (masterNode.alphaMode == AlphaMode.Premultiply)
+                {
+                    activeFields.Add("BlendMode.Premultiply");
+                }
+                else if (masterNode.alphaMode == AlphaMode.Additive)
+                {
+                    activeFields.Add("BlendMode.Add");
                 }
 
                 if (masterNode.blendPreserveSpecular.isOn)
                 {
-                    baseActiveFields.AddAll("BlendMode.PreserveSpecular");
+                    activeFields.Add("BlendMode.PreserveSpecular");
+                }
+
+                if (masterNode.transparencyFog.isOn)
+                {
+                    activeFields.Add("AlphaFog");
+                }
+
+                if (masterNode.transparentWritesVelocity.isOn)
+                {
+                    activeFields.Add("TransparentWritesVelocity");
                 }
             }
 
             if (!masterNode.receiveDecals.isOn)
             {
-                baseActiveFields.AddAll("DisableDecals");
+                activeFields.Add("DisableDecals");
             }
 
             if (!masterNode.receiveSSR.isOn)
             {
-                baseActiveFields.AddAll("DisableSSR");
+                activeFields.Add("DisableSSR");
             }
 
-            if (masterNode.addPrecomputedVelocity.isOn)
-            {
-                baseActiveFields.Add("AddPrecomputedVelocity");
-            }
 
             if (masterNode.specularAA.isOn && pass.PixelShaderUsesSlot(HDLitMasterNode.SpecularAAThresholdSlotId) && pass.PixelShaderUsesSlot(HDLitMasterNode.SpecularAAScreenSpaceVarianceSlotId))
             {
-                baseActiveFields.AddAll("Specular.AA");
+                activeFields.Add("Specular.AA");
             }
 
             if (masterNode.energyConservingSpecular.isOn)
             {
-                baseActiveFields.AddAll("Specular.EnergyConserving");
+                activeFields.Add("Specular.EnergyConserving");
             }
 
             if (masterNode.HasRefraction())
             {
-                baseActiveFields.AddAll("Refraction");
+                activeFields.Add("Refraction");
                 switch (masterNode.refractionModel)
                 {
                     case ScreenSpaceRefraction.RefractionModel.Box:
-                        baseActiveFields.AddAll("RefractionBox");
+                        activeFields.Add("RefractionBox");
                         break;
 
                     case ScreenSpaceRefraction.RefractionModel.Sphere:
-                        baseActiveFields.AddAll("RefractionSphere");
+                        activeFields.Add("RefractionSphere");
                         break;
 
                     default:
@@ -1022,12 +904,12 @@ namespace UnityEditor.Rendering.HighDefinition
 
             if (masterNode.IsSlotConnected(HDLitMasterNode.BentNormalSlotId) && pass.PixelShaderUsesSlot(HDLitMasterNode.BentNormalSlotId))
             {
-                baseActiveFields.AddAll("BentNormal");
+                activeFields.Add("BentNormal");
             }
 
             if (masterNode.IsSlotConnected(HDLitMasterNode.TangentSlotId) && pass.PixelShaderUsesSlot(HDLitMasterNode.TangentSlotId))
             {
-                baseActiveFields.AddAll("Tangent");
+                activeFields.Add("Tangent");
             }
 
             switch (masterNode.specularOcclusionMode)
@@ -1035,13 +917,13 @@ namespace UnityEditor.Rendering.HighDefinition
                 case SpecularOcclusionMode.Off:
                     break;
                 case SpecularOcclusionMode.FromAO:
-                    baseActiveFields.AddAll("SpecularOcclusionFromAO");
+                    activeFields.Add("SpecularOcclusionFromAO");
                     break;
                 case SpecularOcclusionMode.FromAOAndBentNormal:
-                    baseActiveFields.AddAll("SpecularOcclusionFromAOBentNormal");
+                    activeFields.Add("SpecularOcclusionFromAOBentNormal");
                     break;
                 case SpecularOcclusionMode.Custom:
-                    baseActiveFields.AddAll("SpecularOcclusionCustom");
+                    activeFields.Add("SpecularOcclusionCustom");
                     break;
 
                 default:
@@ -1055,7 +937,7 @@ namespace UnityEditor.Rendering.HighDefinition
                 bool connected = masterNode.IsSlotConnected(HDLitMasterNode.AmbientOcclusionSlotId);
                 if (connected || occlusionSlot.value != occlusionSlot.defaultValue)
                 {
-                    baseActiveFields.AddAll("AmbientOcclusion");
+                    activeFields.Add("AmbientOcclusion");
                 }
             }
 
@@ -1066,21 +948,18 @@ namespace UnityEditor.Rendering.HighDefinition
                 bool connected = masterNode.IsSlotConnected(HDLitMasterNode.CoatMaskSlotId);
                 if (connected || coatMaskSlot.value > 0.0f)
                 {
-                    baseActiveFields.AddAll("CoatMask");
+                    activeFields.Add("CoatMask");
                 }
             }
 
             if (masterNode.IsSlotConnected(HDLitMasterNode.LightingSlotId) && pass.PixelShaderUsesSlot(HDLitMasterNode.LightingSlotId))
             {
-                baseActiveFields.AddAll("LightingGI");
+                activeFields.Add("LightingGI");
             }
             if (masterNode.IsSlotConnected(HDLitMasterNode.BackLightingSlotId) && pass.PixelShaderUsesSlot(HDLitMasterNode.LightingSlotId))
             {
-                baseActiveFields.AddAll("BackLightingGI");
+                activeFields.Add("BackLightingGI");
             }
-
-            if (masterNode.depthOffset.isOn && pass.PixelShaderUsesSlot(HDLitMasterNode.DepthOffsetSlotId))
-                baseActiveFields.AddAll("DepthOffset");
 
             return activeFields;
         }
@@ -1089,22 +968,18 @@ namespace UnityEditor.Rendering.HighDefinition
         {
             if (mode == GenerationMode.ForReals || pass.UseInPreview)
             {
+                SurfaceMaterialOptions materialOptions = HDSubShaderUtilities.BuildMaterialOptions(masterNode.surfaceType, masterNode.alphaMode, masterNode.doubleSidedMode != DoubleSidedMode.Disabled, masterNode.HasRefraction());
+
                 pass.OnGeneratePass(masterNode);
 
                 // apply master node options to active fields
-                var activeFields = GetActiveFieldsFromMasterNode(masterNode, pass);
+                HashSet<string> activeFields = GetActiveFieldsFromMasterNode(masterNode, pass);
 
                 pass.ExtraInstancingOptions = GetInstancingOptionsFromMasterNode(masterNode);
 
                 // use standard shader pass generation
-                bool vertexActive = false;
-                if (masterNode.IsSlotConnected(HDLitMasterNode.PositionSlotId) ||
-                    masterNode.IsSlotConnected(HDLitMasterNode.VertexNormalSlotID) ||
-                    masterNode.IsSlotConnected(HDLitMasterNode.VertexTangentSlotID) )
-                {
-                    vertexActive = true;
-                }
-                return HDSubShaderUtilities.GenerateShaderPass(masterNode, pass, mode, activeFields, result, sourceAssetDependencyPaths, vertexActive);
+                bool vertexActive = masterNode.IsSlotConnected(HDLitMasterNode.PositionSlotId);
+                return HDSubShaderUtilities.GenerateShaderPass(masterNode, pass, mode, materialOptions, activeFields, result, sourceAssetDependencyPaths, vertexActive);
             }
             else
             {
@@ -1155,9 +1030,15 @@ namespace UnityEditor.Rendering.HighDefinition
                     }
                 }
 
+
+                HDMaterialTags materialTags = HDSubShaderUtilities.BuildMaterialTags(masterNode.renderingPass, masterNode.sortPriority, masterNode.alphaTest.isOn);
+
                 // Add tags at the SubShader level
-                int queue = HDRenderQueue.ChangeType(masterNode.renderingPass, masterNode.sortPriority, masterNode.alphaTest.isOn);
-                HDSubShaderUtilities.AddTags(subShader, HDRenderPipeline.k_ShaderTagName, HDRenderTypeTags.HDLitShader, queue);
+                {
+                    var tagsVisitor = new ShaderStringBuilder();
+                    materialTags.GetTags(tagsVisitor, HDRenderPipeline.k_ShaderTagName);
+                    subShader.AddShaderChunk(tagsVisitor.ToString(), false);
+                }
 
                 // generate the necessary shader passes
                 bool opaque = (masterNode.surfaceType == SurfaceType.Opaque);
@@ -1165,16 +1046,19 @@ namespace UnityEditor.Rendering.HighDefinition
 
                 bool distortionActive = transparent && masterNode.distortion.isOn;
                 bool transparentBackfaceActive = transparent && masterNode.backThenFrontRendering.isOn;
-                bool transparentDepthPrepassActive = transparent && masterNode.alphaTestDepthPrepass.isOn;
-                bool transparentDepthPostpassActive = transparent && masterNode.alphaTestDepthPostpass.isOn;
+                bool transparentDepthPrepassActive = transparent && masterNode.alphaTest.isOn && masterNode.alphaTestDepthPrepass.isOn;
+                bool transparentDepthPostpassActive = transparent && masterNode.alphaTest.isOn && masterNode.alphaTestDepthPostpass.isOn;
 
-                GenerateShaderPassLit(masterNode, m_PassShadowCaster, mode, subShader, sourceAssetDependencyPaths);
                 GenerateShaderPassLit(masterNode, m_PassMETA, mode, subShader, sourceAssetDependencyPaths);
+                GenerateShaderPassLit(masterNode, m_PassShadowCaster, mode, subShader, sourceAssetDependencyPaths);
                 GenerateShaderPassLit(masterNode, m_SceneSelectionPass, mode, subShader, sourceAssetDependencyPaths);
 
-                GenerateShaderPassLit(masterNode, m_PassDepthOnly, mode, subShader, sourceAssetDependencyPaths);
-                GenerateShaderPassLit(masterNode, m_PassGBuffer, mode, subShader, sourceAssetDependencyPaths);
-                GenerateShaderPassLit(masterNode, m_PassMotionVectors, mode, subShader, sourceAssetDependencyPaths);
+                if (opaque)
+                {
+                    GenerateShaderPassLit(masterNode, m_PassDepthOnly, mode, subShader, sourceAssetDependencyPaths);
+                    GenerateShaderPassLit(masterNode, m_PassGBuffer, mode, subShader, sourceAssetDependencyPaths);
+                    GenerateShaderPassLit(masterNode, m_PassMotionVectors, mode, subShader, sourceAssetDependencyPaths);
+                }
 
                 if (distortionActive)
                 {
@@ -1210,16 +1094,15 @@ namespace UnityEditor.Rendering.HighDefinition
                 subShader.AddShaderChunk("{", false);
                 subShader.Indent();
                 {
-                    GenerateShaderPassLit(masterNode, m_PassRaytracingIndirect, mode, subShader, sourceAssetDependencyPaths);
+                    GenerateShaderPassLit(masterNode, m_PassRaytracingReflection, mode, subShader, sourceAssetDependencyPaths);
                     GenerateShaderPassLit(masterNode, m_PassRaytracingVisibility, mode, subShader, sourceAssetDependencyPaths);
                     GenerateShaderPassLit(masterNode, m_PassRaytracingForward, mode, subShader, sourceAssetDependencyPaths);
-                    GenerateShaderPassLit(masterNode, m_PassRaytracingGBuffer, mode, subShader, sourceAssetDependencyPaths);
                 }
                 subShader.Deindent();
                 subShader.AddShaderChunk("}", false);
             }
 #endif
-            subShader.AddShaderChunk(@"CustomEditor ""UnityEditor.Rendering.HighDefinition.HDLitGUI""");
+            subShader.AddShaderChunk(@"CustomEditor ""UnityEditor.Experimental.Rendering.HDPipeline.HDLitGUI""");
 
             return subShader.GetShaderString(0);
         }

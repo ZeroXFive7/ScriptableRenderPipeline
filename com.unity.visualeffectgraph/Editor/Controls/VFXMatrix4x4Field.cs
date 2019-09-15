@@ -2,9 +2,9 @@ using UnityEngine;
 using UnityEngine.UIElements;
 using UnityEditor.UIElements;
 
-using FloatField = UnityEditor.VFX.UI.VFXLabeledField<UnityEditor.UIElements.FloatField, float>;
+using FloatField = UnityEditor.VFX.UIElements.VFXLabeledField<UnityEditor.UIElements.FloatField, float>;
 
-namespace UnityEditor.VFX.UI
+namespace UnityEditor.VFX.UIElements
 {
     class VFXMatrix4x4Field : VFXControl<Matrix4x4>
     {

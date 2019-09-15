@@ -7,7 +7,7 @@ using UnityEditor.Experimental.GraphView;
 
 using UnityEngine;
 using UnityEngine.Profiling;
-using UnityEngine.VFX;
+using UnityEngine.Experimental.VFX;
 using UnityEngine.UIElements;
 using System.Collections.ObjectModel;
 
@@ -312,7 +312,7 @@ namespace UnityEditor.VFX.UI
 
         public VFXParameterController(VFXParameter model, VFXViewController viewController) : base(viewController, model)
         {
-            m_Slot = isOutput?model.inputSlots[0]:model.outputSlots[0];
+            m_Slot = model.outputSlots[0];
             viewController.RegisterNotification(m_Slot, OnSlotChanged);
 
             exposedName = MakeNameUnique(exposedName);
@@ -537,7 +537,7 @@ namespace UnityEditor.VFX.UI
             string candidateName = MakeNameUnique(model.exposedName, allNames);
             if (candidateName != model.exposedName)
             {
-                parameter.SetSettingValue("m_ExposedName", candidateName);
+                parameter.SetSettingValue("m_exposedName", candidateName);
             }
         }
 
@@ -550,7 +550,7 @@ namespace UnityEditor.VFX.UI
                 string candidateName = MakeNameUnique(value);
                 if (candidateName != null && candidateName != parameter.exposedName)
                 {
-                    parameter.SetSettingValue("m_ExposedName", candidateName);
+                    parameter.SetSettingValue("m_exposedName", candidateName);
                 }
             }
         }
@@ -559,7 +559,7 @@ namespace UnityEditor.VFX.UI
             get { return parameter.exposed; }
             set
             {
-                parameter.SetSettingValue("m_Exposed", value);
+                parameter.SetSettingValue("m_exposed", value);
             }
         }
 
@@ -697,27 +697,7 @@ namespace UnityEditor.VFX.UI
             {
                 VFXParameter model = this.model as VFXParameter;
 
-                return m_Slot.property.type;
-            }
-        }
-        public bool isOutput
-        {
-            get
-            {
-                return model.isOutput;
-            }
-
-            set
-            {
-                if (model.isOutput != value)
-                {
-                    model.isOutput = value;
-
-                    viewController.UnRegisterNotification(m_Slot, OnSlotChanged);
-                    m_Slot = model.isOutput ? model.inputSlots[0] : model.outputSlots[0];
-                    viewController.RegisterNotification(m_Slot, OnSlotChanged);
-                }
-
+                return model.GetOutputSlot(0).property.type;
             }
         }
 
@@ -725,8 +705,6 @@ namespace UnityEditor.VFX.UI
         ParameterGizmoContext m_Context;
         public void DrawGizmos(VisualEffect component)
         {
-            if (isOutput)
-                return;
             if (m_Context == null)
             {
                 m_Context = new ParameterGizmoContext(this);
@@ -736,8 +714,6 @@ namespace UnityEditor.VFX.UI
 
         public Bounds GetGizmoBounds(VisualEffect component)
         {
-            if (isOutput)
-                return  new Bounds();
             if (m_Context == null)
             {
                 m_Context = new ParameterGizmoContext(this);
@@ -749,8 +725,6 @@ namespace UnityEditor.VFX.UI
         {
             get
             {
-                if (isOutput)
-                    return false;
                 return VFXGizmoUtility.NeedsComponent(m_Context);
             }
         }
@@ -800,7 +774,7 @@ namespace UnityEditor.VFX.UI
         public bool UpdateControllers()
         {
             bool changed = false;
-            var nodes = model.nodes.GroupBy(t=>t.id).ToDictionary(t => t.Key, t => t.First());
+            var nodes = model.nodes.ToDictionary(t => t.id, t => t);
 
             foreach (var removedController in m_Controllers.Where(t => !nodes.ContainsKey(t.Key)).ToArray())
             {
@@ -892,7 +866,6 @@ namespace UnityEditor.VFX.UI
             if (!object.ReferenceEquals(m_Slot, null))
             {
                 viewController.UnRegisterNotification(m_Slot, OnSlotChanged);
-                m_Slot = null;
             }
             base.OnDisable();
         }
@@ -908,7 +881,7 @@ namespace UnityEditor.VFX.UI
         }
     }
 
-    class ParameterGizmoContext : VFXGizmoUtility.Context
+    public class ParameterGizmoContext : VFXGizmoUtility.Context
     {
         internal ParameterGizmoContext(VFXParameterController controller)
         {

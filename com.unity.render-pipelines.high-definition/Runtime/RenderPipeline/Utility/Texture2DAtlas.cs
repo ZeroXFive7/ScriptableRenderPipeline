@@ -1,14 +1,15 @@
+using System;
 using System.Collections.Generic;
-using UnityEngine.Experimental.Rendering;
+using UnityEngine.Rendering;
 
 
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
 
-namespace UnityEngine.Rendering.HighDefinition
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
-    class AtlasAllocator
+    public class AtlasAllocator
     {
         private class AtlasNode
         {
@@ -114,16 +115,16 @@ namespace UnityEngine.Rendering.HighDefinition
         }
     }
 
-    class Texture2DAtlas
+    public class Texture2DAtlas
     {
-        private RTHandle m_AtlasTexture = null;
+        private RTHandleSystem.RTHandle m_AtlasTexture = null;
         private int m_Width;
         private int m_Height;
         private GraphicsFormat m_Format;
         private AtlasAllocator m_AtlasAllocator = null;
         private Dictionary<int, Vector4> m_AllocationCache = new Dictionary<int, Vector4>();
 
-        public RTHandle AtlasTexture
+        public RTHandleSystem.RTHandle AtlasTexture
         {
             get
             {

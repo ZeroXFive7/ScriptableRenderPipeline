@@ -123,9 +123,8 @@ float4 SampleTexture2DBicubic(TEXTURE2D_PARAM(tex, smp), float2 coord, float4 te
                            weights[1].x * SAMPLE_TEXTURE2D_LOD(tex, smp, min((ic + float2(offsets[1].x, offsets[1].y) - 0.5) * texSize.zw, maxCoord), 0.0));
 }
 
-#if !defined(SHADER_API_GLES)
 // texSize = (width, height, 1/width, 1/height)
-// texture array version for XR single-pass
+// texture array version for stereo instancing
 float4 SampleTexture2DBicubic(TEXTURE2D_ARRAY_PARAM(tex, smp), float2 coord, float4 texSize, float2 maxCoord, uint slice)
 {
     float2 xy = coord * texSize.xy + 0.5;
@@ -140,7 +139,5 @@ float4 SampleTexture2DBicubic(TEXTURE2D_ARRAY_PARAM(tex, smp), float2 coord, flo
            weights[1].y * (weights[0].x * SAMPLE_TEXTURE2D_ARRAY_LOD(tex, smp, min((ic + float2(offsets[0].x, offsets[1].y) - 0.5) * texSize.zw, maxCoord), slice, 0.0)  +
                            weights[1].x * SAMPLE_TEXTURE2D_ARRAY_LOD(tex, smp, min((ic + float2(offsets[1].x, offsets[1].y) - 0.5) * texSize.zw, maxCoord), slice, 0.0));
 }
-#else
-#define SampleTexture2DBicubic ERROR_ON_UNSUPPORTED_FUNCTION(SampleTexture2DBicubic)
-#endif
+
 #endif // UNITY_FILTERING_INCLUDED

@@ -48,8 +48,9 @@ namespace UnityEditor.VFX.UI
             titleContainer.Insert(1, m_EnableToggle);
 
             capabilities &= ~Capabilities.Ascendable;
-            capabilities |= Capabilities.Selectable | Capabilities.Droppable;
-            this.AddManipulator(new SelectionDropper());
+            capabilities |= Capabilities.Selectable;
+
+            //this.AddManipulator(new TrickleClickSelector());
 
             Profiler.EndSample();
             style.position = PositionType.Relative;
@@ -71,16 +72,19 @@ namespace UnityEditor.VFX.UI
             base.SelfChange();
 
             if (controller.model.enabled)
-                RemoveFromClassList("block-disabled");
+            {
+                titleContainer.RemoveFromClassList("disabled");
+            }
             else
-                AddToClassList("block-disabled");
+            {
+                titleContainer.AddToClassList("disabled");
+            }
 
             m_EnableToggle.SetValueWithoutNotify(controller.model.enabled);
-
-            if (!controller.model.isValid)
-                AddToClassList("invalid");
-            else
-                RemoveFromClassList("invalid");
+            if (inputContainer != null)
+                inputContainer.SetEnabled(controller.model.enabled);
+            if (settingsContainer != null)
+                settingsContainer.SetEnabled(controller.model.enabled);
         }
 
         public override bool superCollapsed

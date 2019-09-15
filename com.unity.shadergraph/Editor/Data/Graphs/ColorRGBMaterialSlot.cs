@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using UnityEditor.Graphing;
 using UnityEditor.ShaderGraph.Drawing.Slots;
-using UnityEditor.ShaderGraph.Internal;
 using UnityEngine;
 
 using UnityEngine.UIElements;
@@ -41,9 +40,10 @@ namespace UnityEditor.ShaderGraph
             return new ColorRGBSlotControlView(this);
         }
 
-        protected override string ConcreteSlotValueAsVariable()
+        protected override string ConcreteSlotValueAsVariable(AbstractMaterialNode.OutputPrecision precision)
         {
-            return string.Format(m_ColorMode == ColorMode.Default ? "IsGammaSpace() ? $precision3({0}, {1}, {2}) : SRGBToLinear($precision3({0}, {1}, {2}))" : "$precision3({0}, {1}, {2})"
+            return string.Format(m_ColorMode == ColorMode.Default ? "IsGammaSpace() ? {0}3({1}, {2}, {3}) : SRGBToLinear({0}3({1}, {2}, {3}))" : "{0}3({1}, {2}, {3})"
+                , precision
                 , NodeUtils.FloatToShaderValue(value.x)
                 , NodeUtils.FloatToShaderValue(value.y)
                 , NodeUtils.FloatToShaderValue(value.z));

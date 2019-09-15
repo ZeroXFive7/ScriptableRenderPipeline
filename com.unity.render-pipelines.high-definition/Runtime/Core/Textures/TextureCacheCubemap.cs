@@ -1,8 +1,9 @@
 using System;
+using UnityEngine.Rendering;
 
-namespace UnityEngine.Rendering.HighDefinition
+namespace UnityEngine.Experimental.Rendering
 {
-    class TextureCacheCubemap : TextureCache
+    public class TextureCacheCubemap : TextureCache
     {
         private CubemapArray m_Cache;
 

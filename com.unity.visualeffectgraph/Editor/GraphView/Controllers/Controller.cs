@@ -74,7 +74,7 @@ namespace UnityEditor.VFX.UI
             if (eventHandler is VisualElement)
             {
                 var element = eventHandler as VisualElement;
-                eventHandler = element.GetFirstOfType<IControlledElement>();
+                eventHandler = element.GetFirstAncestorOfType<IControlledElement>();
                 while (eventHandler != null)
                 {
                     eventHandler.OnControllerChanged(ref e);

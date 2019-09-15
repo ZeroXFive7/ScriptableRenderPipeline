@@ -1,11 +1,12 @@
 using System;
 using System.Reflection;
+using UnityEditor.Rendering;
 using UnityEngine;
-using UnityEngine.Rendering;
-using UnityEngine.Rendering.HighDefinition;
+using UnityEngine.Experimental.Rendering;
+using UnityEngine.Experimental.Rendering.HDPipeline;
 using Object = UnityEngine.Object;
 
-namespace UnityEditor.Rendering.HighDefinition
+namespace UnityEditor.Experimental.Rendering.HDPipeline
 {
     partial class HDCameraEditor
     {
@@ -13,7 +14,7 @@ namespace UnityEditor.Rendering.HighDefinition
         {
             var c = (Camera)target;
 
-            if (!UnityEditor.Rendering.CameraEditorUtils.IsViewPortRectValidToRender(c.rect))
+            if (!CameraEditorUtils.IsViewPortRectValidToRender(c.rect))
                 return;
 
             SceneViewOverlay_Window(EditorGUIUtility.TrTextContent("Camera Preview"), OnOverlayGUI, -100, target);
@@ -23,7 +24,7 @@ namespace UnityEditor.Rendering.HighDefinition
 
         void OnOverlayGUI(Object target, SceneView sceneView)
         {
-            UnityEditor.Rendering.CameraEditorUtils.DrawCameraSceneViewOverlay(target, sceneView, InitializePreviewCamera);
+            CameraEditorUtils.DrawCameraSceneViewOverlay(target, sceneView, InitializePreviewCamera);
         }
 
         Camera InitializePreviewCamera(Camera c, Vector2 previewSize)
@@ -32,9 +33,6 @@ namespace UnityEditor.Rendering.HighDefinition
             EditorUtility.CopySerialized(c, m_PreviewCamera);
             var cameraData = c.GetComponent<HDAdditionalCameraData>();
             EditorUtility.CopySerialized(cameraData, m_PreviewAdditionalCameraData);
-            // We need to explicitly reset the camera type here
-            // It is probably a CameraType.Game, because we copied the source camera's properties.
-            m_PreviewCamera.cameraType = CameraType.Preview;
 
             var previewTexture = GetPreviewTextureWithSize((int)previewSize.x, (int)previewSize.y);
             m_PreviewCamera.targetTexture = previewTexture;

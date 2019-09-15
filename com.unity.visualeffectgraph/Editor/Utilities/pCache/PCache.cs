@@ -7,9 +7,9 @@ using System.Text;
 using System.Globalization;
 using UnityEngine;
 
-namespace UnityEditor.Experimental.VFX.Utility
+namespace UnityEditor.VFX.Utils
 {
-    class PCache
+    public class PCache
     {
         public List<PropertyDesc> properties;
         public List<List<object>> buckets;

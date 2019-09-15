@@ -3,9 +3,9 @@ using System;
 using UnityEngine;
 using UnityEngine.Playables;
 using UnityEngine.Timeline;
-using UnityEngine.VFX;
+using UnityEngine.Experimental.VFX;
 
-class VisualEffectActivationMixerBehaviour : PlayableBehaviour
+public class VisualEffectActivationMixerBehaviour : PlayableBehaviour
 {
     bool[] enabledStates;
 
