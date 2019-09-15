@@ -20,9 +20,26 @@ namespace UnityEngine.Rendering.LWRP
     [ImageEffectAllowedInSceneView]
     public class LWRPAdditionalCameraData : MonoBehaviour, ISerializationCallbackReceiver
     {
+        public const uint DEFAULT_FIRST_PERSON_LAYER_MASK = 2;
+        public const uint DEFAULT_THIRD_PERSON_LAYER_MASK = uint.MaxValue & ~DEFAULT_FIRST_PERSON_LAYER_MASK;
+
         [Tooltip("If enabled shadows will render for this camera.")]
         [FormerlySerializedAs("renderShadows"), SerializeField]
         bool m_RenderShadows = true;
+
+        [Tooltip("If enabled this camera will attempt to render first person view models.")]
+        [SerializeField]
+        bool m_SupportsFirstPersonViewModelRendering = true;
+
+        [SerializeField]
+        uint m_FirstPersonViewModelRenderingLayerMask = DEFAULT_FIRST_PERSON_LAYER_MASK;
+
+        [SerializeField]
+        uint m_ThirdPersonRenderingLayerMask = DEFAULT_THIRD_PERSON_LAYER_MASK;
+
+        [Tooltip("Vetical Obliqueness normalized")]
+        [SerializeField]
+        float m_Obliqueness = 0.0f;
 
         [Tooltip("If enabled depth texture will render for this camera bound as _CameraDepthTexture.")]
         [SerializeField]
@@ -51,6 +68,30 @@ namespace UnityEngine.Rendering.LWRP
         {
             get => m_RenderShadows;
             set => m_RenderShadows = value;
+        }
+
+        public bool supportsFirstPersonViewModelRendering
+        {
+            get { return m_SupportsFirstPersonViewModelRendering; }
+            set { m_SupportsFirstPersonViewModelRendering = value; }
+        }
+
+        public uint firstPersonViewModelRenderingLayerMask
+        {
+            get { return m_FirstPersonViewModelRenderingLayerMask; }
+            set { m_FirstPersonViewModelRenderingLayerMask = value; }
+        }
+
+        public uint thirdPersonRenderingLayerMask
+        {
+            get { return m_ThirdPersonRenderingLayerMask; }
+            set { m_ThirdPersonRenderingLayerMask = value; }
+        }
+
+        public float obliqueness
+        {
+            get { return m_Obliqueness; }
+            set { m_Obliqueness = value; }
         }
 
         public CameraOverrideOption requiresDepthOption

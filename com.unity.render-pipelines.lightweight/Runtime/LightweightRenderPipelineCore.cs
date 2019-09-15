@@ -52,6 +52,12 @@ namespace UnityEngine.Rendering.LWRP
         public bool postProcessEnabled;
         public PostProcessLayer postProcessLayer;
         public IEnumerator<Action<RenderTargetIdentifier, CommandBuffer> > captureActions;
+
+        // First Person View Model Fields.
+        public bool supportsFirstPersonViewModelRendering;
+        public uint firstPersonViewModelRenderingLayerMask;
+        public uint thirdPersonRenderingLayerMask;
+        public Matrix4x4 firstPersonViewModelProjectionMatrix;
     }
 
     public struct ShadowData
@@ -86,6 +92,8 @@ namespace UnityEngine.Rendering.LWRP
 
         public static readonly string LinearToSRGBConversion = "_LINEAR_TO_SRGB_CONVERSION";
         public static readonly string KillAlpha = "_KILL_ALPHA";
+
+        public static readonly string FirstPersonDepth = "_FIRST_PERSON_DEPTH";
     }
 
     public sealed partial class LightweightRenderPipeline

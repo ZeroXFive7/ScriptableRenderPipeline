@@ -79,6 +79,7 @@ Shader "Lightweight Render Pipeline/Lit"
             // All shaders must be compiled with HLSLcc and currently only gles is not using HLSLcc by default
             #pragma prefer_hlslcc gles
             #pragma exclude_renderers d3d11_9x
+            #pragma enable_d3d11_debug_symbols
             #pragma target 2.0
 
             // -------------------------------------
@@ -105,6 +106,9 @@ Shader "Lightweight Render Pipeline/Lit"
             #pragma multi_compile _ _SHADOWS_SOFT
             #pragma multi_compile _ _MIXED_LIGHTING_SUBTRACTIVE
 
+            // Giants Kettle keywords
+            #pragma multi_compile _ _FIRST_PERSON_DEPTH
+
             // -------------------------------------
             // Unity defined keywords
             #pragma multi_compile _ DIRLIGHTMAP_COMBINED
@@ -118,11 +122,12 @@ Shader "Lightweight Render Pipeline/Lit"
             #pragma vertex LitPassVertex
             #pragma fragment LitPassFragment
 
+            #define _VERTEX_COLOR 1
+
             #include "LitInput.hlsl"
             #include "LitForwardPass.hlsl"
             ENDHLSL
         }
-
         Pass
         {
             Name "ShadowCaster"
@@ -136,6 +141,7 @@ Shader "Lightweight Render Pipeline/Lit"
             // Required to compile gles 2.0 with standard srp library
             #pragma prefer_hlslcc gles
             #pragma exclude_renderers d3d11_9x
+            #pragma enable_d3d11_debug_symbols
             #pragma target 2.0
 
             // -------------------------------------
@@ -168,6 +174,7 @@ Shader "Lightweight Render Pipeline/Lit"
             // Required to compile gles 2.0 with standard srp library
             #pragma prefer_hlslcc gles
             #pragma exclude_renderers d3d11_9x
+            #pragma enable_d3d11_debug_symbols
             #pragma target 2.0
 
             #pragma vertex DepthOnlyVertex
@@ -177,6 +184,9 @@ Shader "Lightweight Render Pipeline/Lit"
             // Material Keywords
             #pragma shader_feature _ALPHATEST_ON
             #pragma shader_feature _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+
+            // Giants Kettle keywords
+            #pragma multi_compile _ _FIRST_PERSON_DEPTH
 
             //--------------------------------------
             // GPU Instancing
@@ -199,6 +209,7 @@ Shader "Lightweight Render Pipeline/Lit"
             // Required to compile gles 2.0 with standard srp library
             #pragma prefer_hlslcc gles
             #pragma exclude_renderers d3d11_9x
+            #pragma enable_d3d11_debug_symbols
 
             #pragma vertex LightweightVertexMeta
             #pragma fragment LightweightFragmentMeta
