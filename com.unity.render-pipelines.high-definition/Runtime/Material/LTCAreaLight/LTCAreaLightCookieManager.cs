@@ -1,6 +1,9 @@
-namespace UnityEngine.Rendering.HighDefinition
+using UnityEngine.Rendering;
+using System.Collections.Generic;
+
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
-    class LTCAreaLightCookieManager
+    public class LTCAreaLightCookieManager
     {
         HDRenderPipelineAsset m_RenderPipelineAsset = null;
 
@@ -17,7 +20,7 @@ namespace UnityEngine.Rendering.HighDefinition
         RenderTexture m_TempRenderTexture0 = null;
         RenderTexture m_TempRenderTexture1 = null;
 
-        public LTCAreaLightCookieManager(HDRenderPipelineAsset hdAsset, RenderPipelineResources defaultResources, int maxCacheSize)
+        public LTCAreaLightCookieManager(HDRenderPipelineAsset hdAsset, int maxCacheSize)
         {
             // Keep track of the render pipeline asset
             m_RenderPipelineAsset = hdAsset;
@@ -32,7 +35,7 @@ namespace UnityEngine.Rendering.HighDefinition
             m_AreaCookieTexArray.AllocTextureArray(cookieSize, cookieResolution, cookieResolution, TextureFormat.RGBA32, true);
 
             // Also make sure to create the engine material that is used for the filtering
-            m_MaterialFilterAreaLights = CoreUtils.CreateEngineMaterial(defaultResources.shaders.filterAreaLightCookiesPS);
+            m_MaterialFilterAreaLights = CoreUtils.CreateEngineMaterial(hdAsset.renderPipelineResources.shaders.filterAreaLightCookiesPS);
         }
 
         public void ReleaseResources()

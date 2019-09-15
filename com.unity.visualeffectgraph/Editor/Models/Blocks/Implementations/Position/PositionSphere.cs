@@ -34,7 +34,7 @@ namespace UnityEditor.VFX.Block
             get
             {
                 string outSource = @"float cosPhi = 2.0f * RAND - 1.0f;";
-                if (spawnMode == SpawnMode.Random)
+                if (spawnMode == SpawnMode.Randomized)
                     outSource += @"float theta = ArcSphere_arc * RAND;";
                 else
                     outSource += @"float theta = ArcSphere_arc * ArcSequencer;";

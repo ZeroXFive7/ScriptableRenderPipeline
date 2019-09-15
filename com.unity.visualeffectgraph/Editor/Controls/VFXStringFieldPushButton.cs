@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 using UnityEditor.UIElements;
 
-namespace UnityEditor.VFX.UI
+namespace UnityEditor.VFX.UIElements
 {
     class VFXStringFieldPushButton : VFXStringField
     {

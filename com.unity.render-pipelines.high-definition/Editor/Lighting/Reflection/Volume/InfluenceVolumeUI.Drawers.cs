@@ -1,7 +1,8 @@
+using UnityEditor.Rendering;
 using UnityEngine;
-using UnityEngine.Rendering.HighDefinition;
+using UnityEngine.Experimental.Rendering.HDPipeline;
 
-namespace UnityEditor.Rendering.HighDefinition
+namespace UnityEditor.Experimental.Rendering.HDPipeline
 {
     partial class InfluenceVolumeUI
     {
@@ -128,12 +129,12 @@ namespace UnityEditor.Rendering.HighDefinition
             EditorGUILayout.EndHorizontal();
 
             GUILayout.Space(EditorGUIUtility.standardVerticalSpacing);
-
+            
             EditorGUILayout.BeginHorizontal();
             Drawer_AdvancedBlendDistance(serialized, false, maxFadeDistance, blendDistanceContent);
             HDProbeUI.Drawer_ToolBarButton(HDProbeUI.ToolBar.Blend, owner, GUILayout.ExpandHeight(true), GUILayout.Width(28f), GUILayout.MinHeight(22f), GUILayout.MaxHeight((advanced ? 2 : 1) * (EditorGUIUtility.singleLineHeight + 3)));
             EditorGUILayout.EndHorizontal();
-
+            
             GUILayout.Space(EditorGUIUtility.standardVerticalSpacing * 2f);
 
             if (drawNormal)
@@ -142,7 +143,7 @@ namespace UnityEditor.Rendering.HighDefinition
                 Drawer_AdvancedBlendDistance(serialized, true, maxFadeDistance, blendNormalDistanceContent);
                 HDProbeUI.Drawer_ToolBarButton(HDProbeUI.ToolBar.NormalBlend, owner, GUILayout.ExpandHeight(true), GUILayout.Width(28f), GUILayout.MinHeight(22f), GUILayout.MaxHeight((advanced ? 2 : 1) * (EditorGUIUtility.singleLineHeight + 3)));
                 EditorGUILayout.EndHorizontal();
-
+                
                 GUILayout.Space(EditorGUIUtility.standardVerticalSpacing * 2f);
             }
 
@@ -150,7 +151,11 @@ namespace UnityEditor.Rendering.HighDefinition
             {
                 EditorGUILayout.BeginHorizontal();
                 EditorGUI.BeginChangeCheck();
-                CoreEditorUtils.DrawVector6(faceFadeContent, serialized.editorAdvancedModeFaceFadePositive, serialized.editorAdvancedModeFaceFadeNegative, Vector3.zero, Vector3.one, k_HandlesColor);
+                var positive = serialized.editorAdvancedModeFaceFadePositive.vector3Value;
+                var negative = serialized.editorAdvancedModeFaceFadeNegative.vector3Value;
+                CoreEditorUtils.DrawVector6(faceFadeContent, ref positive, ref negative, Vector3.zero, Vector3.one, k_HandlesColor);
+                serialized.editorAdvancedModeFaceFadePositive.vector3Value = positive;
+                serialized.editorAdvancedModeFaceFadeNegative.vector3Value = negative;
                 if (EditorGUI.EndChangeCheck())
                 {
                     serialized.boxSideFadePositive.vector3Value = serialized.editorAdvancedModeFaceFadePositive.vector3Value;
@@ -158,7 +163,7 @@ namespace UnityEditor.Rendering.HighDefinition
                 }
                 GUILayout.Space(28f + 9f); //add right margin for alignment
                 EditorGUILayout.EndHorizontal();
-
+                
                 GUILayout.Space(EditorGUIUtility.standardVerticalSpacing * 2f);
             }
         }
@@ -180,7 +185,13 @@ namespace UnityEditor.Rendering.HighDefinition
                 EditorGUI.BeginChangeCheck();
                 blendDistancePositive.vector3Value = editorAdvancedModeBlendDistancePositive.vector3Value;
                 blendDistanceNegative.vector3Value = editorAdvancedModeBlendDistanceNegative.vector3Value;
-                CoreEditorUtils.DrawVector6(content, blendDistancePositive, blendDistanceNegative, Vector3.zero, maxBlendDistance, k_HandlesColor);
+                var positive = blendDistancePositive.vector3Value;
+                var negative = blendDistanceNegative.vector3Value;
+                CoreEditorUtils.DrawVector6(
+                    content,
+                    ref positive, ref negative, Vector3.zero, maxBlendDistance, k_HandlesColor);
+                blendDistancePositive.vector3Value = positive;
+                blendDistanceNegative.vector3Value = negative;
                 if (EditorGUI.EndChangeCheck())
                 {
                     editorAdvancedModeBlendDistancePositive.vector3Value = blendDistancePositive.vector3Value;

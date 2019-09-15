@@ -1,6 +1,6 @@
 using System;
 
-namespace UnityEngine.Rendering.HighDefinition
+namespace UnityEngine.Experimental.Rendering
 {
     public struct Frustum
     {
@@ -48,7 +48,7 @@ namespace UnityEngine.Rendering.HighDefinition
     } // struct Frustum
 
     [GenerateHLSL]
-    struct OrientedBBox
+    public struct OrientedBBox
     {
         // 3 x float4 = 48 bytes.
         // TODO: pack the axes into 16-bit UNORM per channel, and consider a quaternionic representation.
@@ -60,7 +60,7 @@ namespace UnityEngine.Rendering.HighDefinition
         public float   extentZ;
 
         public Vector3 forward { get { return Vector3.Cross(up, right); } }
-
+        
         public OrientedBBox(Matrix4x4 trs)
         {
             Vector3 vecX = trs.GetColumn(0);
@@ -77,7 +77,7 @@ namespace UnityEngine.Rendering.HighDefinition
         }
     } // struct OrientedBBox
 
-    static class GeometryUtils
+    public static class GeometryUtils
     {
         // Returns 'true' if the OBB intersects (or is inside) the frustum, 'false' otherwise.
         public static bool Overlap(OrientedBBox obb, Frustum frustum, int numPlanes, int numCorners)
@@ -143,6 +143,8 @@ namespace UnityEngine.Rendering.HighDefinition
 
             return overlap;
         }
+
+        public static readonly Matrix4x4 FlipMatrixLHSRHS = Matrix4x4.Scale(new Vector3(1, 1, -1));
 
         public static Vector4 Plane(Vector3 position, Vector3 normal)
         {
@@ -223,6 +225,16 @@ namespace UnityEngine.Rendering.HighDefinition
             reflectionMat.m33 = 1F;
 
             return reflectionMat;
+        }
+
+        public static Matrix4x4 GetWorldToCameraMatrixLHS(this Camera camera)
+        {
+            return FlipMatrixLHSRHS * camera.worldToCameraMatrix;
+        }
+
+        public static Matrix4x4 GetProjectionMatrixLHS(this Camera camera)
+        {
+            return camera.projectionMatrix * FlipMatrixLHSRHS;
         }
 
         public static bool IsProjectionMatrixOblique(Matrix4x4 projectionMatrix)

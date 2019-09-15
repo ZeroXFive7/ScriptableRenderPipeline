@@ -1,23 +1,19 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using UnityEngine.VFX;
-
-namespace UnityEditor.VFX
-{
-    public enum VFXSeedMode
-    {
-        PerParticle,
-        PerComponent,
-        PerParticleStrip,
-    }
-}
+using UnityEngine.Experimental.VFX;
 
 namespace UnityEditor.VFX.Operator
 {
     [VFXInfo(category = "Random")]
     class Random : VFXOperator
     {
+        public enum SeedMode
+        {
+            PerParticle,
+            PerComponent,
+        }
+
         public class InputProperties
         {
             [Tooltip("The minimum value to be generated.")]
@@ -38,8 +34,8 @@ namespace UnityEditor.VFX.Operator
             public float r;
         }
 
-        [VFXSetting, Tooltip("Generate a random number for each particle, particle strip, or one that is shared by the whole system.")]
-        public VFXSeedMode seed = VFXSeedMode.PerParticle;
+        [VFXSetting, Tooltip("Generate a random number for each particle, or one that is shared by the whole system.")]
+        public SeedMode seed = SeedMode.PerParticle;
         [VFXSetting, Tooltip("The random number may either remain constant, or change every time it is evaluated.")]
         public bool constant = true;
 
@@ -50,30 +46,19 @@ namespace UnityEditor.VFX.Operator
             get
             {
                 var props = PropertiesFromType("InputProperties");
-                if (constant || seed == VFXSeedMode.PerParticleStrip)
+                if (constant)
                     props = props.Concat(PropertiesFromType("ConstantInputProperties"));
                 return props;
-            }
-        }
-
-        protected override IEnumerable<string> filteredOutSettings
-        {
-            get
-            {
-                foreach (var s in base.filteredOutSettings)
-                    yield return s;
-                if (seed == VFXSeedMode.PerParticleStrip)
-                    yield return "constant";
             }
         }
 
         protected override sealed VFXExpression[] BuildExpression(VFXExpression[] inputExpression)
         {
             VFXExpression rand = null;
-            if (seed == VFXSeedMode.PerParticleStrip || constant)
-                rand = VFXOperatorUtility.FixedRandom(inputExpression[2], seed);
+            if (constant)
+                rand = VFXOperatorUtility.FixedRandom(inputExpression[2], seed == SeedMode.PerParticle);
             else
-                rand = new VFXExpressionRandom(seed == VFXSeedMode.PerParticle);
+                rand = new VFXExpressionRandom(seed == SeedMode.PerParticle);
 
             return new[] { VFXOperatorUtility.Lerp(inputExpression[0], inputExpression[1], rand) };
         }

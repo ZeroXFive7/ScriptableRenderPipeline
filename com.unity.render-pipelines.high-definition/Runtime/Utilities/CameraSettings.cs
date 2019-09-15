@@ -1,7 +1,7 @@
 using System;
 using UnityEngine.Serialization;
 
-namespace UnityEngine.Rendering.HighDefinition
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
     [Flags]
     public enum CameraSettingsFields
@@ -185,8 +185,8 @@ namespace UnityEngine.Rendering.HighDefinition
             settings.frustum.projectionMatrix = hdCamera.camera.projectionMatrix;
             settings.invertFaceCulling = false;
 
-            HDAdditionalCameraData   add;
-            if (hdCamera.camera.TryGetComponent<HDAdditionalCameraData>(out add))
+            var add = hdCamera.camera.GetComponent<HDAdditionalCameraData>();
+            if (add != null && !add.Equals(null))
             {
                 settings.customRenderingSettings = add.customRenderingSettings;
                 settings.bufferClearing.backgroundColorHDR = add.backgroundColorHDR;
@@ -212,8 +212,11 @@ namespace UnityEngine.Rendering.HighDefinition
             var isPerspectiveMatrix = Mathf.Approximately(hdCamera.camera.projectionMatrix.m32, -1);
             var isFOV45Degrees = Mathf.Approximately(hdCamera.camera.projectionMatrix.m00, 1)
                 && Mathf.Approximately(hdCamera.camera.projectionMatrix.m11, 1);
+            var useATempBuffer = hdCamera.camera.activeTexture != null
+                && !hdCamera.camera.activeTexture.Equals(null)
+                && hdCamera.camera.activeTexture.name.StartsWith("TempBuffer");
 
-            if (isLHSViewMatrix && isPerspectiveMatrix && isFOV45Degrees)
+            if (isLHSViewMatrix && isPerspectiveMatrix && isFOV45Degrees && useATempBuffer)
                 settings.invertFaceCulling = true;
 
             return settings;

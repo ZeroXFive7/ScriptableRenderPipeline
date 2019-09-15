@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using UnityEditor.ShaderGraph.Drawing.Controls;
 using UnityEngine;
 using UnityEditor.Graphing;
-using UnityEditor.ShaderGraph.Internal;
 
 namespace UnityEditor.ShaderGraph
 {
@@ -32,7 +31,7 @@ namespace UnityEditor.ShaderGraph
         [Texture3DControl("")]
         public Texture3D texture
         {
-            get { return m_Texture.texture as Texture3D; }
+            get { return (Texture3D)m_Texture.texture; }
             set
             {
                 if (m_Texture.texture == value)

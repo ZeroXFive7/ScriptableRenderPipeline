@@ -1,6 +1,6 @@
 using System;
 
-namespace UnityEngine.Rendering.HighDefinition
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
     /// <summary>Define helpers to manipulate <see cref="MigrationStep{TVersion, TTarget}"/>.</summary>
     public static class MigrationStep

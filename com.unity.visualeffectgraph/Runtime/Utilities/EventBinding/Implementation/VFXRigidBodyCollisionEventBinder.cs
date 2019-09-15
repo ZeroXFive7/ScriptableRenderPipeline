@@ -1,14 +1,14 @@
 using System.Collections;
 using System.Collections.Generic;
 
-namespace UnityEngine.VFX.Utility
+namespace UnityEngine.VFX.Utils
 {
     [RequireComponent(typeof(Rigidbody))]
     [RequireComponent(typeof(Collider))]
-    class VFXRigidBodyCollisionEventBinder : VFXEventBinderBase
+    public class VFXRigidBodyCollisionEventBinder : VFXEventBinderBase
     {
-        private ExposedProperty positionParameter = "position";
-        private ExposedProperty directionParameter = "velocity";
+        private ExposedParameter positionParameter = "position";
+        private ExposedParameter directionParameter = "velocity";
 
 
         protected override void SetEventAttribute(object[] parameters)

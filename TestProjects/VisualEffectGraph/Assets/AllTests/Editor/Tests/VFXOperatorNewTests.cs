@@ -7,7 +7,7 @@ using NUnit.Framework;
 using System.Reflection;
 using UnityEngine;
 using Object = UnityEngine.Object;
-using UnityEngine.VFX;
+using UnityEngine.Experimental.VFX;
 using System.Text;
 using UnityEditor.VFX.Operator;
 

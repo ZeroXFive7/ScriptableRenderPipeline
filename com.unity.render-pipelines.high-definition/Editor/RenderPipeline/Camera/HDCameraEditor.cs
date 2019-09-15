@@ -1,9 +1,8 @@
 using UnityEngine;
-using UnityEditor.Rendering;
 using UnityEngine.Assertions;
-using UnityEngine.Rendering.HighDefinition;
+using UnityEngine.Experimental.Rendering.HDPipeline;
 
-namespace UnityEditor.Rendering.HighDefinition
+namespace UnityEditor.Experimental.Rendering.HDPipeline
 {
     [CustomEditorForRenderPipeline(typeof(Camera), typeof(HDRenderPipelineAsset))]
     [CanEditMultipleObjects]
@@ -80,7 +79,7 @@ namespace UnityEditor.Rendering.HighDefinition
         public override void OnInspectorGUI()
         {
             m_SerializedCamera.Update();
-
+            
             HDCameraUI.Inspector.Draw(m_SerializedCamera, this);
 
             m_SerializedCamera.Apply();

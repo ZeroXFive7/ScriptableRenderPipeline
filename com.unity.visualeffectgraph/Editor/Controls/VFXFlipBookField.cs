@@ -4,7 +4,7 @@ using UnityEditor.UIElements;
 
 using System.Collections.Generic;
 
-namespace UnityEditor.VFX.UI
+namespace UnityEditor.VFX.UIElements
 {
     class VFXFlipBookField : VFXControl<FlipBook>
     {

@@ -2,7 +2,7 @@ using System;
 using UnityEditor.Rendering;
 using UnityEngine;
 
-namespace UnityEditor.Rendering.HighDefinition
+namespace UnityEditor.Experimental.Rendering.HDPipeline
 {
     // TODO: Should be cleaned up and put into CoreRP/Editor
     sealed class TrackballUIDrawer

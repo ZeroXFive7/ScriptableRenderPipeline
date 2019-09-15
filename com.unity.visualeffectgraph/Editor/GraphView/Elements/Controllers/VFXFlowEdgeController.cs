@@ -11,10 +11,5 @@ namespace UnityEditor.VFX.UI
         public VFXFlowEdgeController(VFXFlowAnchorController input, VFXFlowAnchorController output) : base(input, output)
         {
         }
-
-        public override void ApplyChanges()
-        {
-            NotifyChange(AnyThing);
-        }
     }
 }

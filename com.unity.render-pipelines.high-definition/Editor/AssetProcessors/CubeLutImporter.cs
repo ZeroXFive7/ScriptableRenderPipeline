@@ -4,9 +4,9 @@ using System.IO;
 using System.Text;
 using UnityEditor.Experimental.AssetImporters;
 using UnityEngine;
-using UnityEngine.Rendering.HighDefinition;
+using UnityEngine.Experimental.Rendering.HDPipeline;
 
-namespace UnityEditor.Rendering.HighDefinition
+namespace UnityEditor.Experimental.Rendering.HDPipeline
 {
     [ScriptedImporter(0, "cube")]
     class CubeLutImporter : ScriptedImporter

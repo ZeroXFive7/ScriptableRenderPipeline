@@ -1,9 +1,12 @@
+using System;
 using System.Collections.Generic;
+using UnityEngine.Experimental.Rendering;
+using UnityEngine.Rendering;
 
-namespace UnityEngine.Rendering.HighDefinition
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
 
-    class CullingGroupManager
+    public class CullingGroupManager
     {
         static CullingGroupManager m_Instance;
         static public CullingGroupManager instance

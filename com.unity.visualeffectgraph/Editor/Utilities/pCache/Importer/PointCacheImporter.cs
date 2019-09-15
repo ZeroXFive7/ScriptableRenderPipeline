@@ -7,10 +7,10 @@ using System.Globalization;
 using UnityEngine;
 using UnityEditor.Experimental.AssetImporters;
 
-namespace UnityEditor.Experimental.VFX.Utility
+namespace UnityEditor.VFX.Utils
 {
     [ScriptedImporter(1, "pcache")]
-    class PointCacheImporter : ScriptedImporter
+    public class PointCacheImporter : ScriptedImporter
     {
         public static T[] SubArray<T>(T[] data, int index, int length)
         {

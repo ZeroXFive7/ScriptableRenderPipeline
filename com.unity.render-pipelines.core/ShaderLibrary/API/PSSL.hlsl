@@ -1,9 +1,9 @@
-// This file assume SHADER_API_PSSL is defined
+// This file assume SHADER_API_D3D11 is defined
 
-#define PLATFORM_SUPPORTS_TEXTURE_ATOMICS
 #define PLATFORM_LANE_COUNT 64
+#define PLATFORM_THREAD_GROUP_OPTIMAL_SIZE PLATFORM_LANE_COUNT       // 64 threads in a wafefront
 
-#define PLATFORM_SUPPORTS_WAVE_INTRINSICS
+#define SUPPORTS_WAVE_INTRINSICS
 
 #define INTRINSIC_BITFIELD_EXTRACT
 #define BitFieldExtract __v_bfe_u32

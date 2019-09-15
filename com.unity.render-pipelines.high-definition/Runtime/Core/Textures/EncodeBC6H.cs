@@ -1,8 +1,9 @@
 using UnityEngine.Assertions;
+using UnityEngine.Rendering;
 
-namespace UnityEngine.Rendering
+namespace UnityEngine.Experimental.Rendering
 {
-    class EncodeBC6H
+    public class EncodeBC6H
     {
         public static EncodeBC6H DefaultInstance;
 
@@ -111,7 +112,7 @@ namespace UnityEngine.Rendering
         }
     }
 
-    internal static class BC6HExtensions
+    public static class BC6HExtensions
     {
         public static void BC6HEncodeFastCubemap(this CommandBuffer cmb, RenderTargetIdentifier source, int sourceSize, RenderTargetIdentifier target, int fromMip, int toMip, int targetArrayIndex = 0)
         {

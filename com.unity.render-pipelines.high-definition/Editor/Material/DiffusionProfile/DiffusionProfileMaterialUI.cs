@@ -1,15 +1,11 @@
 using UnityEngine;
-using UnityEngine.Rendering;
-using UnityEngine.Rendering.HighDefinition;
+using UnityEngine.Experimental.Rendering.HDPipeline;
 using System.Linq;
-using System;
 
-namespace UnityEditor.Rendering.HighDefinition
+namespace UnityEditor.Experimental.Rendering.HDPipeline
 {
-    static class DiffusionProfileMaterialUI
+    public static class DiffusionProfileMaterialUI
     {
-        static GUIContent    diffusionProfileNotInHDRPAsset = new GUIContent("You must add this diffusion profile in the HDRP asset to make it work", EditorGUIUtility.IconContent("console.warnicon").image);
-
         public static bool IsSupported(MaterialEditor materialEditor)
         {
             return !materialEditor.targets.Any(o => {
@@ -20,7 +16,6 @@ namespace UnityEditor.Rendering.HighDefinition
 
         public static void OnGUI(MaterialProperty diffusionProfileAsset, MaterialProperty diffusionProfileHash)
         {
-            // We can't cache these fields because of several edge cases like undo/redo or pressing escape in the object picker
             string guid = HDUtils.ConvertVector4ToGUID(diffusionProfileAsset.vectorValue);
             DiffusionProfileSettings diffusionProfile = AssetDatabase.LoadAssetAtPath<DiffusionProfileSettings>(AssetDatabase.GUIDToAssetPath(guid));
 
@@ -42,27 +37,6 @@ namespace UnityEditor.Rendering.HighDefinition
                 // encode back GUID and it's hash
                 diffusionProfileAsset.vectorValue = newGuid;
                 diffusionProfileHash.floatValue = hash;
-            }
-
-            DrawDiffusionProfileWarning(diffusionProfile);
-        }
-
-        static void DrawDiffusionProfileWarning(DiffusionProfileSettings materialProfile)
-        {
-            var hdPipeline = RenderPipelineManager.currentPipeline as HDRenderPipeline;
-
-            if (materialProfile != null && !hdPipeline.asset.diffusionProfileSettingsList.Any(d => d == materialProfile))
-            {
-                using (new EditorGUILayout.HorizontalScope(EditorStyles.helpBox))
-                {
-                    GUIStyle wordWrap = new GUIStyle(EditorStyles.label);
-                    wordWrap.wordWrap = true;
-                    EditorGUILayout.LabelField(diffusionProfileNotInHDRPAsset, wordWrap);
-                    if (GUILayout.Button("Fix", GUILayout.ExpandHeight(true)))
-                    {
-                        hdPipeline.asset.AddDiffusionProfile(materialProfile);
-                    }
-                }
             }
         }
     }

@@ -1,9 +1,9 @@
 using UnityEditor.AnimatedValues;
 using UnityEngine.Events;
 
-namespace UnityEditor.Rendering.HighDefinition
+namespace UnityEditor.Experimental.Rendering.HDPipeline
 {
-    interface IUpdateable<T>
+    public interface IUpdateable<T>
     {
         void Update(T v);
     }

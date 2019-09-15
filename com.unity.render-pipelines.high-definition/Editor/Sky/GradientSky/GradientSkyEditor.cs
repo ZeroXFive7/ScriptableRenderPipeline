@@ -1,11 +1,11 @@
 using UnityEditor.Rendering;
-using UnityEngine.Rendering.HighDefinition;
+using UnityEngine.Experimental.Rendering.HDPipeline;
 
-namespace UnityEditor.Rendering.HighDefinition
+namespace UnityEditor.Experimental.Rendering.HDPipeline
 {
     [CanEditMultipleObjects]
     [VolumeComponentEditor(typeof(GradientSky))]
-    class GradientSkySettingsEditor : SkySettingsEditor
+    public class GradientSkySettingsEditor : SkySettingsEditor
     {
         SerializedDataParameter m_Bottom;
         SerializedDataParameter m_Middle;

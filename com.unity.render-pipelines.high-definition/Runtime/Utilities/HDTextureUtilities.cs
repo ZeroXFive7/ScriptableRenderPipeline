@@ -1,9 +1,9 @@
 using System;
 using System.IO;
 using UnityEngine.Assertions;
-using UnityEngine.Experimental.Rendering;
+using UnityEngine.Rendering;
 
-namespace UnityEngine.Rendering.HighDefinition
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
     internal static partial class HDTextureUtilities
     {
@@ -66,21 +66,19 @@ namespace UnityEngine.Rendering.HighDefinition
                 case TextureDimension.Cube:
                     {
                         var resolution = source.width;
-
-                        var result = RenderTexture.GetTemporary(resolution * 6, resolution, 0, source.format);
-                        var cmd = new CommandBuffer();
+                        var result = new Texture2D(resolution * 6, resolution, format, false);
+                        
+                        var offset = 0;
                         for (var i = 0; i < 6; ++i)
-                            cmd.CopyTexture(source, i, 0,  0, 0, resolution, resolution, result, 0, 0, i * resolution, 0);
-                        Graphics.ExecuteCommandBuffer(cmd);
+                        {
+                            Graphics.SetRenderTarget(source, 0, (CubemapFace)i);
+                            result.ReadPixels(new Rect(0, 0, resolution, resolution), offset, 0);
+                            offset += resolution;
+                            Graphics.SetRenderTarget(null);
+                        }
+                        result.Apply();
 
-                        var t2D = new Texture2D(resolution * 6, resolution, format, false);
-                        var a = RenderTexture.active;
-                        RenderTexture.active = result;
-                        t2D.ReadPixels(new Rect(0, 0, 6 * resolution, resolution), 0, 0, false);
-                        RenderTexture.active = a;
-                        RenderTexture.ReleaseTemporary(result);
-
-                        return t2D;
+                        return result;
                     }
                 case TextureDimension.Tex2D:
                     {

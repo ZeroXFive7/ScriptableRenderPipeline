@@ -1,38 +1,27 @@
 using System;
 using System.Linq;
 using System.Collections.Generic;
-using UnityEditor.Rendering.HighDefinition.Drawing;
+using UnityEditor.Experimental.Rendering.HDPipeline.Drawing;
 using UnityEditor.Graphing;
 using UnityEditor.ShaderGraph;
-using UnityEditor.ShaderGraph.Drawing;
 using UnityEditor.ShaderGraph.Drawing.Controls;
 using UnityEngine;
 using UnityEngine.UIElements;
-using UnityEngine.Rendering.HighDefinition;
-using UnityEditor.ShaderGraph.Drawing.Inspector;
-using UnityEditor.ShaderGraph.Internal;
-using UnityEngine.Rendering;
+using UnityEngine.Experimental.Rendering.HDPipeline;
 
-// Include material common properties names
-using static UnityEngine.Rendering.HighDefinition.HDMaterialProperties;
-
-namespace UnityEditor.Rendering.HighDefinition
+namespace UnityEditor.Experimental.Rendering.HDPipeline
 {
     [Serializable]
-    [FormerName("UnityEditor.Experimental.Rendering.HDPipeline.HDUnlitMasterNode")]
     [Title("Master", "HDRP/Unlit")]
-    class HDUnlitMasterNode : MasterNode<IHDUnlitSubShader>, IMayRequirePosition, IMayRequireNormal, IMayRequireTangent
+    class HDUnlitMasterNode : MasterNode<IHDUnlitSubShader>, IMayRequirePosition
     {
         public const string ColorSlotName = "Color";
         public const string AlphaSlotName = "Alpha";
         public const string AlphaClipThresholdSlotName = "AlphaClipThreshold";
         public const string DistortionSlotName = "Distortion";
         public const string DistortionBlurSlotName = "DistortionBlur";
-        public const string PositionSlotName = "Vertex Position";
-        public const string PositionSlotDisplayName = "Vertex Position";
+        public const string PositionSlotName = "Position";
         public const string EmissionSlotName = "Emission";
-        public const string VertexNormalSlotName = "Vertex Normal";
-        public const string VertexTangentSlotName = "Vertex Tangent";
 
         public const int ColorSlotId = 0;
         public const int AlphaSlotId = 7;
@@ -41,8 +30,6 @@ namespace UnityEditor.Rendering.HighDefinition
         public const int DistortionSlotId = 10;
         public const int DistortionBlurSlotId = 11;
         public const int EmissionSlotId = 12;
-        public const int VertexNormalSlotId = 13;
-        public const int VertexTangentSlotId = 14;
 
         // Don't support Multiply
         public enum AlphaModeLit
@@ -86,7 +73,7 @@ namespace UnityEditor.Rendering.HighDefinition
         }
 
         [SerializeField]
-        HDRenderQueue.RenderQueueType m_RenderingPass = HDRenderQueue.RenderQueueType.Opaque;
+        HDRenderQueue.RenderQueueType m_RenderingPass = HDRenderQueue.RenderQueueType.Unknown;
 
         public HDRenderQueue.RenderQueueType renderingPass
         {
@@ -116,10 +103,8 @@ namespace UnityEditor.Rendering.HighDefinition
             }
         }
 
-#pragma warning disable 649
         [SerializeField, Obsolete("Kept for data migration")]
         internal bool m_DrawBeforeRefraction;
-#pragma warning restore 649
 
         [SerializeField]
         bool m_Distortion;
@@ -230,70 +215,6 @@ namespace UnityEditor.Rendering.HighDefinition
             }
         }
 
-        [SerializeField]
-        bool m_ZWrite = true;
-
-        public ToggleData zWrite
-        {
-            get { return new ToggleData(m_ZWrite); }
-            set
-            {
-                if (m_ZWrite == value.isOn)
-                    return;
-                m_ZWrite = value.isOn;
-                Dirty(ModificationScope.Graph);
-            }
-        }
-
-        [SerializeField]
-        TransparentCullMode m_transparentCullMode = TransparentCullMode.Back;
-        public TransparentCullMode transparentCullMode
-        {
-            get => m_transparentCullMode;
-            set
-            {
-                if (m_transparentCullMode == value)
-                    return;
-
-                m_transparentCullMode = value;
-                UpdateNodeAfterDeserialization();
-                Dirty(ModificationScope.Graph);
-            }
-        }
-
-        [SerializeField]
-        CompareFunction m_ZTest = CompareFunction.LessEqual;
-        public CompareFunction zTest
-        {
-            get => m_ZTest;
-            set
-            {
-                if (m_ZTest == value)
-                    return;
-
-                m_ZTest = value;
-                UpdateNodeAfterDeserialization();
-                Dirty(ModificationScope.Graph);
-            }
-        }
-
-        [SerializeField]
-        bool m_AddPrecomputedVelocity = false;
-
-        public ToggleData addPrecomputedVelocity
-        {
-            get { return new ToggleData(m_AddPrecomputedVelocity); }
-            set
-            {
-                if (m_AddPrecomputedVelocity == value.isOn)
-                    return;
-                m_AddPrecomputedVelocity = value.isOn;
-                UpdateNodeAfterDeserialization();
-                Dirty(ModificationScope.Graph);
-            }
-        }
-
-
         public HDUnlitMasterNode()
         {
             UpdateNodeAfterDeserialization();
@@ -303,7 +224,7 @@ namespace UnityEditor.Rendering.HighDefinition
         {
             get { return null; }
         }
-
+        
         public bool HasDistortion()
         {
             return (surfaceType == SurfaceType.Transparent && distortion.isOn);
@@ -315,12 +236,8 @@ namespace UnityEditor.Rendering.HighDefinition
             name = "Unlit Master";
 
             List<int> validSlots = new List<int>();
-            AddSlot(new PositionMaterialSlot(PositionSlotId, PositionSlotDisplayName, PositionSlotName, CoordinateSpace.Object, ShaderStageCapability.Vertex));
+            AddSlot(new PositionMaterialSlot(PositionSlotId, PositionSlotName, PositionSlotName, CoordinateSpace.Object, ShaderStageCapability.Vertex));
             validSlots.Add(PositionSlotId);
-            AddSlot(new NormalMaterialSlot(VertexNormalSlotId, VertexNormalSlotName, VertexNormalSlotName, CoordinateSpace.Object, ShaderStageCapability.Vertex));
-            validSlots.Add(VertexNormalSlotId);
-            AddSlot(new TangentMaterialSlot(VertexTangentSlotId, VertexTangentSlotName, VertexTangentSlotName, CoordinateSpace.Object, ShaderStageCapability.Vertex));
-            validSlots.Add(VertexTangentSlotId);
             AddSlot(new ColorRGBMaterialSlot(ColorSlotId, ColorSlotName, ColorSlotName, SlotType.Input, Color.grey.gamma, ColorMode.Default, ShaderStageCapability.Fragment));
             validSlots.Add(ColorSlotId);
             AddSlot(new Vector1MaterialSlot(AlphaSlotId, AlphaSlotName, AlphaSlotName, SlotType.Input, 1, ShaderStageCapability.Fragment));
@@ -363,55 +280,6 @@ namespace UnityEditor.Rendering.HighDefinition
             return validSlots.OfType<IMayRequirePosition>().Aggregate(NeededCoordinateSpace.None, (mask, node) => mask | node.RequiresPosition(stageCapability));
         }
 
-         public NeededCoordinateSpace RequiresNormal(ShaderStageCapability stageCapability)
-        {
-            List<MaterialSlot> slots = new List<MaterialSlot>();
-            GetSlots(slots);
-
-            List<MaterialSlot> validSlots = new List<MaterialSlot>();
-            for (int i = 0; i < slots.Count; i++)
-            {
-                if (slots[i].stageCapability != ShaderStageCapability.All && slots[i].stageCapability != stageCapability)
-                    continue;
-
-                validSlots.Add(slots[i]);
-            }
-            return validSlots.OfType<IMayRequireNormal>().Aggregate(NeededCoordinateSpace.None, (mask, node) => mask | node.RequiresNormal(stageCapability));
-        }
-
-        public NeededCoordinateSpace RequiresTangent(ShaderStageCapability stageCapability)
-        {
-            List<MaterialSlot> slots = new List<MaterialSlot>();
-            GetSlots(slots);
-
-            List<MaterialSlot> validSlots = new List<MaterialSlot>();
-            for (int i = 0; i < slots.Count; i++)
-            {
-                if (slots[i].stageCapability != ShaderStageCapability.All && slots[i].stageCapability != stageCapability)
-                    continue;
-
-                validSlots.Add(slots[i]);
-            }
-            return validSlots.OfType<IMayRequireTangent>().Aggregate(NeededCoordinateSpace.None, (mask, node) => mask | node.RequiresTangent(stageCapability));
-        }
-
-        public override void ProcessPreviewMaterial(Material previewMaterial)
-        {
-            // Fixup the material settings:
-            previewMaterial.SetFloat(kSurfaceType, (int)(SurfaceType)surfaceType);
-            previewMaterial.SetFloat(kDoubleSidedEnable, doubleSided.isOn ? 1.0f : 0.0f);
-            previewMaterial.SetFloat(kAlphaCutoffEnabled, alphaTest.isOn ? 1 : 0);
-            previewMaterial.SetFloat(kBlendMode, (int)HDSubShaderUtilities.ConvertAlphaModeToBlendMode(alphaMode));
-            previewMaterial.SetFloat(kEnableFogOnTransparent, transparencyFog.isOn ? 1.0f : 0.0f);
-            previewMaterial.SetFloat(kZTestTransparent, (int)zTest);
-            previewMaterial.SetFloat(kTransparentCullMode, (int)transparentCullMode);
-            previewMaterial.SetFloat(kZWrite, zWrite.isOn ? 1.0f : 0.0f);
-            // No sorting priority for shader graph preview
-            previewMaterial.renderQueue = (int)HDRenderQueue.ChangeType(renderingPass, offset: 0, alphaTest: alphaTest.isOn);
-
-            HDUnlitGUI.SetupMaterialKeywordsAndPass(previewMaterial);
-        }
-
         public override void CollectShaderProperties(PropertyCollector collector, GenerationMode generationMode)
         {
             // Trunk currently relies on checking material property "_EmissionColor" to allow emissive GI. If it doesn't find that property, or it is black, GI is forced off.
@@ -425,40 +293,6 @@ namespace UnityEditor.Rendering.HighDefinition
                 hidden = true,
                 value = new Color(1.0f, 1.0f, 1.0f, 1.0f)
             });
-
-            // ShaderGraph only property used to send the RenderQueueType to the material
-            collector.AddShaderProperty(new Vector1ShaderProperty
-            {
-                overrideReferenceName = "_RenderQueueType",
-                hidden = true,
-                value = (int)renderingPass,
-            });
-
-            //See SG-ADDITIONALVELOCITY-NOTE
-            if (addPrecomputedVelocity.isOn)
-            {
-                collector.AddShaderProperty(new BooleanShaderProperty
-                {
-                    value  = true,
-                    hidden = true,
-                    overrideReferenceName = kAddPrecomputedVelocity,
-                });
-            }
-
-            // Add all shader properties required by the inspector
-            HDSubShaderUtilities.AddStencilShaderProperties(collector, false, false);
-            HDSubShaderUtilities.AddBlendingStatesShaderProperties(
-                collector,
-                surfaceType,
-                HDSubShaderUtilities.ConvertAlphaModeToBlendMode(alphaMode),
-                sortPriority,
-                zWrite.isOn,
-                transparentCullMode,
-                zTest,
-                false
-            );
-            HDSubShaderUtilities.AddAlphaCutoffShaderProperties(collector, alphaTest.isOn, false);
-            HDSubShaderUtilities.AddDoubleSidedProperty(collector, doubleSided.isOn ? DoubleSidedMode.Enabled : DoubleSidedMode.Disabled);
 
             base.CollectShaderProperties(collector, generationMode);
         }

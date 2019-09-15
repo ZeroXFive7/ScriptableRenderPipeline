@@ -1,7 +1,6 @@
 using System.Linq;
 using UnityEngine;
 using UnityEditor.Graphing;
-using UnityEditor.ShaderGraph.Internal;
 
 namespace UnityEditor.ShaderGraph
 {
@@ -48,14 +47,15 @@ namespace UnityEditor.ShaderGraph
         }
 
         // Node generations
-        public virtual void GenerateNodeCode(ShaderStringBuilder sb, GenerationMode generationMode)
+        public virtual void GenerateNodeCode(ShaderGenerator visitor, GraphContext graphContext, GenerationMode generationMode)
         {
             //Sampler input slot
             var samplerSlot = FindInputSlot<MaterialSlot>(SamplerInputId);
             var edgesSampler = owner.GetEdges(samplerSlot.slotReference);
 
             var id = GetSlotValue(CubemapInputId, generationMode);
-            string result = string.Format("$precision4 {0} = SAMPLE_TEXTURECUBE_LOD({1}, {2}, reflect(-{3}, {4}), {5});"
+            string result = string.Format("{0}4 {1} = SAMPLE_TEXTURECUBE_LOD({2}, {3}, reflect(-{4}, {5}), {6});"
+                    , precision
                     , GetVariableNameForSlot(OutputSlotId)
                     , id
                     , edgesSampler.Any() ? GetSlotValue(SamplerInputId, generationMode) : "sampler" + id
@@ -63,7 +63,7 @@ namespace UnityEditor.ShaderGraph
                     , GetSlotValue(NormalInputId, generationMode)
                     , GetSlotValue(LODInputId, generationMode));
 
-            sb.AppendLine(result);
+            visitor.AddShaderChunk(result, true);
         }
 
         public NeededCoordinateSpace RequiresViewDirection(ShaderStageCapability stageCapability)

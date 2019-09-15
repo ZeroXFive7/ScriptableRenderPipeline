@@ -1,8 +1,7 @@
-using UnityEngine.Rendering;
+using UnityEngine.Experimental.Rendering;
 
-namespace UnityEditor.Rendering.HighDefinition
+namespace UnityEditor.Experimental.Rendering.HDPipeline
 {
-#pragma warning disable 618 // Obsolete warning
     [CanEditMultipleObjects]
     // Disable HDRP custom editor to display full shadow settings (only for dev purpose, reset for pr)
     [CustomEditor(typeof(AdditionalShadowData))]
@@ -12,5 +11,4 @@ namespace UnityEditor.Rendering.HighDefinition
         {
         }
     }
-#pragma warning restore 618 // Obsolete warning
 }

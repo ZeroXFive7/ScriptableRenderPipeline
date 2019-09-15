@@ -1,6 +1,6 @@
-namespace UnityEngine.Rendering.HighDefinition
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
-    struct HDProbeCullState
+    public struct HDProbeCullState
     {
         CullingGroup m_CullingGroup;
         HDProbe[] m_HDProbes;

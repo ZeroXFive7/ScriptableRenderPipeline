@@ -1,10 +1,10 @@
 using System;
 using UnityEngine;
-using UnityEngine.VFX;
+using UnityEngine.Experimental.VFX;
 
 namespace UnityEditor.VFX
 {
-    class LoopAndDelay : VFXSpawnerCallbacks
+    public class LoopAndDelay : VFXSpawnerCallbacks
     {
         public class InputProperties
         {

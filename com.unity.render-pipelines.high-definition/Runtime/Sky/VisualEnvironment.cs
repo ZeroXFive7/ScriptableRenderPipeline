@@ -1,26 +1,15 @@
 using System;
 using System.Diagnostics;
+using UnityEngine.Rendering;
 
-namespace UnityEngine.Rendering.HighDefinition
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
-    // Keep this class first in the file. Otherwise it seems that the script type is not registered properly.
-    [Serializable, VolumeComponentMenu("Visual Environment")]
-    public sealed class VisualEnvironment : VolumeComponent
-    {
-        public IntParameter skyType = new IntParameter(0);
-        public SkyAmbientModeParameter skyAmbientMode = new SkyAmbientModeParameter(SkyAmbientMode.Static);
-
-        // Deprecated, kept for migration
-        public FogTypeParameter fogType = new FogTypeParameter(FogType.None);
-    }
-
     // This enum is just here to centralize UniqueID values for skies provided with HDRP
     public enum SkyType
     {
-        HDRI = 1,
-        Procedural = 2,
+        HDRISky = 1,
+        ProceduralSky = 2,
         Gradient = 3,
-        PhysicallyBased = 4,
     }
 
     public enum SkyAmbientMode
@@ -34,5 +23,60 @@ namespace UnityEngine.Rendering.HighDefinition
     {
         public SkyAmbientModeParameter(SkyAmbientMode value, bool overrideState = false)
             : base(value, overrideState) { }
+    }
+
+    // Keep this class first in the file. Otherwise it seems that the script type is not registered properly.
+    [Serializable, VolumeComponentMenu("Visual Environment")]
+    public sealed class VisualEnvironment : VolumeComponent
+    {
+        public IntParameter skyType = new IntParameter(0);
+        public SkyAmbientModeParameter skyAmbientMode = new SkyAmbientModeParameter(SkyAmbientMode.Static);
+        public FogTypeParameter fogType = new FogTypeParameter(FogType.None);
+
+        public void PushFogShaderParameters(HDCamera hdCamera, CommandBuffer cmd)
+        {
+            if ((fogType.value != FogType.Volumetric) || (!hdCamera.frameSettings.IsEnabled(FrameSettingsField.Volumetrics)))
+            {
+                // If the volumetric fog is not used, we need to make sure that all rendering passes
+                // (not just the atmospheric scattering one) receive neutral parameters.
+                VolumetricFog.PushNeutralShaderParameters(cmd);
+            }
+
+            if (!hdCamera.frameSettings.IsEnabled(FrameSettingsField.AtmosphericScattering))
+            {
+                cmd.SetGlobalInt(HDShaderIDs._AtmosphericScatteringType, (int)FogType.None);
+                return;
+            }
+
+            switch (fogType.value)
+            {
+                case FogType.None:
+                {
+                    cmd.SetGlobalInt(HDShaderIDs._AtmosphericScatteringType, (int)FogType.None);
+                    break;
+                }
+                case FogType.Linear:
+                {
+                    var fogSettings = VolumeManager.instance.stack.GetComponent<LinearFog>();
+                    fogSettings.PushShaderParameters(hdCamera, cmd);
+                    break;
+                }
+                case FogType.Exponential:
+                {
+                    var fogSettings = VolumeManager.instance.stack.GetComponent<ExponentialFog>();
+                    fogSettings.PushShaderParameters(hdCamera, cmd);
+                    break;
+                }
+                case FogType.Volumetric:
+                {
+                    if (hdCamera.frameSettings.IsEnabled(FrameSettingsField.Volumetrics))
+                    {
+                        var fogSettings = VolumeManager.instance.stack.GetComponent<VolumetricFog>();
+                        fogSettings.PushShaderParameters(hdCamera, cmd);
+                    }
+                    break;
+                }
+            }
+        }
     }
 }

@@ -2,7 +2,7 @@ using UnityEngine.UIElements;
 
 namespace UnityEditor.VFX.UI
 {
-    class DownClickable : MouseManipulator
+    public class DownClickable : MouseManipulator
     {
         public event System.Action clicked;
 

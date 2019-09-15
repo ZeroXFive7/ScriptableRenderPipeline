@@ -1,5 +1,7 @@
 using System;
-using UnityEngine.Rendering.HighDefinition;
+using UnityEngine;
+using UnityEngine.Rendering;
+using UnityEngine.Experimental.Rendering;
 
 using Fence =
 #if UNITY_2019_1_OR_NEWER
@@ -11,14 +13,7 @@ using Fence =
 
 namespace UnityEngine.Rendering
 {
-    struct HDGPUAsyncTaskParams
-    {
-        public ScriptableRenderContext  renderContext;
-        public HDCamera                 hdCamera;
-        public int                      frameCount;
-    }
-
-    struct HDGPUAsyncTask
+    public struct HDGPUAsyncTask
     {
         private enum AsyncTaskStage
         {
@@ -35,7 +30,7 @@ namespace UnityEngine.Rendering
         private ComputeQueueType    m_QueueType;
 
         private AsyncTaskStage      m_TaskStage;
-
+        
         public HDGPUAsyncTask(string taskName, ComputeQueueType queueType = ComputeQueueType.Background)
         {
             m_StartFence = new Fence();
@@ -60,13 +55,12 @@ namespace UnityEngine.Rendering
 
             m_TaskStage = AsyncTaskStage.StartFenceCreated;
         }
-
-        public void Start(CommandBuffer cmd, in HDGPUAsyncTaskParams asyncParams, Action<CommandBuffer, HDGPUAsyncTaskParams> asyncTask, bool pushStartFence = true)
+        public void Start(CommandBuffer cmd, ScriptableRenderContext renderContext, Action<CommandBuffer> asyncTask, bool pushStartFence = true)
         {
             Debug.Assert(m_TaskStage == AsyncTaskStage.NotTriggered);
             if (pushStartFence)
             {
-                PushStartFenceAndExecuteCmdBuffer(cmd, asyncParams.renderContext);
+                PushStartFenceAndExecuteCmdBuffer(cmd, renderContext);
             }
 
             CommandBuffer asyncCmd = CommandBufferPool.Get(m_TaskName);
@@ -83,20 +77,20 @@ namespace UnityEngine.Rendering
 #endif
             }
 
-            asyncTask(asyncCmd, asyncParams);
+            asyncTask(asyncCmd);
 
 #if UNITY_2019_1_OR_NEWER
             m_EndFence = asyncCmd.CreateAsyncGraphicsFence();
 #else
             m_EndFence = asyncCmd.CreateGPUFence();
 #endif
-            asyncParams.renderContext.ExecuteCommandBufferAsync(asyncCmd, m_QueueType);
+            renderContext.ExecuteCommandBufferAsync(asyncCmd, m_QueueType);
             CommandBufferPool.Release(asyncCmd);
 
             m_TaskStage = AsyncTaskStage.AsyncCmdEnqueued;
         }
 
-        public void EndWithPostWork(CommandBuffer cmd, HDCamera hdCamera, Action<CommandBuffer, HDCamera> postWork)
+        public void EndWithPostWork(CommandBuffer cmd, Action postWork)
         {
             Debug.Assert(m_TaskStage == AsyncTaskStage.AsyncCmdEnqueued);
 
@@ -105,14 +99,14 @@ namespace UnityEngine.Rendering
 #else
             cmd.WaitOnGPUFence(m_EndFence);
 #endif
-            postWork(cmd, hdCamera);
+            postWork();
 
             m_TaskStage = AsyncTaskStage.TaskCompleted;
         }
 
-        public void End(CommandBuffer cmd, HDCamera hdCamera)
+        public void End(CommandBuffer cmd)
         {
-            EndWithPostWork(cmd, hdCamera, (_1, _2) => { });
+            EndWithPostWork(cmd, () => { });
         }
     }
 

@@ -1,28 +1,19 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine.Experimental.Rendering;
+using UnityEngine.Rendering;
 
-namespace UnityEngine.Rendering.HighDefinition
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
-    partial class HDShadowAtlas
+    public class HDShadowAtlas
     {
-        public enum BlurAlgorithm
-    {
-            None,
-            EVSM, // exponential variance shadow maps
-            IM // Improved Moment shadow maps
-        }
-
-        public RTHandle                             renderTarget { get { return m_Atlas; } }
+        public RenderTargetIdentifier               identifier { get; private set; }
         readonly List<HDShadowResolutionRequest>    m_ShadowResolutionRequests = new List<HDShadowResolutionRequest>();
         readonly List<HDShadowRequest>              m_ShadowRequests = new List<HDShadowRequest>();
-
-        readonly List<HDShadowResolutionRequest>    m_ListOfCachedShadowRequests = new List<HDShadowResolutionRequest>();
 
         public int                  width { get; private set; }
         public int                  height  { get; private set; }
 
-        RTHandle                    m_Atlas;
+        RTHandleSystem.RTHandle     m_Atlas;
         Material                    m_ClearMaterial;
         LightingDebugSettings       m_LightingDebugSettings;
         float                       m_RcpScaleFactor = 1;
@@ -31,29 +22,17 @@ namespace UnityEngine.Rendering.HighDefinition
         RenderTextureFormat         m_Format;
         string                      m_Name;
         int                         m_AtlasSizeShaderID;
-        int                         m_AtlasShaderID;
-        int                         m_MomentAtlasShaderID;
         RenderPipelineResources     m_RenderPipelineResources;
 
         // Moment shadow data
-        BlurAlgorithm m_BlurAlgorithm;
-        RTHandle[] m_AtlasMoments = null;
-        RTHandle m_IntermediateSummedAreaTexture;
-        RTHandle m_SummedAreaTexture;
-        HDShadowResolutionRequest[] m_SortedRequestsCache;
+        bool m_SupportMomentShadows;
+        bool m_isBlurredEVSM;
+        int m_CurrentAtlasMomentSurface = 0;    // We ping pong for blurs.
+        RTHandleSystem.RTHandle[] m_AtlasMoments = null;
+        RTHandleSystem.RTHandle m_IntermediateSummedAreaTexture;
+        RTHandleSystem.RTHandle m_SummedAreaTexture;
 
-
-        public int frameOfCacheValidity { get; private set; }
-        public int atlasShapeID { get; private set; }
-
-        // TODO: This whole caching system needs to be refactored. At the moment there is lots of unecessary data being copied often. 
-        HDShadowResolutionRequest[] m_CachedResolutionRequests;
-        int m_CachedResolutionRequestsCounter = 0;
-
-        bool m_HasResizedAtlas = false;
-        int frameCounter = 0;
-
-        public HDShadowAtlas(RenderPipelineResources renderPipelineResources, int width, int height, int atlasShaderID, int atlasSizeShaderID, Material clearMaterial, int maxShadowRequests, BlurAlgorithm blurAlgorithm = BlurAlgorithm.None, FilterMode filterMode = FilterMode.Bilinear, DepthBits depthBufferBits = DepthBits.Depth16, RenderTextureFormat format = RenderTextureFormat.Shadowmap, string name = "", int momentAtlasShaderID = 0)
+        public HDShadowAtlas(RenderPipelineResources renderPipelineResources, int width, int height, int atlasSizeShaderID, Material clearMaterial, bool supportMomentShadows, bool BlurredEVSM = false, FilterMode filterMode = FilterMode.Bilinear, DepthBits depthBufferBits = DepthBits.Depth16, RenderTextureFormat format = RenderTextureFormat.Shadowmap, string name = "")
         {
             this.width = width;
             this.height = height;
@@ -61,19 +40,11 @@ namespace UnityEngine.Rendering.HighDefinition
             m_DepthBufferBits = depthBufferBits;
             m_Format = format;
             m_Name = name;
-            m_AtlasShaderID = atlasShaderID;
-            m_MomentAtlasShaderID = momentAtlasShaderID;
             m_AtlasSizeShaderID = atlasSizeShaderID;
             m_ClearMaterial = clearMaterial;
-            m_BlurAlgorithm = blurAlgorithm;
+            m_SupportMomentShadows = supportMomentShadows;
             m_RenderPipelineResources = renderPipelineResources;
-
-            m_SortedRequestsCache = new HDShadowResolutionRequest[Mathf.CeilToInt(maxShadowRequests*1.5f)];
-            m_CachedResolutionRequests = new HDShadowResolutionRequest[maxShadowRequests];
-            for(int i=0; i<maxShadowRequests; ++i)
-            {
-                m_CachedResolutionRequests[i] = new HDShadowResolutionRequest();
-            }
+            m_isBlurredEVSM = BlurredEVSM;
 
             AllocateRenderTexture();
         }
@@ -85,34 +56,27 @@ namespace UnityEngine.Rendering.HighDefinition
 
             m_Atlas = RTHandles.Alloc(width, height, filterMode: m_FilterMode, depthBufferBits: m_DepthBufferBits, isShadowMap: true, name: m_Name);
 
-            if (m_BlurAlgorithm == BlurAlgorithm.IM)
+            if (m_SupportMomentShadows)
             {
                 string momentShadowMapName = m_Name + "Moment";
-                m_AtlasMoments = new RTHandle[1];
+                m_AtlasMoments = new RTHandleSystem.RTHandle[1];
                 m_AtlasMoments[0] = RTHandles.Alloc(width, height, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R32G32B32A32_SFloat, enableRandomWrite: true, name: momentShadowMapName);
                 string intermediateSummedAreaName = m_Name + "IntermediateSummedArea";
                 m_IntermediateSummedAreaTexture = RTHandles.Alloc(width, height, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R32G32B32A32_SInt, enableRandomWrite: true, name: intermediateSummedAreaName);
                 string summedAreaName = m_Name + "SummedAreaFinal";
                 m_SummedAreaTexture = RTHandles.Alloc(width, height, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R32G32B32A32_SInt, enableRandomWrite: true, name: summedAreaName);
             }
-            else if (m_BlurAlgorithm == BlurAlgorithm.EVSM)
+            else if (m_isBlurredEVSM)
             {
                 string[] momentShadowMapNames = { m_Name + "Moment", m_Name + "MomentCopy" };
-                m_AtlasMoments = new RTHandle[2];
+                m_AtlasMoments = new RTHandleSystem.RTHandle[2];
                 for (int i = 0; i < 2; ++i)
                 {
                     m_AtlasMoments[i] = RTHandles.Alloc(width / 2, height / 2, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R32G32_SFloat, useMipMap: true, autoGenerateMips: false, enableRandomWrite: true, name: momentShadowMapNames[i]);
                 }
             }
-        }
 
-        public void BindResources(CommandBuffer cmd)
-        {
-            cmd.SetGlobalTexture(m_AtlasShaderID, m_Atlas);
-            if (m_BlurAlgorithm == BlurAlgorithm.EVSM)
-            {
-                cmd.SetGlobalTexture(m_MomentAtlasShaderID, m_AtlasMoments[0]);
-            }
+            identifier = new RenderTargetIdentifier(m_Atlas);
         }
 
         public void UpdateSize(Vector2Int size)
@@ -125,12 +89,12 @@ namespace UnityEngine.Rendering.HighDefinition
             }
         }
 
-        internal void ReserveResolution(HDShadowResolutionRequest shadowRequest)
+        public void ReserveResolution(HDShadowResolutionRequest shadowRequest)
         {
             m_ShadowResolutionRequests.Add(shadowRequest);
         }
 
-        internal void AddShadowRequest(HDShadowRequest shadowRequest)
+        public void AddShadowRequest(HDShadowRequest shadowRequest)
         {
             m_ShadowRequests.Add(shadowRequest);
         }
@@ -142,19 +106,20 @@ namespace UnityEngine.Rendering.HighDefinition
 
         // Stable (unlike List.Sort) sorting algorithm which, unlike Linq's, doesn't use JIT (lol).
         // Sorts in place. Very efficient (O(n)) for already sorted data.
-        void InsertionSort(HDShadowResolutionRequest[] array, int startIndex, int lastIndex)
+        void InsertionSort(List<HDShadowResolutionRequest> array)
         {
-            int i = startIndex + 1;
+            int i = 1;
+            int n = array.Count;
 
-            while (i < lastIndex)
+            while (i < n)
             {
                 var curr = array[i];
 
                 int j = i - 1;
 
                 // Sort in descending order.
-                while ((j >= 0) && ((curr.resolution.x > array[j].resolution.x) ||
-                                    (curr.resolution.y > array[j].resolution.y)))
+                while ((j >= 0) && ((curr.atlasViewport.height > array[j].atlasViewport.height) ||
+                                    (curr.atlasViewport.width  > array[j].atlasViewport.width)))
                 {
                     array[j + 1] = array[j];
                     j--;
@@ -165,134 +130,28 @@ namespace UnityEngine.Rendering.HighDefinition
             }
         }
 
-        internal HDShadowResolutionRequest GetCachedRequest(int cachedIndex)
+        public bool Layout(bool allowResize = true)
         {
-            if (cachedIndex < 0 || cachedIndex >= m_ListOfCachedShadowRequests.Count)
-                return null;
+            // Perform a deep copy.
+            int n = (m_ShadowResolutionRequests != null) ? m_ShadowResolutionRequests.Count : 0;
+            var sortedRequests = new List<HDShadowResolutionRequest>(n);
 
-            return m_ListOfCachedShadowRequests[cachedIndex];
-        }
-
-        internal bool HasResizedThisFrame()
-        {
-            return m_HasResizedAtlas;
-        }
-
-        internal void MarkCulledShadowMapAsEmptySlots()
-        {
-            for(int i=0; i<m_ListOfCachedShadowRequests.Count; ++i)
+            for (int i = 0; i < n; i++)
             {
-                if ((frameCounter - m_ListOfCachedShadowRequests[i].lastFrameActive) > 0)
-                {
-                    m_ListOfCachedShadowRequests[i].emptyRequest = true;
-                }
+                sortedRequests.Add(m_ShadowResolutionRequests[i]);
             }
 
-            frameCounter++;
-        }
+            // Note: it is very important to keep the added order for shadow maps that are the same size (for punctual lights)
+            // and because of that we can't use List.Sort because it messes up the list even with a good custom comparator
+            // Sort in place.
+            InsertionSort(sortedRequests);
 
-        private void PruneDeadCachedLightSlots()
-        {
-            m_ListOfCachedShadowRequests.RemoveAll(x => (x.emptyRequest));
-            frameOfCacheValidity = 0; // Invalidate cached data.
-        }
-
-        internal void MarkCachedShadowSlotAsEmpty(int lightID)
-        {
-            var subList = m_ListOfCachedShadowRequests.FindAll(x => x.lightID == lightID);
-            for (int i = 0; i < subList.Count; ++i)
-            {
-                subList[i].emptyRequest = true;
-            }
-        }
-
-        internal int RegisterCachedLight(HDShadowResolutionRequest request)
-        {
-
-            // Since we are starting caching light resolution requests, it means that data cached from now on will be valid.
-            frameOfCacheValidity++;
-
-            // If it is already registered, we do nothing. 
-            int shadowIndex = -1;
-            for(int i=0; i< m_ListOfCachedShadowRequests.Count; ++i)
-            {
-                if(m_ListOfCachedShadowRequests[i].lightID == request.lightID && m_ListOfCachedShadowRequests[i].indexInLight == request.indexInLight)
-                {
-                    shadowIndex = i;
-                    break;
-                }
-            }
-
-            if (shadowIndex == -1)
-            {
-                // First we search if we have a hole we can fill with it. 
-                float resolutionOfNewLight = request.atlasViewport.width;
-                request.lastFrameActive = frameCounter;
-
-                int holeWithRightSize = -1;
-                for (int i = 0; i < m_ListOfCachedShadowRequests.Count; ++i)
-                {
-                    var currReq = m_ListOfCachedShadowRequests[i];
-                    if (currReq.emptyRequest &&   // Is empty
-                        request.atlasViewport.width <= currReq.atlasViewport.width && // fits the request
-                        (currReq.atlasViewport.width - request.atlasViewport.width) <= currReq.atlasViewport.width * 0.1f) // but is not much smaller.
-                    {
-                        holeWithRightSize = i;
-                        break;
-                    }
-                }
-
-                if (holeWithRightSize > 0)
-                {
-                    m_ListOfCachedShadowRequests[holeWithRightSize] = request;
-                    return holeWithRightSize;
-                }
-                else
-                {
-
-                    // We need to resort the list, so we use the occasion to reset the pool. This feels suboptimal, but it is the easiest way to comply with the pooling system.
-                    // TODO: Make this cleaner and more efficient.
-                    m_CachedResolutionRequestsCounter = 0;
-                    for (int i=0; i<m_ListOfCachedShadowRequests.Count; ++i)
-                    {
-                        int currEntryInPool = m_CachedResolutionRequestsCounter;
-                        m_CachedResolutionRequests[currEntryInPool] = m_ListOfCachedShadowRequests[i].ShallowCopy();
-                        m_ListOfCachedShadowRequests[i] = m_CachedResolutionRequests[currEntryInPool];
-                        m_CachedResolutionRequestsCounter++;
-                    }
-                    // Now we add the new element
-                    m_CachedResolutionRequests[m_CachedResolutionRequestsCounter] = request.ShallowCopy();
-                    m_ListOfCachedShadowRequests.Add(m_CachedResolutionRequests[m_CachedResolutionRequestsCounter]);
-                    m_CachedResolutionRequestsCounter++;
-
-                    InsertionSort(m_ListOfCachedShadowRequests.ToArray(), 0, m_ListOfCachedShadowRequests.Count);
-                    frameOfCacheValidity = 0;     // Invalidate cached data
-                    for (int i = 0; i < m_ListOfCachedShadowRequests.Count; ++i)
-                    {
-                        if (m_ListOfCachedShadowRequests[i].lightID == request.lightID && m_ListOfCachedShadowRequests[i].indexInLight == request.indexInLight)
-                        {
-                            return i;
-                        }
-                    }
-                }
-            }
-            else if (m_ListOfCachedShadowRequests[shadowIndex].emptyRequest)
-            {
-                // We still hold the spot, so fill it up again.
-                m_ListOfCachedShadowRequests[shadowIndex].emptyRequest = false;
-            }
-            m_ListOfCachedShadowRequests[shadowIndex].lastFrameActive = frameCounter;
-
-            return shadowIndex;
-        }
-
-        private bool AtlasLayout(bool allowResize, HDShadowResolutionRequest[] fullShadowList, int requestsCount, bool enteredWithPrunedCachedList = false)
-        {
             float curX = 0, curY = 0, curH = 0, xMax = width, yMax = height;
             m_RcpScaleFactor = 1;
-            for (int i = 0; i < requestsCount; ++i)
+
+            // Assign to every view shadow viewport request a position in the atlas
+            foreach (var shadowRequest in sortedRequests)
             {
-                var shadowRequest = fullShadowList[i];
                 // shadow atlas layouting
                 Rect viewport = new Rect(Vector2.zero, shadowRequest.resolution);
                 curH = Mathf.Max(curH, viewport.height);
@@ -305,40 +164,13 @@ namespace UnityEngine.Rendering.HighDefinition
                 }
                 if (curY + curH > yMax)
                 {
-                    if(enteredWithPrunedCachedList)
+                    if (allowResize)
                     {
-                        // We need to resize. We invalidate the data and clear stored list of cached.
-                        frameOfCacheValidity = 0;
-                        m_ListOfCachedShadowRequests.Clear();
-                        // Since we emptied the cached list, we can start from scratch in the pool
-                        m_CachedResolutionRequestsCounter = 0;
-
-                        if (allowResize)
-                        {
-                            LayoutResize();
-                            m_HasResizedAtlas = true;
-                            return true;
-                        }
-                        
-                        return false;
+                        LayoutResize();
+                        return true;
                     }
                     else
-                    {
-                        // We can still prune 
-                        PruneDeadCachedLightSlots();
-                        // Remove cached slots from the currently sorted list (instead of rebuilding it).
-                        // Since it is ordered, the order post deletion is guaranteed.
-                        int newIndex = 0;
-                        for(int j=0; j<requestsCount; ++j)
-                        {
-                            if(!fullShadowList[j].emptyRequest)
-                            {
-                                m_SortedRequestsCache[newIndex++] = fullShadowList[j];
-                            }
-                        }
-
-                        return AtlasLayout(allowResize, m_SortedRequestsCache, requestsCount: newIndex, enteredWithPrunedCachedList: true);
-                    }
+                        return false;
                 }
                 viewport.x = curX;
                 viewport.y = curY;
@@ -347,37 +179,7 @@ namespace UnityEngine.Rendering.HighDefinition
                 curX += viewport.width;
             }
 
-            m_HasResizedAtlas = false;
             return true;
-        }
-
-        internal bool Layout(bool allowResize = true)
-        {
-            // Sort non-cached requests
-            // Perform a deep copy.
-            int n = (m_ShadowResolutionRequests != null) ? m_ShadowResolutionRequests.Count : 0;
-            var nonCachedRequests = new List<HDShadowResolutionRequest>(n);
-
-            // First add in front the cached shadows
-            int i = 0;
-            for (; i < m_ListOfCachedShadowRequests.Count; ++i)
-            {
-                m_SortedRequestsCache[i] = m_ListOfCachedShadowRequests[i];
-            }
-
-            int firstNonCachedIdx = i;
-            for (int j = 0; j < m_ShadowResolutionRequests.Count; ++j)
-            {
-                if (!m_ShadowResolutionRequests[j].hasBeenStoredInCachedList)
-                {
-                    m_SortedRequestsCache[i++] = m_ShadowResolutionRequests[j];
-                }
-            }
-
-            // Sorting the non cached shadows range
-            InsertionSort(m_SortedRequestsCache, firstNonCachedIdx, i);
-
-            return AtlasLayout(allowResize, m_SortedRequestsCache, requestsCount: i, enteredWithPrunedCachedList: false);
         }
 
         void LayoutResize()
@@ -438,126 +240,67 @@ namespace UnityEngine.Rendering.HighDefinition
                 r.atlasViewport = new Rect(reScaled.x, reScaled.y, reScaled.z, reScaled.w);
                 r.resolution = r.atlasViewport.size;
             }
-
-            atlasShapeID++;
         }
 
-        public void RenderShadows(CullingResults cullResults, FrameSettings frameSettings, ScriptableRenderContext renderContext, CommandBuffer cmd)
+        public void RenderShadows(ScriptableRenderContext renderContext, CommandBuffer cmd, ShadowDrawingSettings dss)
         {
             if (m_ShadowRequests.Count == 0)
                 return;
 
-            ShadowDrawingSettings shadowDrawSettings = new ShadowDrawingSettings(cullResults, 0);
-            shadowDrawSettings.useRenderingLayerMaskTest = frameSettings.IsEnabled(FrameSettingsField.LightLayers);
+            cmd.SetRenderTarget(identifier);
+            cmd.SetGlobalVector(m_AtlasSizeShaderID, new Vector4(width, height, 1.0f / width, 1.0f / height));
 
-            var parameters = PrepareRenderShadowsParameters();
-            RenderShadows(parameters, m_Atlas, shadowDrawSettings, renderContext, cmd);
+            if (m_LightingDebugSettings.clearShadowAtlas)
+                CoreUtils.DrawFullScreen(cmd, m_ClearMaterial, null, 0);
 
-            if (parameters.blurAlgorithm == BlurAlgorithm.IM)
+            foreach (var shadowRequest in m_ShadowRequests)
             {
-                IMBlurMoment(parameters, m_Atlas, m_AtlasMoments[0], m_IntermediateSummedAreaTexture, m_SummedAreaTexture, cmd);
-            }
-            else if (parameters.blurAlgorithm == BlurAlgorithm.EVSM)
-            {
-                EVSMBlurMoments(parameters, m_Atlas, m_AtlasMoments, cmd);
-            }
-        }
-
-        struct RenderShadowsParameters
-        {
-            public List<HDShadowRequest>    shadowRequests;
-            public Material                 clearMaterial;
-            public bool                     debugClearAtlas;
-            public int                      atlasShaderID;
-            public int                      atlasSizeShaderID;
-            public BlurAlgorithm            blurAlgorithm;
-
-            // EVSM
-            public ComputeShader            evsmShadowBlurMomentsCS;
-            public int                      momentAtlasShaderID;
-
-            // IM
-            public ComputeShader            imShadowBlurMomentsCS;
-        }
-
-        RenderShadowsParameters PrepareRenderShadowsParameters()
-        {
-            var parameters = new RenderShadowsParameters();
-            parameters.shadowRequests = m_ShadowRequests;
-            parameters.clearMaterial = m_ClearMaterial;
-            parameters.debugClearAtlas = m_LightingDebugSettings.clearShadowAtlas;
-            parameters.atlasShaderID = m_AtlasShaderID;
-            parameters.atlasSizeShaderID = m_AtlasSizeShaderID;
-            parameters.blurAlgorithm = m_BlurAlgorithm;
-
-            // EVSM
-            parameters.evsmShadowBlurMomentsCS = m_RenderPipelineResources.shaders.evsmBlurCS;
-            parameters.momentAtlasShaderID = m_MomentAtlasShaderID;
-
-            // IM
-            parameters.imShadowBlurMomentsCS = m_RenderPipelineResources.shaders.momentShadowsCS;
-
-            return parameters;
-        }
-
-        static void RenderShadows(  RenderShadowsParameters parameters,
-                                    RTHandle                atlasRenderTexture,
-                                    ShadowDrawingSettings   shadowDrawSettings,
-                                    ScriptableRenderContext renderContext,
-                                    CommandBuffer           cmd)
-        {
-            cmd.SetRenderTarget(atlasRenderTexture);
-            cmd.SetGlobalVector(parameters.atlasSizeShaderID, new Vector4(atlasRenderTexture.rt.width, atlasRenderTexture.rt.height, 1.0f / atlasRenderTexture.rt.width, 1.0f / atlasRenderTexture.rt.height));
-
-            // Clear the whole atlas to avoid garbage outside of current request when viewing it.
-            if (parameters.debugClearAtlas)
-                CoreUtils.DrawFullScreen(cmd, parameters.clearMaterial, null, 0);
-
-            foreach (var shadowRequest in parameters.shadowRequests)
-            {
-                if (shadowRequest.shouldUseCachedShadow)
-                    continue;
-
                 cmd.SetViewport(shadowRequest.atlasViewport);
 
+                cmd.SetViewProjectionMatrices(shadowRequest.view, shadowRequest.projection);
+
                 cmd.SetGlobalFloat(HDShaderIDs._ZClip, shadowRequest.zClip ? 1.0f : 0.0f);
-                CoreUtils.DrawFullScreen(cmd, parameters.clearMaterial, null, 0);
+                if (!m_LightingDebugSettings.clearShadowAtlas)
+                {
+                    CoreUtils.DrawFullScreen(cmd, m_ClearMaterial, null, 0);
+                }
 
-                shadowDrawSettings.lightIndex = shadowRequest.lightIndex;
-                shadowDrawSettings.splitData = shadowRequest.splitData;
-
-                // Setup matrices for shadow rendering:
-                Matrix4x4 viewProjection = shadowRequest.deviceProjectionYFlip * shadowRequest.view;
-                cmd.SetGlobalMatrix(HDShaderIDs._ViewMatrix, shadowRequest.view);
-                cmd.SetGlobalMatrix(HDShaderIDs._InvViewMatrix, shadowRequest.view.inverse);
-                cmd.SetGlobalMatrix(HDShaderIDs._ProjMatrix, shadowRequest.deviceProjectionYFlip);
-                cmd.SetGlobalMatrix(HDShaderIDs._InvProjMatrix, shadowRequest.deviceProjectionYFlip.inverse);
-                cmd.SetGlobalMatrix(HDShaderIDs._ViewProjMatrix, viewProjection);
-                cmd.SetGlobalMatrix(HDShaderIDs._InvViewProjMatrix, viewProjection.inverse);
-                cmd.SetGlobalVectorArray(HDShaderIDs._ShadowClipPlanes, shadowRequest.frustumPlanes);
+                dss.lightIndex = shadowRequest.lightIndex;
+                dss.splitData = shadowRequest.splitData;
 
                 // TODO: remove this execute when DrawShadows will use a CommandBuffer
                 renderContext.ExecuteCommandBuffer(cmd);
                 cmd.Clear();
 
-                renderContext.DrawShadows(ref shadowDrawSettings);
+                renderContext.DrawShadows(ref dss);
             }
+
             cmd.SetGlobalFloat(HDShaderIDs._ZClip, 1.0f);   // Re-enable zclip globally
         }
 
         public bool HasBlurredEVSM()
         {
-            return (m_BlurAlgorithm == BlurAlgorithm.EVSM) && m_AtlasMoments[0] != null;
+            return m_isBlurredEVSM && GetMomentRT() != null;
         }
 
-        static void EVSMBlurMoments( RenderShadowsParameters parameters,
-                                            RTHandle atlasRenderTexture,
-                                            RTHandle[] momentAtlasRenderTextures,
-                                            CommandBuffer cmd)
+        public RTHandleSystem.RTHandle GetMomentRT()
         {
-            ComputeShader shadowBlurMomentsCS = parameters.evsmShadowBlurMomentsCS;
+            return m_AtlasMoments[m_CurrentAtlasMomentSurface];
+        }
 
-            using (new ProfilingSample(cmd, "Render & Blur Moment Shadows", CustomSamplerId.RenderShadowMaps.GetSampler()))
+        private RTHandleSystem.RTHandle GetMomentRTCopy()
+        {
+            return m_AtlasMoments[(m_CurrentAtlasMomentSurface + 1) & 1];
+        }
+
+        public void AreaShadowBlurMoments(CommandBuffer cmd, HDCamera hdCamera)
+        {
+            ComputeShader shadowBlurMomentsCS = m_RenderPipelineResources.shaders.evsmBlurCS;
+
+            if (!m_isBlurredEVSM || shadowBlurMomentsCS == null) return;
+
+
+            using (new ProfilingSample(cmd, "Render & Blur Moment Shadows", CustomSamplerId.RenderShadows.GetSampler()))
             {
                 int generateAndBlurMomentsKernel = shadowBlurMomentsCS.FindKernel("ConvertAndBlur");
                 int blurMomentsKernel = shadowBlurMomentsCS.FindKernel("Blur");
@@ -565,7 +308,7 @@ namespace UnityEngine.Rendering.HighDefinition
 
                 Vector4[] blurWeights = new Vector4[2];
 
-                // This is a 9 tap filter, a gaussian with std. dev of 3. This standard deviation with this amount of taps probably cuts
+                // This is a 9 tap filter, a gaussian with std. dev of 3. This standard deviation with this amount of taps probably cuts 
                 // the tail of the gaussian a bit too much, and it is a very fat curve, but it seems to work fine for our use case.
                 blurWeights[0].x = 0.1531703f;
                 blurWeights[0].y = 0.1448929f;
@@ -573,25 +316,25 @@ namespace UnityEngine.Rendering.HighDefinition
                 blurWeights[0].w = 0.0929025f;
                 blurWeights[1].x = 0.06297021f;
 
-                cmd.SetComputeTextureParam(shadowBlurMomentsCS, generateAndBlurMomentsKernel, HDShaderIDs._DepthTexture, atlasRenderTexture);
+                cmd.SetComputeTextureParam(shadowBlurMomentsCS, generateAndBlurMomentsKernel, HDShaderIDs._DepthTexture, m_Atlas);
                 cmd.SetComputeVectorArrayParam(shadowBlurMomentsCS, HDShaderIDs._BlurWeightsStorage, blurWeights);
 
                 // We need to store in which of the two moment texture a request will have its last version stored in for a final patch up at the end.
-                int[] finalAtlasTexture = new int[parameters.shadowRequests.Count];
+                int[] finalAtlasTexture = new int[m_ShadowRequests.Count];
 
                 int requestIdx = 0;
-                foreach (var shadowRequest in parameters.shadowRequests)
+                foreach (var shadowRequest in m_ShadowRequests)
                 {
-                    using (new ProfilingSample(cmd, "EVSM conversion and blur", CustomSamplerId.RenderShadowMaps.GetSampler()))
+                    using (new ProfilingSample(cmd, "EVSM conversion and blur", CustomSamplerId.RenderShadows.GetSampler()))
                     {
                         int downsampledWidth = Mathf.CeilToInt(shadowRequest.atlasViewport.width * 0.5f);
                         int downsampledHeight = Mathf.CeilToInt(shadowRequest.atlasViewport.height * 0.5f);
 
                         Vector2 DstRectOffset = new Vector2(shadowRequest.atlasViewport.min.x * 0.5f, shadowRequest.atlasViewport.min.y * 0.5f);
 
-                        cmd.SetComputeTextureParam(shadowBlurMomentsCS, generateAndBlurMomentsKernel, HDShaderIDs._OutputTexture, momentAtlasRenderTextures[0]);
+                        cmd.SetComputeTextureParam(shadowBlurMomentsCS, generateAndBlurMomentsKernel, HDShaderIDs._OutputTexture, GetMomentRT());
                         cmd.SetComputeVectorParam(shadowBlurMomentsCS, HDShaderIDs._SrcRect, new Vector4(shadowRequest.atlasViewport.min.x, shadowRequest.atlasViewport.min.y, shadowRequest.atlasViewport.width, shadowRequest.atlasViewport.height));
-                        cmd.SetComputeVectorParam(shadowBlurMomentsCS, HDShaderIDs._DstRect, new Vector4(DstRectOffset.x, DstRectOffset.y, 1.0f / atlasRenderTexture.rt.width, 1.0f / atlasRenderTexture.rt.height));
+                        cmd.SetComputeVectorParam(shadowBlurMomentsCS, HDShaderIDs._DstRect, new Vector4(DstRectOffset.x, DstRectOffset.y, 1.0f / width, 1.0f / height));
                         cmd.SetComputeFloatParam(shadowBlurMomentsCS, HDShaderIDs._EVSMExponent, shadowRequest.evsmParams.x);
 
                         int dispatchSizeX = ((int)downsampledWidth + 7) / 8;
@@ -599,40 +342,36 @@ namespace UnityEngine.Rendering.HighDefinition
 
                         cmd.DispatchCompute(shadowBlurMomentsCS, generateAndBlurMomentsKernel, dispatchSizeX, dispatchSizeY, 1);
 
-                        int currentAtlasMomentSurface = 0;
-
-                        RTHandle GetMomentRT() { return momentAtlasRenderTextures[currentAtlasMomentSurface]; }
-                        RTHandle GetMomentRTCopy() { return momentAtlasRenderTextures[(currentAtlasMomentSurface + 1) & 1]; }
 
                         cmd.SetComputeVectorParam(shadowBlurMomentsCS, HDShaderIDs._SrcRect, new Vector4(DstRectOffset.x, DstRectOffset.y, downsampledWidth, downsampledHeight));
                         for (int i = 0; i < shadowRequest.evsmParams.w; ++i)
                         {
-                            currentAtlasMomentSurface = (currentAtlasMomentSurface + 1) & 1;
+                            m_CurrentAtlasMomentSurface = (m_CurrentAtlasMomentSurface + 1) & 1;
                             cmd.SetComputeTextureParam(shadowBlurMomentsCS, blurMomentsKernel, HDShaderIDs._InputTexture, GetMomentRTCopy());
                             cmd.SetComputeTextureParam(shadowBlurMomentsCS, blurMomentsKernel, HDShaderIDs._OutputTexture, GetMomentRT());
 
                             cmd.DispatchCompute(shadowBlurMomentsCS, blurMomentsKernel, dispatchSizeX, dispatchSizeY, 1);
                         }
 
-                        finalAtlasTexture[requestIdx++] = currentAtlasMomentSurface;
+                        finalAtlasTexture[requestIdx++] = m_CurrentAtlasMomentSurface;
 
                     }
                 }
 
                 // We patch up the atlas with the requests that, due to different count of blur passes, remained in the copy
-                for (int i = 0; i < parameters.shadowRequests.Count; ++i)
+                for (int i = 0; i < m_ShadowRequests.Count; ++i)
                 {
-                    if (finalAtlasTexture[i] != 0)
+                    if (m_CurrentAtlasMomentSurface != finalAtlasTexture[i])
                     {
-                        using (new ProfilingSample(cmd, "Copy into main atlas.", CustomSamplerId.RenderShadowMaps.GetSampler()))
+                        using (new ProfilingSample(cmd, "Copy into main atlas.", CustomSamplerId.RenderShadows.GetSampler()))
                         {
-                            var shadowRequest = parameters.shadowRequests[i];
+                            var shadowRequest = m_ShadowRequests[i];
                             int downsampledWidth = Mathf.CeilToInt(shadowRequest.atlasViewport.width * 0.5f);
                             int downsampledHeight = Mathf.CeilToInt(shadowRequest.atlasViewport.height * 0.5f);
 
                             cmd.SetComputeVectorParam(shadowBlurMomentsCS, HDShaderIDs._SrcRect, new Vector4(shadowRequest.atlasViewport.min.x * 0.5f, shadowRequest.atlasViewport.min.y * 0.5f, downsampledWidth, downsampledHeight));
-                            cmd.SetComputeTextureParam(shadowBlurMomentsCS, copyMomentsKernel, HDShaderIDs._InputTexture, momentAtlasRenderTextures[1]);
-                            cmd.SetComputeTextureParam(shadowBlurMomentsCS, copyMomentsKernel, HDShaderIDs._OutputTexture, momentAtlasRenderTextures[0]);
+                            cmd.SetComputeTextureParam(shadowBlurMomentsCS, copyMomentsKernel, HDShaderIDs._InputTexture, GetMomentRTCopy());
+                            cmd.SetComputeTextureParam(shadowBlurMomentsCS, copyMomentsKernel, HDShaderIDs._OutputTexture, GetMomentRT());
 
                             int dispatchSizeX = ((int)downsampledWidth + 7) / 8;
                             int dispatchSizeY = ((int)downsampledHeight + 7) / 8;
@@ -644,34 +383,30 @@ namespace UnityEngine.Rendering.HighDefinition
             }
         }
 
-        static void IMBlurMoment(   RenderShadowsParameters parameters,
-                                    RTHandle atlas,
-                                    RTHandle atlasMoment,
-                                    RTHandle intermediateSummedAreaTexture,
-                                    RTHandle summedAreaTexture,
-                                    CommandBuffer cmd)
+        public void ComputeMomentShadows(CommandBuffer cmd, HDCamera hdCamera )
         {
             // If the target kernel is not available
-            ComputeShader momentCS = parameters.imShadowBlurMomentsCS;
+            ComputeShader momentCS = m_RenderPipelineResources.shaders.momentShadowsCS;
             if (momentCS == null) return;
 
-            using (new ProfilingSample(cmd, "Render Moment Shadows", CustomSamplerId.RenderShadowMaps.GetSampler()))
+            using (new ProfilingSample(cmd, "Render Moment Shadows", CustomSamplerId.RenderShadows.GetSampler()))
             {
                 int computeMomentKernel = momentCS.FindKernel("ComputeMomentShadows");
                 int summedAreaHorizontalKernel = momentCS.FindKernel("MomentSummedAreaTableHorizontal");
                 int summedAreaVerticalKernel = momentCS.FindKernel("MomentSummedAreaTableVertical");
 
                 // First of all let's clear the moment shadow map
-                CoreUtils.SetRenderTarget(cmd, atlasMoment, ClearFlag.Color, Color.black);
-                CoreUtils.SetRenderTarget(cmd, intermediateSummedAreaTexture, ClearFlag.Color, Color.black);
-                CoreUtils.SetRenderTarget(cmd, summedAreaTexture, ClearFlag.Color, Color.black);
+                HDUtils.SetRenderTarget(cmd, hdCamera, GetMomentRT(), ClearFlag.Color, Color.black);
+                HDUtils.SetRenderTarget(cmd, hdCamera, m_IntermediateSummedAreaTexture, ClearFlag.Color, Color.black);
+                HDUtils.SetRenderTarget(cmd, hdCamera, m_SummedAreaTexture, ClearFlag.Color, Color.black);
 
+                var atlasMoment = GetMomentRT();
 
                 // Alright, so the thing here is that for every sub-shadow map of the atlas, we need to generate the moment shadow map
-                foreach (var shadowRequest in parameters.shadowRequests)
+                foreach (var shadowRequest in m_ShadowRequests)
                 {
                     // Let's bind the resources of this
-                    cmd.SetComputeTextureParam(momentCS, computeMomentKernel, HDShaderIDs._ShadowmapAtlas, atlas);
+                    cmd.SetComputeTextureParam(momentCS, computeMomentKernel, HDShaderIDs._ShadowmapAtlas, m_Atlas);
                     cmd.SetComputeTextureParam(momentCS, computeMomentKernel, HDShaderIDs._MomentShadowAtlas, atlasMoment);
                     cmd.SetComputeVectorParam(momentCS, HDShaderIDs._MomentShadowmapSlotST, new Vector4(shadowRequest.atlasViewport.width, shadowRequest.atlasViewport.height, shadowRequest.atlasViewport.min.x, shadowRequest.atlasViewport.min.y));
 
@@ -682,7 +417,7 @@ namespace UnityEngine.Rendering.HighDefinition
 
                     // Do the horizontal pass of the summed area table
                     cmd.SetComputeTextureParam(momentCS, summedAreaHorizontalKernel, HDShaderIDs._SummedAreaTableInputFloat, atlasMoment);
-                    cmd.SetComputeTextureParam(momentCS, summedAreaHorizontalKernel, HDShaderIDs._SummedAreaTableOutputInt, intermediateSummedAreaTexture);
+                    cmd.SetComputeTextureParam(momentCS, summedAreaHorizontalKernel, HDShaderIDs._SummedAreaTableOutputInt, m_IntermediateSummedAreaTexture);
                     cmd.SetComputeFloatParam(momentCS, HDShaderIDs._IMSKernelSize, shadowRequest.kernelSize);
                     cmd.SetComputeVectorParam(momentCS, HDShaderIDs._MomentShadowmapSize, new Vector2((float)atlasMoment.referenceSize.x, (float)atlasMoment.referenceSize.y));
 
@@ -690,8 +425,8 @@ namespace UnityEngine.Rendering.HighDefinition
                     cmd.DispatchCompute(momentCS, summedAreaHorizontalKernel, numLines, 1, 1);
 
                     // Do the horizontal pass of the summed area table
-                    cmd.SetComputeTextureParam(momentCS, summedAreaVerticalKernel, HDShaderIDs._SummedAreaTableInputInt, intermediateSummedAreaTexture);
-                    cmd.SetComputeTextureParam(momentCS, summedAreaVerticalKernel, HDShaderIDs._SummedAreaTableOutputInt, summedAreaTexture);
+                    cmd.SetComputeTextureParam(momentCS, summedAreaVerticalKernel, HDShaderIDs._SummedAreaTableInputInt, m_IntermediateSummedAreaTexture);
+                    cmd.SetComputeTextureParam(momentCS, summedAreaVerticalKernel, HDShaderIDs._SummedAreaTableOutputInt, m_SummedAreaTexture);
                     cmd.SetComputeVectorParam(momentCS, HDShaderIDs._MomentShadowmapSize, new Vector2((float)atlasMoment.referenceSize.x, (float)atlasMoment.referenceSize.y));
                     cmd.SetComputeFloatParam(momentCS, HDShaderIDs._IMSKernelSize, shadowRequest.kernelSize);
 
@@ -699,14 +434,14 @@ namespace UnityEngine.Rendering.HighDefinition
                     cmd.DispatchCompute(momentCS, summedAreaVerticalKernel, numColumns, 1, 1);
 
                     // Push the global texture
-                    cmd.SetGlobalTexture(HDShaderIDs._SummedAreaTableInputInt, summedAreaTexture);
+                    cmd.SetGlobalTexture(HDShaderIDs._SummedAreaTableInputInt, m_SummedAreaTexture);
                 }
             }
         }
 
-        public void DisplayAtlas(RTHandle atlasTexture, CommandBuffer cmd, Material debugMaterial, Rect atlasViewport, float screenX, float screenY, float screenSizeX, float screenSizeY, float minValue, float maxValue, MaterialPropertyBlock mpb)
+        public void DisplayAtlas(CommandBuffer cmd, Material debugMaterial, Rect atlasViewport, float screenX, float screenY, float screenSizeX, float screenSizeY, float minValue, float maxValue)
         {
-            if (atlasTexture == null)
+            if (m_Atlas == null)
                 return;
 
             Vector4 validRange = new Vector4(minValue, 1.0f / (maxValue - minValue));
@@ -714,12 +449,13 @@ namespace UnityEngine.Rendering.HighDefinition
             float rHeight = 1.0f / height;
             Vector4 scaleBias = Vector4.Scale(new Vector4(rWidth, rHeight, rWidth, rHeight), new Vector4(atlasViewport.width, atlasViewport.height, atlasViewport.x, atlasViewport.y));
 
-            mpb.SetTexture("_AtlasTexture", atlasTexture);
-            mpb.SetVector("_TextureScaleBias", scaleBias);
-            mpb.SetVector("_ValidRange", validRange);
-            mpb.SetFloat("_RcpGlobalScaleFactor", m_RcpScaleFactor);
+            MaterialPropertyBlock propertyBlock = new MaterialPropertyBlock();
+            propertyBlock.SetTexture("_AtlasTexture", m_Atlas.rt);
+            propertyBlock.SetVector("_TextureScaleBias", scaleBias);
+            propertyBlock.SetVector("_ValidRange", validRange);
+            propertyBlock.SetFloat("_RcpGlobalScaleFactor", m_RcpScaleFactor);
             cmd.SetViewport(new Rect(screenX, screenY, screenSizeX, screenSizeY));
-            cmd.DrawProcedural(Matrix4x4.identity, debugMaterial, debugMaterial.FindPass("RegularShadow"), MeshTopology.Triangles, 3, 1, mpb);
+            cmd.DrawProcedural(Matrix4x4.identity, debugMaterial, debugMaterial.FindPass("RegularShadow"), MeshTopology.Triangles, 3, 1, propertyBlock);
         }
 
         public void Clear()
@@ -760,4 +496,3 @@ namespace UnityEngine.Rendering.HighDefinition
         }
     }
 }
-

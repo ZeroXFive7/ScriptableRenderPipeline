@@ -1,7 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.VFX;
+using UnityEngine.Experimental.VFX;
 using System.Linq;
 using System.Reflection;
 using Type = System.Type;
@@ -9,7 +9,7 @@ using Delegate = System.Delegate;
 
 namespace UnityEditor.VFX.UI
 {
-    static class VFXGizmoUtility
+    public static class VFXGizmoUtility
     {
         static Dictionary<System.Type, GizmoContext> s_DrawFunctions;
 

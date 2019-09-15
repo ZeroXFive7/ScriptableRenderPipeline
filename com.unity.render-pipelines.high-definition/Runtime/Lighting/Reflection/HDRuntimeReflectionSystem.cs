@@ -1,6 +1,4 @@
-using UnityEngine.Experimental.Rendering;
-
-namespace UnityEngine.Rendering.HighDefinition
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
     class HDRuntimeReflectionSystem : ScriptableRuntimeReflectionSystem
     {

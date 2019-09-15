@@ -4,17 +4,18 @@
 
 #ifndef SHADERVARIABLESATMOSPHERICSCATTERING_CS_HLSL
 #define SHADERVARIABLESATMOSPHERICSCATTERING_CS_HLSL
-// Generated from UnityEngine.Rendering.HighDefinition.ShaderVariablesAtmosphericScattering
+// Generated from UnityEngine.Experimental.Rendering.HDPipeline.ShaderVariablesAtmosphericScattering
 // PackingRules = Exact
-    int _FogEnabled;
-    int _PBRFogEnabled;
+    int _AtmosphericScatteringType;
     float _MaxFogDistance;
     float _FogColorMode;
     float _SkyTextureMipCount;
-    float4 _FogColor;
+    float4 _FogColorDensity;
     float4 _MipFogParameters;
+    float4 _LinearFogParameters;
+    float4 _ExpFogParameters;
     float _VBufferLastSliceDist;
-    int _EnableVolumetricFog;
+    int _EnableDistantFog;
 
 
 #endif

@@ -1,8 +1,8 @@
 using NUnit.Framework;
 
-namespace UnityEngine.Rendering.HighDefinition.Tests
+namespace UnityEngine.Experimental.Rendering.HDPipeline.Tests
 {
-    class MigrationTests
+    public class MigrationTests
     {
         class MigrableComponent : IVersionable<MigrableComponent.Version>
         {

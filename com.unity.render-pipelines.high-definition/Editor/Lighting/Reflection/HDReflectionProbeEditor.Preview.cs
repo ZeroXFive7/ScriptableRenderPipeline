@@ -1,7 +1,7 @@
 using UnityEngine;
-using UnityEngine.Rendering.HighDefinition;
+using UnityEngine.Experimental.Rendering.HDPipeline;
 
-namespace UnityEditor.Rendering.HighDefinition
+namespace UnityEditor.Experimental.Rendering.HDPipeline
 {
     sealed partial class HDReflectionProbeEditor
     {
@@ -54,7 +54,7 @@ namespace UnityEditor.Rendering.HighDefinition
                 GUILayout.EndHorizontal();
                 return;
             }
-
+            
             Texture tex = GetTexture(this, target);
             if (tex != null && targets.Length == 1)
                 m_CubemapEditor.DrawPreview(position);

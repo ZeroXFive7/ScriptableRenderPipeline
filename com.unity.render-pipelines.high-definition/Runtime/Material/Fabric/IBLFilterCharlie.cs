@@ -1,6 +1,9 @@
-namespace UnityEngine.Rendering.HighDefinition
+using UnityEngine.Rendering;
+using System.Collections.Generic;
+
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
-    class IBLFilterCharlie : IBLFilterBSDF
+    public class IBLFilterCharlie : IBLFilterBSDF
     {
         public IBLFilterCharlie(RenderPipelineResources renderPipelineResources, MipGenerator mipGenerator)
         {
@@ -46,7 +49,7 @@ namespace UnityEngine.Rendering.HighDefinition
 
             // Solid angle associated with a texel of the cubemap.
             float invOmegaP = (6.0f * source.width * source.width) / (4.0f * Mathf.PI);
-
+            
             // Copy the first mip
             using (new ProfilingSample(cmd, "Copy Original Mip"))
             {

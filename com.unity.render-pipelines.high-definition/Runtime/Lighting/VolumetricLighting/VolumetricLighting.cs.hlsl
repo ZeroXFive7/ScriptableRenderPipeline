@@ -4,7 +4,7 @@
 
 #ifndef VOLUMETRICLIGHTING_CS_HLSL
 #define VOLUMETRICLIGHTING_CS_HLSL
-// Generated from UnityEngine.Rendering.HighDefinition.DensityVolumeEngineData
+// Generated from UnityEngine.Experimental.Rendering.HDPipeline.DensityVolumeEngineData
 // PackingRules = Exact
 struct DensityVolumeEngineData
 {
@@ -21,7 +21,7 @@ struct DensityVolumeEngineData
 };
 
 //
-// Accessors for UnityEngine.Rendering.HighDefinition.DensityVolumeEngineData
+// Accessors for UnityEngine.Experimental.Rendering.HDPipeline.DensityVolumeEngineData
 //
 float3 GetScattering(DensityVolumeEngineData value)
 {

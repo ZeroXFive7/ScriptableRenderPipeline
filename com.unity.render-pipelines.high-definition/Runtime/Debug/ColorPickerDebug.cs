@@ -1,6 +1,8 @@
+using System.Collections.Generic;
+using UnityEngine;
 using System;
 
-namespace UnityEngine.Rendering.HighDefinition
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
     [GenerateHLSL]
     public enum ColorPickerDebugMode

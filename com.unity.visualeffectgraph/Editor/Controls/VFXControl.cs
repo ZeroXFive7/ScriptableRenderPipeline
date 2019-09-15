@@ -4,15 +4,15 @@ using UnityEditor.UIElements;
 
 using System.Collections.Generic;
 
-namespace UnityEditor.VFX.UI
+namespace UnityEditor.VFX.UIElements
 {
-    static class VFXControlConstants
+    public static class VFXControlConstants
     {
         public const string indeterminateText = "\u2014";
         public static readonly Color indeterminateTextColor = new Color(0.82f, 0.82f, 0.82f);
     }
 
-    abstract class VFXControl<T> : VisualElement, INotifyValueChanged<T>
+    public abstract class VFXControl<T> : VisualElement, INotifyValueChanged<T>
     {
         T m_Value;
         public T value

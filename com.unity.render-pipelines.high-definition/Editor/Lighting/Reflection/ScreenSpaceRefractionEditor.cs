@@ -1,10 +1,11 @@
-using UnityEngine.Rendering.HighDefinition;
+using UnityEditor.Rendering;
+using UnityEngine.Experimental.Rendering.HDPipeline;
 
-namespace UnityEditor.Rendering.HighDefinition
+namespace UnityEditor.Experimental.Rendering.HDPipeline
 {
     [CanEditMultipleObjects]
     [VolumeComponentEditor(typeof(ScreenSpaceRefraction))]
-    class ScreenSpaceRefractionEditor : VolumeComponentEditor
+    public class ScreenSpaceRefractionEditor : VolumeComponentEditor
     {
         protected SerializedDataParameter m_ScreenFadeDistance;
 

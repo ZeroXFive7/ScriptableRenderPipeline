@@ -1,8 +1,8 @@
 using UnityEngine;
-using UnityEngine.VFX;
+using UnityEngine.Experimental.VFX;
 using UnityEngine.UIElements;
 using UnityEditor.VFX.UIElements;
-using VFXVector3Field = UnityEditor.VFX.UI.VFXVector3Field;
+using VFXVector3Field = UnityEditor.VFX.UIElements.VFXVector3Field;
 
 namespace UnityEditor.VFX.UI
 {

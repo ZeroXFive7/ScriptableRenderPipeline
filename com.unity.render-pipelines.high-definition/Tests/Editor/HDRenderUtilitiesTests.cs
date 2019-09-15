@@ -1,9 +1,9 @@
 using NUnit.Framework;
 using System;
 
-namespace UnityEngine.Rendering.HighDefinition.Tests
+namespace UnityEngine.Experimental.Rendering.HDPipeline.Tests
 {
-    class HDRenderUtilitiesTests
+    public class HDRenderUtilitiesTests
     {
         [Test]
         public void RenderThrowWhenTargetIsNull()

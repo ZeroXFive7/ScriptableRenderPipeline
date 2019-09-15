@@ -1,7 +1,8 @@
-namespace UnityEngine.Rendering.HighDefinition
+
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
     [GenerateHLSL(needAccessors = false, omitStructDeclaration = true)]
-    unsafe struct ShaderVariablesLightLoop
+    public unsafe struct ShaderVariablesLightLoop
     {
         public const int s_MaxEnv2DLight = 32;
 
@@ -9,8 +10,6 @@ namespace UnityEngine.Rendering.HighDefinition
         public fixed float _ShadowAtlasSize[4];
         [HLSLArray(0, typeof(Vector4))]
         public fixed float _CascadeShadowAtlasSize[4];
-        [HLSLArray(0, typeof(Vector4))]
-        public fixed float _AreaShadowAtlasSize[4];
 
         [HLSLArray(s_MaxEnv2DLight, typeof(Matrix4x4))]
         public fixed float _Env2DCaptureVP[s_MaxEnv2DLight * 4 * 4];
@@ -57,11 +56,8 @@ namespace UnityEngine.Rendering.HighDefinition
         public int _EnvSliceSize;
         public uint _CookieSizePOT; // Cookie size = 1 << _CookieSizePOT
 
-        // Uniform variables that defines if we shall be using the raytraced indirect diffuse
-        public int _RaytracedIndirectDiffuse;
-
-        // Value that stores the size of the array
-        public uint _ScreenSpaceShadowArraySize;
+        // Uniform variables that defines if we shall be using the shadow area texture or not
+        public int _RaytracedAreaShadow;
     }
 }
 

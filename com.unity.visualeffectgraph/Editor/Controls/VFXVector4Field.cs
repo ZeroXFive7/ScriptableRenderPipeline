@@ -2,7 +2,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 using UnityEditor.UIElements;
 
-namespace UnityEditor.VFX.UI
+namespace UnityEditor.VFX.UIElements
 {
     class VFXVector4Field : VFXVectorNField<Vector4>
     {

@@ -1,6 +1,7 @@
-using UnityEngine.Rendering.HighDefinition;
+using System;
+using UnityEngine.Experimental.Rendering.HDPipeline;
 
-namespace UnityEditor.Rendering.HighDefinition
+namespace UnityEditor.Experimental.Rendering.HDPipeline
 {
     static partial class HDProbeUI
     {

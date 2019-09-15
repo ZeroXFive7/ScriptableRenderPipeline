@@ -3,10 +3,10 @@ using UnityEngine.UIElements;
 using UnityEditor.UIElements;
 using System;
 
-namespace UnityEditor.VFX.UI
+namespace UnityEditor.VFX.UIElements
 {
     //Copied from mousefield dragger but add notifications needed for delayed fields
-    class VFXFieldMouseDragger<T>
+    public class VFXFieldMouseDragger<T>
     {
         Action m_OnDragFinished;
         public VFXFieldMouseDragger(IValueField<T> drivenField, Action onDragFinished = null)
@@ -160,7 +160,7 @@ namespace UnityEditor.VFX.UI
         {
             if (typeof(IValueField<U>).IsAssignableFrom(typeof(T)))
             {
-                m_Label.styleSheets.Add(VFXView.LoadStyleSheet("VFXLabeledField"));
+                m_Label.styleSheets.Add(Resources.Load<StyleSheet>("VFXLabeledField"));
                 if (typeof(U) == typeof(float))
                 {
                     var dragger = new VFXFieldMouseDragger<float>((IValueField<float>)m_Control, DragValueFinished);

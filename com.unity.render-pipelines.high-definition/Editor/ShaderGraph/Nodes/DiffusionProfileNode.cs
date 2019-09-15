@@ -3,14 +3,13 @@ using UnityEngine;
 using UnityEditor.Graphing;
 using UnityEditor.ShaderGraph;
 using UnityEditor.ShaderGraph.Drawing.Controls;
-using UnityEngine.Rendering.HighDefinition;
+using UnityEngine.Experimental.Rendering.HDPipeline;
 using System;
 using UnityEngine.Rendering;
 
-namespace UnityEditor.Rendering.HighDefinition
+namespace UnityEditor.Experimental.Rendering.HDPipeline
 {
     [Title("Input", "High Definition Render Pipeline", "Diffusion Profile")]
-    [FormerName("UnityEditor.Experimental.Rendering.HDPipeline.DiffusionProfileNode")]
     [FormerName("UnityEditor.ShaderGraph.DiffusionProfileNode")]
     class DiffusionProfileNode : AbstractMaterialNode, IGeneratesBodyCode
     {
@@ -22,6 +21,7 @@ namespace UnityEditor.Rendering.HighDefinition
 
         public override string documentationURL
         {
+            // This still needs to be added.
             get { return "https://github.com/Unity-Technologies/ShaderGraph/wiki/Diffusion-Profile-Node"; }
         }
 
@@ -42,15 +42,14 @@ namespace UnityEditor.Rendering.HighDefinition
         [NonSerialized]
         DiffusionProfileSettings    m_DiffusionProfileAsset;
 
-        //Hide name to be consistent with Texture2DAsset node
-        [ObjectControl("")]
+        [ObjectControl]
         public DiffusionProfileSettings diffusionProfile
         {
             get
             {
                 if (String.IsNullOrEmpty(m_SerializedDiffusionProfile))
                     return null;
-
+                
                 if (m_DiffusionProfileAsset == null)
                 {
                     var serializedProfile = new DiffusionProfileSerializer();
@@ -64,7 +63,7 @@ namespace UnityEditor.Rendering.HighDefinition
             {
                 if (m_DiffusionProfileAsset == value)
                     return ;
-
+                
                 var serializedProfile = new DiffusionProfileSerializer();
                 serializedProfile.diffusionProfileAsset = value;
                 m_SerializedDiffusionProfile = EditorJsonUtility.ToJson(serializedProfile, true);
@@ -93,22 +92,21 @@ namespace UnityEditor.Rendering.HighDefinition
             if (m_DiffusionProfile.selectedEntry != 0)
             {
                 // Can't reliably retrieve the slot value from here so we warn the user that we probably loose his diffusion profile reference
-                Debug.LogError("Failed to upgrade the diffusion profile node value, reseting to default value."+
+                Debug.LogError("Failed to upgrade the diffusion profile node value, reseting to default value."+ 
                     "\nTo remove this message save the shader graph with the new diffusion profile reference.");
                 m_DiffusionProfile.selectedEntry = 0;
             }
 #pragma warning restore 618
         }
 
-        public void GenerateNodeCode(ShaderStringBuilder sb, GenerationMode generationMode)
+        public void GenerateNodeCode(ShaderGenerator visitor, GraphContext graphContext, GenerationMode generationMode)
         {
             uint hash = 0;
-
+            
             if (diffusionProfile != null)
                 hash = (diffusionProfile.profile.hash);
-
-            // Note: we don't use the auto precision here because we need a 32 bit to store this value
-            sb.AppendLine(string.Format("float {0} = asfloat(uint({1}));", GetVariableNameForSlot(0), hash));
+            
+            visitor.AddShaderChunk(precision + " " + GetVariableNameForSlot(0) + " = asfloat(uint(" + hash + "));", true);
         }
     }
 }

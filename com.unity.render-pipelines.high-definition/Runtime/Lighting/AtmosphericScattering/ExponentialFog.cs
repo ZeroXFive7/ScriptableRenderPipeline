@@ -1,7 +1,12 @@
-namespace UnityEngine.Rendering.HighDefinition
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.Rendering;
+
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
-    // Deprecated, kept for migration
-    [VolumeComponentDeprecated()]
+    [VolumeComponentMenu("Fog/Exponential Fog")]
     public class ExponentialFog : AtmosphericScattering
     {
         private readonly static int m_ExpFogParam = Shader.PropertyToID("_ExpFogParameters");
@@ -13,10 +18,10 @@ namespace UnityEngine.Rendering.HighDefinition
         [Tooltip("Controls the falloff of height fog attenuation, larger values result in sharper attenuation.")]
         public ClampedFloatParameter    fogHeightAttenuation = new ClampedFloatParameter(0.2f, 0.0f, 1.0f);
 
-        internal override void PushShaderParameters(HDCamera hdCamera, CommandBuffer cmd)
+        public override void PushShaderParameters(HDCamera hdCamera, CommandBuffer cmd)
         {
+            PushShaderParametersCommon(hdCamera, cmd, FogType.Exponential);
+            cmd.SetGlobalVector(m_ExpFogParam, new Vector4(Mathf.Max(1e-6f, fogDistance), fogBaseHeight, fogHeightAttenuation, 0.0f));
         }
-
-        ExponentialFog() => displayName = "Exponential Fog (Deprecated)";
     }
 }

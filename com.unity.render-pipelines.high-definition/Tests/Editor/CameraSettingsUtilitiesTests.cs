@@ -1,9 +1,11 @@
-using UnityEditor.Rendering.TestFramework;
+using UnityEditor.Experimental.Rendering.TestFramework;
 using NUnit.Framework;
+using System;
+using UnityEngine.Rendering;
 
-namespace UnityEngine.Rendering.HighDefinition.Tests
+namespace UnityEngine.Experimental.Rendering.HDPipeline.Tests
 {
-    class CameraSettingsUtilitiesTests
+    public class CameraSettingsUtilitiesTests
     {
         Object m_ToClean;
 

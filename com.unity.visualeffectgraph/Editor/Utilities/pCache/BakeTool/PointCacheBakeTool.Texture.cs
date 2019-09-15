@@ -2,9 +2,9 @@ using System.Linq;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace UnityEditor.Experimental.VFX.Utility
+namespace UnityEditor.VFX.Utils
 {
-    partial class PointCacheBakeTool : EditorWindow
+    public partial class PointCacheBakeTool : EditorWindow
     {
         public enum DecimationThresholdMode
         {

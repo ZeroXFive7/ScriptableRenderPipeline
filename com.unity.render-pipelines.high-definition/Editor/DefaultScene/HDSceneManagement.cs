@@ -2,19 +2,17 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEditor.SceneManagement;
 using UnityEngine.Rendering;
-using UnityEngine.Rendering.HighDefinition;
+using UnityEngine.Experimental.Rendering.HDPipeline;
 using System;
 using System.Reflection;
 using System.Linq.Expressions;
 
 
-namespace UnityEditor.Rendering.HighDefinition
+namespace UnityEditor.Experimental.Rendering.HDPipeline
 {
     [InitializeOnLoad]
-    class HDSceneManagement : UnityEditor.AssetPostprocessor
+    public class HDSceneManagement : UnityEditor.AssetPostprocessor
     {
-        const string defaultSceneNotSetWarning = "Default Scene not set! Set up it in Window > Render Pipeline > HD Render Pipeline Wizard\nStandard default unity scene used instead...";
-
         static Func<string, bool> s_CreateEmptySceneAsset;
 
         static HDSceneManagement()
@@ -41,14 +39,8 @@ namespace UnityEditor.Rendering.HighDefinition
 
         static void NewSceneCreated(Scene scene, NewSceneSetup setup, NewSceneMode mode)
         {
-            if (!InHDRP())
+            if (!InHDRP() || HDProjectSettings.defaultScenePrefab == null)
                 return; // do not interfere outside of hdrp
-
-            if (HDProjectSettings.defaultScenePrefab == null)
-            {
-                Debug.LogWarning(defaultSceneNotSetWarning);
-                return;
-            }
 
             if (setup == NewSceneSetup.DefaultGameObjects)
             {
@@ -117,12 +109,6 @@ namespace UnityEditor.Rendering.HighDefinition
         {
             public override void Action(int instanceId, string pathName, string resourceFile)
             {
-                if (HDProjectSettings.defaultScenePrefab == null)
-                {
-                    Debug.LogWarning(defaultSceneNotSetWarning);
-                    return;
-                }
-
                 if (s_CreateEmptySceneAsset(pathName))
                 {
                     UnityEngine.Object sceneAsset = AssetDatabase.LoadAssetAtPath(pathName, typeof(SceneAsset));
@@ -147,7 +133,7 @@ namespace UnityEditor.Rendering.HighDefinition
 
         static void FillScene(Scene scene)
         {
-            HDRenderPipelineAsset hdrpAsset = HDRenderPipeline.defaultAsset;
+            HDRenderPipelineAsset hdrpAsset = (GraphicsSettings.renderPipelineAsset as HDRenderPipelineAsset);
             if (hdrpAsset == null || hdrpAsset.Equals(null))
                 return;
 

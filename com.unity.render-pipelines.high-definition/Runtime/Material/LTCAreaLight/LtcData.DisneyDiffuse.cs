@@ -1,6 +1,9 @@
-namespace UnityEngine.Rendering.HighDefinition
+using UnityEngine;
+using System;
+
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
-    partial class LTCAreaLight
+    public partial class LTCAreaLight
     {
         //-------------------------------------------------------------------------------------------
         // LTC area light Look up table (fit for Disney Diffuse)
