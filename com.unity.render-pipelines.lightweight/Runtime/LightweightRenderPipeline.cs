@@ -4,7 +4,6 @@ using Unity.Collections;
 using UnityEditor;
 using UnityEditor.Rendering.LWRP;
 #endif
-using UnityEngine.Rendering.PostProcessing;
 using UnityEngine.Experimental.GlobalIllumination;
 using Lightmapping = UnityEngine.Experimental.GlobalIllumination.Lightmapping;
 
@@ -16,6 +15,7 @@ namespace UnityEngine.Rendering.LWRP
         {
             public static int _GlossyEnvironmentColor;
             public static int _SubtractiveShadowColor;
+            public static int _FirstPersonDepthBias;
 
             public static int _Time;
             public static int _SinTime;
@@ -80,6 +80,7 @@ namespace UnityEngine.Rendering.LWRP
 
             PerFrameBuffer._GlossyEnvironmentColor = Shader.PropertyToID("_GlossyEnvironmentColor");
             PerFrameBuffer._SubtractiveShadowColor = Shader.PropertyToID("_SubtractiveShadowColor");
+            PerFrameBuffer._FirstPersonDepthBias = Shader.PropertyToID("_FirstPersonDepthBias");
 
             PerFrameBuffer._Time = Shader.PropertyToID("_Time");
             PerFrameBuffer._SinTime = Shader.PropertyToID("_SinTime");
@@ -125,7 +126,7 @@ namespace UnityEngine.Rendering.LWRP
 
             GraphicsSettings.lightsUseLinearIntensity = (QualitySettings.activeColorSpace == ColorSpace.Linear);
             GraphicsSettings.useScriptableRenderPipelineBatching = asset.useSRPBatcher;
-            SetupPerFrameShaderConstants();
+            SetupPerFrameShaderConstants(asset);
 
             SortCameras(cameras);
             foreach (Camera camera in cameras)
@@ -220,13 +221,15 @@ namespace UnityEngine.Rendering.LWRP
         static void InitializeCameraData(LightweightRenderPipelineAsset settings, Camera camera, LWRPAdditionalCameraData additionalCameraData, out CameraData cameraData)
         {
             const float kRenderScaleThreshold = 0.05f;
+
+            cameraData = new CameraData();
             cameraData.camera = camera;
             cameraData.isStereoEnabled = IsStereoEnabled(camera);
 
             int msaaSamples = 1;
             if (camera.allowMSAA && settings.msaaSampleCount > 1)
                 msaaSamples = (camera.targetTexture != null) ? camera.targetTexture.antiAliasing : settings.msaaSampleCount;
-            
+
             cameraData.isSceneViewCamera = camera.cameraType == CameraType.SceneView;
             cameraData.isHdrEnabled = camera.allowHDR && settings.supportsHDR;
 #if UNITY_2019_2_OR_NEWER
@@ -253,7 +256,7 @@ namespace UnityEngine.Rendering.LWRP
 
             bool anyShadowsEnabled = settings.supportsMainLightShadows || settings.supportsAdditionalLightShadows;
             cameraData.maxShadowDistance = (anyShadowsEnabled) ? settings.shadowDistance : 0.0f;
-            
+
             if (additionalCameraData != null)
             {
                 cameraData.maxShadowDistance = (additionalCameraData.renderShadows) ? cameraData.maxShadowDistance : 0.0f;
@@ -278,6 +281,28 @@ namespace UnityEngine.Rendering.LWRP
 
             cameraData.cameraTargetDescriptor = CreateRenderTextureDescriptor(camera, cameraData.renderScale,
                 cameraData.isStereoEnabled, cameraData.isHdrEnabled, msaaSamples);
+
+            // Configure first person view model rendering settings.
+            cameraData.supportsFirstPersonViewModelRendering = additionalCameraData != null ? additionalCameraData.supportsFirstPersonViewModelRendering : settings.supportsFirstPersonViewModelRendering;
+            cameraData.firstPersonViewModelRenderingLayerMask = additionalCameraData != null ? additionalCameraData.firstPersonViewModelRenderingLayerMask : settings.firstPersonViewModelRenderingLayerMask;
+            cameraData.thirdPersonRenderingLayerMask = additionalCameraData != null ? additionalCameraData.thirdPersonRenderingLayerMask : settings.thirdPersonRenderingLayerMask;
+
+            // Apply obliqueness to camera.
+            var obliqueness = additionalCameraData != null ? additionalCameraData.obliqueness : 0.0f;
+            if (!cameraData.isSceneViewCamera)
+            {
+                cameraData.camera.SetObliqueness(obliqueness);
+            }
+
+            // Calculate first person view model matrix.
+            cameraData.firstPersonViewModelProjectionMatrix = Matrix4x4.Perspective(
+                settings.firstPersonViewModelFOV,
+                camera.aspect,
+                settings.firstPersonViewModelNearPlane,
+                settings.firstPersonViewModelFarPlane);
+
+            // Apply obliqueness settings.
+            cameraData.firstPersonViewModelProjectionMatrix.SetObliqueness(obliqueness);
         }
 
         static void InitializeRenderingData(LightweightRenderPipelineAsset settings, ref CameraData cameraData, ref CullingResults cullResults,
@@ -472,7 +497,7 @@ namespace UnityEngine.Rendering.LWRP
             return brightestDirectionalLightIndex;
         }
 
-        static void SetupPerFrameShaderConstants()
+        static void SetupPerFrameShaderConstants(LightweightRenderPipelineAsset asset)
         {
             // When glossy reflections are OFF in the shader we set a constant color to use as indirect specular
             SphericalHarmonicsL2 ambientSH = RenderSettings.ambientProbe;
@@ -482,6 +507,9 @@ namespace UnityEngine.Rendering.LWRP
 
             // Used when subtractive mode is selected
             Shader.SetGlobalVector(PerFrameBuffer._SubtractiveShadowColor, CoreUtils.ConvertSRGBToActiveColorSpace(RenderSettings.subtractiveShadowColor));
+
+            // Used to compensate for different FOVs when rendering first, third person.
+            Shader.SetGlobalFloat(PerFrameBuffer._FirstPersonDepthBias, asset.firstPersonDepthBias);
         }
 
         static void SetupPerCameraShaderConstants(CameraData cameraData)

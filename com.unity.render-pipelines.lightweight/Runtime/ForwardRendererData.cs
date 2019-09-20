@@ -49,8 +49,6 @@ namespace UnityEngine.Rendering.LWRP
         [SerializeField] LayerMask m_OpaqueLayerMask = -1;
         [SerializeField] LayerMask m_TransparentLayerMask = -1;
 
-        [SerializeField] StencilStateData m_DefaultStencilState = null;
-
         protected override ScriptableRenderer Create()
         {
 #if UNITY_EDITOR
@@ -63,8 +61,6 @@ namespace UnityEngine.Rendering.LWRP
         internal LayerMask opaqueLayerMask => m_OpaqueLayerMask;
 
         public LayerMask transparentLayerMask => m_TransparentLayerMask;
-
-        public StencilStateData defaultStencilState => m_DefaultStencilState;
 
         protected override void OnEnable()
         {

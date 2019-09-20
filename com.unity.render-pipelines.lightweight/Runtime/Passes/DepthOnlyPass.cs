@@ -8,24 +8,20 @@ namespace UnityEngine.Rendering.LWRP
     /// You can use this pass to prime a depth buffer for subsequent rendering.
     /// Use it as a z-prepass, or use it to generate a depth buffer.
     /// </summary>
-    internal class DepthOnlyPass : ScriptableRenderPass
+    internal class DepthOnlyPass : BaseForwardPass
     {
         int kDepthBufferBits = 32;
 
         private RenderTargetHandle depthAttachmentHandle { get; set; }
         internal RenderTextureDescriptor descriptor { get; private set; }
 
-        FilteringSettings m_FilteringSettings;
-        string m_ProfilerTag = "Depth Prepass";
-        ShaderTagId m_ShaderTagId = new ShaderTagId("DepthOnly");
-
         /// <summary>
         /// Create the DepthOnlyPass
         /// </summary>
         public DepthOnlyPass(RenderPassEvent evt, RenderQueueRange renderQueueRange, LayerMask layerMask)
+            : base("Depth Prepass", true, evt, renderQueueRange, layerMask)
         {
-            m_FilteringSettings = new FilteringSettings(renderQueueRange, layerMask);
-            renderPassEvent = evt;
+            m_ShaderTagIdList.Add(new ShaderTagId("DepthOnly"));
         }
 
         /// <summary>
@@ -52,31 +48,6 @@ namespace UnityEngine.Rendering.LWRP
         }
 
         /// <inheritdoc/>
-        public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
-        {
-            CommandBuffer cmd = CommandBufferPool.Get(m_ProfilerTag);
-            using (new ProfilingSample(cmd, m_ProfilerTag))
-            {
-                context.ExecuteCommandBuffer(cmd);
-                cmd.Clear();
-
-                var sortFlags = renderingData.cameraData.defaultOpaqueSortFlags;
-                var drawSettings = CreateDrawingSettings(m_ShaderTagId, ref renderingData, sortFlags);
-                drawSettings.perObjectData = PerObjectData.None;
-
-                ref CameraData cameraData = ref renderingData.cameraData;
-                Camera camera = cameraData.camera;
-                if (cameraData.isStereoEnabled)
-                    context.StartMultiEye(camera);
-
-                context.DrawRenderers(renderingData.cullResults, ref drawSettings, ref m_FilteringSettings);
-
-            }
-            context.ExecuteCommandBuffer(cmd);
-            CommandBufferPool.Release(cmd);
-        }
-
-        /// <inheritdoc/>
         public override void FrameCleanup(CommandBuffer cmd)
         {
             if (cmd == null)
@@ -87,6 +58,17 @@ namespace UnityEngine.Rendering.LWRP
                 cmd.ReleaseTemporaryRT(depthAttachmentHandle.id);
                 depthAttachmentHandle = RenderTargetHandle.CameraTarget;
             }
+        }
+
+        protected override void RenderFiltered(ScriptableRenderContext context, Camera camera, ref RenderingData renderingData, ref DrawingSettings drawSettings, ref FilteringSettings filteringSettings, ref RenderStateBlock renderStateBlock)
+        {
+            ref CameraData cameraData = ref renderingData.cameraData;
+            if (cameraData.isStereoEnabled)
+            {
+                context.StartMultiEye(camera);
+            }
+
+            context.DrawRenderers(renderingData.cullResults, ref drawSettings, ref filteringSettings, ref renderStateBlock);
         }
     }
 }

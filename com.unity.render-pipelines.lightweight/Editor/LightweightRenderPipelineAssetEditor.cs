@@ -14,7 +14,7 @@ namespace UnityEditor.Rendering.LWRP
             public static GUIContent qualitySettingsText = EditorGUIUtility.TrTextContent("Quality");
             public static GUIContent lightingSettingsText = EditorGUIUtility.TrTextContent("Lighting");
             public static GUIContent shadowSettingsText = EditorGUIUtility.TrTextContent("Shadows");
-            public static GUIContent firstPersonViewModelSettingsText = EditorGUIUtility.TrTextContent("First Person View Models");
+            public static GUIContent firstPersonSettingsText = EditorGUIUtility.TrTextContent("First Person View Models");
             public static GUIContent advancedSettingsText = EditorGUIUtility.TrTextContent("Advanced");
 
             // General
@@ -145,6 +145,7 @@ namespace UnityEditor.Rendering.LWRP
             m_LightingSettingsFoldout = new SavedBool($"{target.GetType()}.LightingSettingsFoldout", false);
             m_ShadowSettingsFoldout = new SavedBool($"{target.GetType()}.ShadowSettingsFoldout", false);
             m_AdvancedSettingsFoldout = new SavedBool($"{target.GetType()}.AdvancedSettingsFoldout", false);
+            m_FirstPersonSettingsFoldout = new SavedBool($"{target.GetType()}.FirstPersonSettingsFoldout", false);
 
             m_RendererTypeProp = serializedObject.FindProperty("m_RendererType");
             m_RendererDataProp = serializedObject.FindProperty("m_RendererData");
@@ -325,8 +326,8 @@ namespace UnityEditor.Rendering.LWRP
 
         void DrawFirstPersonViewModelSettings()
         {
-            m_FirstPersonViewModelSettingsFoldout = EditorGUILayout.Foldout(m_FirstPersonViewModelSettingsFoldout, Styles.firstPersonViewModelSettingsText);
-            if (m_FirstPersonViewModelSettingsFoldout)
+            m_FirstPersonSettingsFoldout.value = EditorGUILayout.BeginFoldoutHeaderGroup(m_FirstPersonSettingsFoldout.value, Styles.firstPersonSettingsText);
+            if (m_FirstPersonSettingsFoldout.value)
             {
                 EditorGUI.indentLevel++;
 
@@ -355,6 +356,7 @@ namespace UnityEditor.Rendering.LWRP
                 EditorGUILayout.Space();
                 EditorGUILayout.Space();
             }
+            EditorGUILayout.EndFoldoutHeaderGroup();
         }
 
         void DrawAdvancedSettings()
