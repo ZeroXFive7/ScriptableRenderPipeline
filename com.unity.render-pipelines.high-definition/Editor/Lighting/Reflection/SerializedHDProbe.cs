@@ -5,6 +5,14 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
 {
     internal abstract class SerializedHDProbe
     {
+        [Flags]
+        internal enum EditorOnlyData
+        {
+            None = 0,
+            CaptureSettingsIsAdvanced = 1 << 0,
+            InfluenceVolumeIsAdvanced = 1 << 1
+        }
+
         internal SerializedObject serializedObject;
         
         internal SerializedProperty bakedTexture;

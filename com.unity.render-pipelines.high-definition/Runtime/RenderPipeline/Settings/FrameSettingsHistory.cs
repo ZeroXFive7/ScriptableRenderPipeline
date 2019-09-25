@@ -24,7 +24,38 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
         // due to strange management of Scene view cameras, all camera of type Scene will share same FrameSettingsHistory
 #if UNITY_EDITOR
-        internal static Camera sceneViewCamera;
+        //internal static Camera sceneViewCamera;
+        class MinimalHistoryContainer : IFrameSettingsHistoryContainer
+        {
+            FrameSettingsHistory m_FrameSettingsHistory = new FrameSettingsHistory();
+            FrameSettingsHistory IFrameSettingsHistoryContainer.frameSettingsHistory
+            {
+                get => m_FrameSettingsHistory;
+                set => m_FrameSettingsHistory = value;
+            }
+
+            // never used as hasCustomFrameSettings forced to false
+            FrameSettingsOverrideMask IFrameSettingsHistoryContainer.frameSettingsMask
+                => throw new NotImplementedException();
+
+            // never used as hasCustomFrameSettings forced to false
+            FrameSettings IFrameSettingsHistoryContainer.frameSettings
+                => throw new NotImplementedException();
+
+            // forced to false as there is no control on this object
+            bool IFrameSettingsHistoryContainer.hasCustomFrameSettings
+                => false;
+
+            string IFrameSettingsHistoryContainer.panelName
+                => "Scene Camera";
+
+            Action IDebugData.GetReset()
+                //caution: we actually need to retrieve the 
+                //m_FrameSettingsHistory as it is a struct so no direct
+                // => m_FrameSettingsHistory.TriggerReset
+                => () => m_FrameSettingsHistory.TriggerReset();
+        }
+        internal static IFrameSettingsHistoryContainer sceneViewFrameSettingsContainer = new MinimalHistoryContainer();
 #endif
         internal static Dictionary<Camera, FrameSettingsHistory> frameSettingsHistory = new Dictionary<Camera, FrameSettingsHistory>();
 

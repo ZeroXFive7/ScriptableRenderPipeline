@@ -792,7 +792,13 @@ Shader "HDRP/Lit"
             
             #define SHADERPASS SHADERPASS_RAYTRACING_REFLECTION
 
-             // We use the low shadow maps for raytracing
+            #define SHADERPASS SHADERPASS_RAYTRACING_INDIRECT
+
+            // multi compile that allows us to
+            #pragma multi_compile _ DIFFUSE_LIGHTING_ONLY
+            #pragma multi_compile _ MULTI_BOUNCE_INDIRECT
+
+            // We use the low shadow maps for raytracing
             #define SHADOW_LOW
 
             #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/Raytracing/Shaders/RaytracingMacros.hlsl"
@@ -828,8 +834,10 @@ Shader "HDRP/Lit"
             #pragma multi_compile _ LIGHTMAP_ON
             #pragma multi_compile _ DIRLIGHTMAP_COMBINED
             #pragma multi_compile _ DYNAMICLIGHTMAP_ON
-            
-             // We use the low shadow maps for raytracing
+
+            #define SHADERPASS SHADERPASS_RAYTRACING_FORWARD
+
+            // We use the low shadow maps for raytracing
             #define SHADOW_LOW
 
             #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/Raytracing/Shaders/RaytracingMacros.hlsl"

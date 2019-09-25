@@ -315,5 +315,5 @@ float InitContactShadow(PositionInputs posInput)
 
 float GetContactShadow(LightLoopContext lightLoopContext, int contactShadowIndex)
 {
-    return contactShadowIndex >= 0 ? lightLoopContext.contactShadow : 1.0;
+    return LOAD_TEXTURE2D_ARRAY(_ScreenSpaceShadowsTexture, posInput.positionSS, INDEX_TEXTURE2D_ARRAY_X(shadowIndex)).x;
 }

@@ -136,6 +136,22 @@ void InitBuiltinData(   float alpha, float3 normalWS, float3 backNormalWS, float
 
     builtinData.opacity = alpha;
 
+#if SHADEROPTIONS_RAYTRACING && (SHADERPASS == SHADERPASS_GBUFFER || SHADERPASS == SHADERPASS_FORWARD)
+    if (_RaytracedIndirectDiffuse == 1)
+    {
+        #if SHADERPASS == SHADERPASS_GBUFFER
+        // Incase we shall be using raytraced indirect diffuse, we want to make sure to not add the GBuffer because that will be happening later in the pipeline
+        builtinData.bakeDiffuseLighting = float3(0.0, 0.0, 0.0);
+        #endif
+
+        #if SHADERPASS == SHADERPASS_FORWARD
+        builtinData.bakeDiffuseLighting = LOAD_TEXTURE2D_X(_IndirectDiffuseTexture, posInput.positionSS).xyz;
+        builtinData.bakeDiffuseLighting *= GetInverseCurrentExposureMultiplier();
+        #endif
+    }
+    else
+#endif
+
     // Sample lightmap/lightprobe/volume proxy
     builtinData.bakeDiffuseLighting = SampleBakedGI(positionRWS, normalWS, texCoord1.xy, texCoord2.xy);
     // We also sample the back lighting in case we have transmission. If not use this will be optimize out by the compiler

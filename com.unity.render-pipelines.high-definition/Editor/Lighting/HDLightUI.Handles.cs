@@ -47,8 +47,8 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
                                         outterAngleInnerAngleRange = CoreLightEditorUtilities.DrawSpotlightHandle(outterAngleInnerAngleRange);
                                         if (EditorGUI.EndChangeCheck())
                                         {
-                                            Undo.RecordObjects(new UnityEngine.Object[] { light, src }, "Adjust Cone Spot Light");
-                                            src.m_InnerSpotPercent = 100f * outterAngleInnerAngleRange.y / outterAngleInnerAngleRange.x;
+                                            Undo.RecordObjects(new UnityEngine.Object[] { light, additionalData }, "Adjust Cone Spot Light");
+                                            additionalData.innerSpotPercent = 100f * outterAngleInnerAngleRange.y / Mathf.Max(0.1f, outterAngleInnerAngleRange.x);
                                             light.spotAngle = outterAngleInnerAngleRange.x;
                                             light.range = outterAngleInnerAngleRange.z;
                                         }

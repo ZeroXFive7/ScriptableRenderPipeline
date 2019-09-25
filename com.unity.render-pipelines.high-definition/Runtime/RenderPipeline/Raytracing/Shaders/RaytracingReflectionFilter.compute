@@ -40,6 +40,9 @@ float                               _TemporalAccumuationWeight;
 [numthreads(RAYTRACING_REFLECTION_TILE_SIZE, RAYTRACING_REFLECTION_TILE_SIZE, 1)]
 void RaytracingReflectionFilter(uint2 groupThreadId : SV_GroupThreadID, uint2 groupId : SV_GroupID)
 {
+    UNITY_XR_ASSIGN_VIEW_INDEX(dispatchThreadId.z);
+
+    #ifdef HALF_RESOLUTION
     // Compute the half res coordinate that we shall be using for our effect
     uint2 halfResCoord = groupId * RAYTRACING_REFLECTION_TILE_SIZE + groupThreadId;
     halfResCoord.x = halfResCoord.x + (unity_StereoEyeIndex * _ScreenSize.x);

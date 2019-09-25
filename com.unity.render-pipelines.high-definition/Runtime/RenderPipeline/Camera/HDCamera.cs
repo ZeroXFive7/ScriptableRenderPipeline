@@ -287,11 +287,17 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
             // Handle memory allocation.
             {
-                bool isColorPyramidHistoryRequired = m_frameSettings.IsEnabled(FrameSettingsField.SSR); // TODO: TAA as well
-                bool isVolumetricHistoryRequired   = m_frameSettings.IsEnabled(FrameSettingsField.Volumetrics) && m_frameSettings.IsEnabled(FrameSettingsField.ReprojectionForVolumetrics);
+                bool isCurrentColorPyramidRequired = m_frameSettings.IsEnabled(FrameSettingsField.RoughRefraction) || m_frameSettings.IsEnabled(FrameSettingsField.Distortion);
+                bool isHistoryColorPyramidRequired = m_frameSettings.IsEnabled(FrameSettingsField.SSR) || antialiasing == AntialiasingMode.TemporalAntialiasing;
+                bool isVolumetricHistoryRequired = m_frameSettings.IsEnabled(FrameSettingsField.Volumetrics) && m_frameSettings.IsEnabled(FrameSettingsField.ReprojectionForVolumetrics);
 
-                int numColorPyramidBuffersRequired = isColorPyramidHistoryRequired ? 2 : 1; // TODO: 1 -> 0
-                int numVolumetricBuffersRequired   = isVolumetricHistoryRequired   ? 2 : 0; // History + feedback
+                int numColorPyramidBuffersRequired = 0;
+                if (isCurrentColorPyramidRequired)
+                    numColorPyramidBuffersRequired = 1;
+                if (isHistoryColorPyramidRequired) // Superset of case above
+                    numColorPyramidBuffersRequired = 2;
+
+                int numVolumetricBuffersRequired = isVolumetricHistoryRequired ? 2 : 0; // History + feedback
 
                 if ((numColorPyramidBuffersAllocated != numColorPyramidBuffersRequired) ||
                     (numVolumetricBuffersAllocated   != numVolumetricBuffersRequired))
@@ -676,6 +682,13 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
         Matrix4x4 GetJitteredProjectionMatrix(Matrix4x4 origProj)
         {
+            // Do not add extra jitter in VR (micro-variations from head tracking are enough)
+            if (xr.enabled)
+            {
+                taaJitter = Vector4.zero;
+                return origProj;
+            }
+
             // The variance between 0 and the actual halton sequence values reveals noticeable
             // instability in Unity's shadow maps, so we avoid index 0.
             float jitterX = HaltonSequence.Get((taaFrameIndex & 1023) + 1, 2) - 0.5f;
@@ -842,8 +855,15 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
             foreach (var kvp in s_Cameras)
             {
-                if (kvp.Value.m_LastFrameActive < frameCheck)
-                    s_Cleanup.Add(kvp.Key);
+                var camera = s_Cameras[key];
+
+                // Unfortunately, the scene view camera is always isActiveAndEnabled==false so we can't rely on this. For this reason we never release it (which should be fine in the editor)
+                if (camera.camera != null && camera.camera.cameraType == CameraType.SceneView)
+                    continue;
+
+                // We keep preview camera around as they are generally disabled/enabled every frame. They will be destroyed later when camera.camera is null
+                if (camera.camera == null || (!camera.camera.isActiveAndEnabled && camera.camera.cameraType != CameraType.Preview))
+                    s_Cleanup.Add(key);
             }
 
             foreach (var cam in s_Cleanup)
@@ -891,6 +911,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             // Different views can have different values of the "Animated Materials" setting.
             bool animateMaterials = CoreUtils.AreAnimatedMaterialsEnabled(camera);
 
+            // We also enable animated materials in previews so the shader graph main preview works with time parameters.
+            animateMaterials |= camera.cameraType == CameraType.Preview;
+
             float  ct = animateMaterials ? time     : 0;
             float  pt = animateMaterials ? lastTime : 0;
             float  dt = Time.deltaTime;
@@ -913,19 +936,22 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public void SetupGlobalStereoParams(CommandBuffer cmd)
         {
 
-            // corresponds to UnityPerPassStereo
-            // TODO: Migrate the other stereo matrices to HDRP-managed UnityPerPassStereo?
-            cmd.SetGlobalMatrixArray(HDShaderIDs._ViewMatrixStereo, viewMatrixStereo);
-            cmd.SetGlobalMatrixArray(HDShaderIDs._ProjMatrixStereo, projMatrixStereo);
-            cmd.SetGlobalMatrixArray(HDShaderIDs._ViewProjMatrixStereo, viewProjStereo);
-            cmd.SetGlobalMatrixArray(HDShaderIDs._InvViewMatrixStereo, invViewStereo);
-            cmd.SetGlobalMatrixArray(HDShaderIDs._InvProjMatrixStereo, invProjStereo);
-            cmd.SetGlobalMatrixArray(HDShaderIDs._InvViewProjMatrixStereo, invViewProjStereo);
-            cmd.SetGlobalMatrixArray(HDShaderIDs._PrevViewProjMatrixStereo, prevViewProjMatrixStereo);
-            cmd.SetGlobalVectorArray(HDShaderIDs._WorldSpaceCameraPosStereo, worldSpaceCameraPosStereo);
-            cmd.SetGlobalVectorArray(HDShaderIDs._WorldSpaceCameraPosStereoEyeOffset, worldSpaceCameraPosStereoEyeOffset);
-            cmd.SetGlobalVectorArray(HDShaderIDs._PrevCamPosRWSStereo, prevWorldSpaceCameraPosStereo);
-            cmd.SetGlobalVector(HDShaderIDs._TextureWidthScaling, textureWidthScaling);
+                cmd.SetGlobalMatrixArray(HDShaderIDs._XRViewMatrix, xrViewMatrix);
+                cmd.SetGlobalMatrixArray(HDShaderIDs._XRInvViewMatrix, xrInvViewMatrix);
+                cmd.SetGlobalMatrixArray(HDShaderIDs._XRProjMatrix, xrProjMatrix);
+                cmd.SetGlobalMatrixArray(HDShaderIDs._XRInvProjMatrix, xrInvProjMatrix);
+                cmd.SetGlobalMatrixArray(HDShaderIDs._XRViewProjMatrix, xrViewProjMatrix);
+                cmd.SetGlobalMatrixArray(HDShaderIDs._XRInvViewProjMatrix, xrInvViewProjMatrix);
+                cmd.SetGlobalMatrixArray(HDShaderIDs._XRNonJitteredViewProjMatrix, xrNonJitteredViewProjMatrix);
+                cmd.SetGlobalMatrixArray(HDShaderIDs._XRPrevViewProjMatrix, xrPrevViewProjMatrix);
+                cmd.SetGlobalMatrixArray(HDShaderIDs._XRPrevInvViewProjMatrix, xrPrevInvViewProjMatrix);
+                cmd.SetGlobalMatrixArray(HDShaderIDs._XRPrevViewProjMatrixNoCameraTrans, xrPrevViewProjMatrixNoCameraTrans);
+                cmd.SetGlobalMatrixArray(HDShaderIDs._XRPixelCoordToViewDirWS, xrPixelCoordToViewDirWS);
+                cmd.SetGlobalVectorArray(HDShaderIDs._XRWorldSpaceCameraPos, xrWorldSpaceCameraPos);
+                cmd.SetGlobalVectorArray(HDShaderIDs._XRWorldSpaceCameraPosViewOffset, xrWorldSpaceCameraPosViewOffset);
+                cmd.SetGlobalVectorArray(HDShaderIDs._XRPrevWorldSpaceCameraPos, xrPrevWorldSpaceCameraPos);
+            }
+
         }
 
         public RTHandleSystem.RTHandle GetPreviousFrameRT(int id)

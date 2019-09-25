@@ -206,6 +206,27 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
                 m_TotalVariantsOutputCount += (uint)inputData.Count;
                 LogShaderVariants(shader, snippet, hdPipelineAsset.shaderVariantLogLevel, preStrippingCount, (uint)inputData.Count);
             }
+
+            // Prompt a warning if we find 0 HDRP Assets.
+            if (_hdrpAssets.Count == 0)
+                if (EditorUtility.DisplayDialog("HDRP Asset missing", "No HDRP Asset has been set in the Graphic Settings, and no potential used in the build HDRP Asset has been found. If you want to continue compiling, this might lead to VERY long compilation time.", "Ok", "Cancel"))
+                throw new UnityEditor.Build.BuildFailedException("Build canceled");
+
+            /*
+            Debug.Log(string.Format("{0} HDRP assets in build:{1}",
+                _hdrpAssets.Count,
+                _hdrpAssets
+                    .Select(a => a.name)
+                    .Aggregate("", (current, next) => $"{current}{System.Environment.NewLine}- {next}" )
+                ));
+            // */
+        }
+
+        public int callbackOrder { get { return 0; } }
+
+        public void OnPreprocessBuild(BuildReport report)
+        {
+            GetAllValidHDRPAssets();
         }
     }
 }

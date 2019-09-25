@@ -77,9 +77,13 @@ namespace UnityEditor.ShaderGraph.Drawing
             base.BuildContextualMenu(evt);
             if (evt.target is GraphView || evt.target is Node)
             {
-                evt.menu.AppendAction("Convert To Sub-graph", ConvertToSubgraph, ConvertToSubgraphStatus);
-                evt.menu.AppendAction("Convert To Inline Node", ConvertToInlineNode, ConvertToInlineNodeStatus);
-                evt.menu.AppendAction("Convert To Property", ConvertToProperty, ConvertToPropertyStatus);
+                InitializeViewSubMenu(evt);
+                InitializePrecisionSubMenu(evt);
+
+                evt.menu.AppendAction("Convert To/Sub-graph", ConvertToSubgraph, ConvertToSubgraphStatus);
+                evt.menu.AppendAction("Convert To/Inline Node", ConvertToInlineNode, ConvertToInlineNodeStatus);
+                evt.menu.AppendAction("Convert To/Property", ConvertToProperty, ConvertToPropertyStatus);
+                evt.menu.AppendSeparator();
 
                 evt.menu.AppendAction("Group Selection", GroupSelection, (a) =>
                 {
@@ -153,12 +157,90 @@ namespace UnityEditor.ShaderGraph.Drawing
             }
         }
 
-        void GroupSelection(DropdownMenuAction action)
+        private void InitializePrecisionSubMenu(ContextualMenuPopulateEvent evt)
+        {
+            // Default the menu buttons to disabled
+            DropdownMenuAction.Status inheritPrecisionAction = DropdownMenuAction.Status.Disabled;
+            DropdownMenuAction.Status floatPrecisionAction = DropdownMenuAction.Status.Disabled;
+            DropdownMenuAction.Status halfPrecisionAction = DropdownMenuAction.Status.Disabled;
+
+            // Check which precisions are available to switch to
+            foreach (MaterialNodeView selectedNode in selection.Where(x => x is MaterialNodeView).Select(x => x as MaterialNodeView))
+            {
+                if (selectedNode.node.precision != Precision.Inherit)
+                    inheritPrecisionAction = DropdownMenuAction.Status.Normal;
+                if (selectedNode.node.precision != Precision.Float)
+                    floatPrecisionAction = DropdownMenuAction.Status.Normal;
+                if (selectedNode.node.precision != Precision.Half)
+                    halfPrecisionAction = DropdownMenuAction.Status.Normal;
+            }
+
+            // Create the menu options
+            evt.menu.AppendAction("Precision/Inherit", _ => SetNodePrecisionOnSelection(Precision.Inherit), (a) => inheritPrecisionAction);
+            evt.menu.AppendAction("Precision/Float", _ => SetNodePrecisionOnSelection(Precision.Float), (a) => floatPrecisionAction);
+            evt.menu.AppendAction("Precision/Half", _ => SetNodePrecisionOnSelection(Precision.Half), (a) => halfPrecisionAction);
+        }
+
+        private void InitializeViewSubMenu(ContextualMenuPopulateEvent evt)
         {
             Vector2 pos = action.eventInfo.localMousePosition;
 
-            string title = "New Group";
-            GroupData groupData = new GroupData(title, pos);
+            // Create the menu options
+            evt.menu.AppendAction(collapsePortText, _ => SetNodeExpandedOnSelection(false), (a) => minimizeAction);
+            evt.menu.AppendAction(expandPortText, _ => SetNodeExpandedOnSelection(true), (a) => maximizeAction);
+
+            evt.menu.AppendSeparator("View/");
+
+            evt.menu.AppendAction(expandPreviewText, _ => SetPreviewExpandedOnSelection(true), (a) => expandPreviewAction);
+            evt.menu.AppendAction(collapsePreviewText, _ => SetPreviewExpandedOnSelection(false), (a) => collapsePreviewAction);
+        }
+
+        void ChangeCustomNodeColor(DropdownMenuAction menuAction)
+        {
+            // Color Picker is internal :(
+            var t = typeof(EditorWindow).Assembly.GetTypes().FirstOrDefault(ty => ty.Name == "ColorPicker");
+            var m = t?.GetMethod("Show", new[] {typeof(Action<Color>), typeof(Color), typeof(bool), typeof(bool)});
+            if (m == null)
+            {
+                Debug.LogWarning("Could not invoke Color Picker for ShaderGraph.");
+                return;
+            }
+
+            var editorView = GetFirstAncestorOfType<GraphEditorView>();
+            var defaultColor = Color.gray;
+            if (selection.FirstOrDefault(sel => sel is MaterialNodeView) is MaterialNodeView selNode1)
+            {
+                defaultColor = selNode1.GetColor();
+                defaultColor.a = 1.0f;
+            }
+
+            void ApplyColor(Color pickedColor)
+            {
+                foreach (var selectable in selection)
+                {
+                    if(selectable is MaterialNodeView nodeView)
+                    {
+                        nodeView.node.SetColor(editorView.colorManager.activeProviderName, pickedColor);
+                        editorView.colorManager.UpdateNodeView(nodeView);
+                    }
+                }
+            }
+            graph.owner.RegisterCompleteObjectUndo("Change Node Color");
+            m.Invoke(null, new object[] {(Action<Color>) ApplyColor, defaultColor, true, false});
+        }
+
+        protected override bool canDeleteSelection
+        {
+            get
+            {
+                return selection.Any(x => !(x is IShaderNodeView nodeView) || nodeView.node.canDeleteNode);
+            }
+        }
+
+        public void GroupSelection()
+        {
+            var title = "New Group";
+            var groupData = new GroupData(title, new Vector2(10f,10f));
 
             graph.owner.RegisterCompleteObjectUndo("Create Group Node");
             graph.AddGroupData(groupData);
@@ -184,6 +266,47 @@ namespace UnityEditor.ShaderGraph.Drawing
                     group.RemoveElement(node);
                 }
             }
+        }
+
+        public void SetNodeExpandedOnSelection(bool state)
+        {
+            graph.owner.RegisterCompleteObjectUndo("Toggle Expansion");
+            foreach (MaterialNodeView selectedNode in selection.Where(x => x is MaterialNodeView).Select(x => x as MaterialNodeView))
+            {
+                if(selectedNode.CanToggleExpanded())
+                    selectedNode.expanded = state;
+            }
+        }
+
+        public void SetPreviewExpandedOnSelection(bool state)
+        {
+            graph.owner.RegisterCompleteObjectUndo("Toggle Preview Visibility");
+            foreach (MaterialNodeView selectedNode in selection.Where(x => x is MaterialNodeView).Select(x => x as MaterialNodeView))
+            {
+                selectedNode.node.previewExpanded = state;
+            }
+        }
+
+        public void SetNodePrecisionOnSelection(Precision inPrecision)
+        {
+            var editorView = GetFirstAncestorOfType<GraphEditorView>();
+            IEnumerable<MaterialNodeView> nodes = selection.Where(x => x is MaterialNodeView node && node.node.canSetPrecision).Select(x => x as MaterialNodeView);
+
+            graph.owner.RegisterCompleteObjectUndo("Set Precisions");
+            editorView.colorManager.SetNodesDirty(nodes);
+
+            foreach (MaterialNodeView selectedNode in nodes)
+            {
+                selectedNode.node.precision = inPrecision;
+            }
+
+            // Reflect the data down
+            graph.ValidateGraph();
+            editorView.colorManager.UpdateNodeViews(nodes);
+
+            // Update the views
+            foreach (MaterialNodeView selectedNode in nodes)
+                selectedNode.node.Dirty(ModificationScope.Topological);
         }
 
         void CollapsePreviews(DropdownMenuAction action)
@@ -344,6 +467,25 @@ namespace UnityEditor.ShaderGraph.Drawing
                 }
             }
 
+            // Filter nodes that cannot be deleted
+            var nodesToDelete = selection.OfType<IShaderNodeView>().Where(v => !(v.node is SubGraphOutputNode) && v.node.canDeleteNode).Select(x => x.node);
+            
+            // Add keyword nodes dependent on deleted keywords
+            nodesToDelete = nodesToDelete.Union(keywordNodes);
+
+            // If deleting a Sub Graph node whose asset contains Keywords test variant limit
+            foreach(SubGraphNode subGraphNode in nodesToDelete.OfType<SubGraphNode>())
+            {
+                if (subGraphNode.asset == null)
+                {
+                    continue;
+                }
+                if(subGraphNode.asset.keywords.Count > 0)
+                {
+                    keywordsDirty = true;
+                }
+            }
+            
             graph.owner.RegisterCompleteObjectUndo(operationName);
             graph.RemoveElements(selection.OfType<IShaderNodeView>().Where(v => !(v.node is SubGraphOutputNode)).Select(x => (AbstractMaterialNode)x.node),
                 selection.OfType<Edge>().Select(x => x.userData).OfType<IEdge>(),
@@ -366,7 +508,12 @@ namespace UnityEditor.ShaderGraph.Drawing
 
         static bool ValidateObjectForDrop(Object obj)
         {
-            return EditorUtility.IsPersistent(obj) && (obj is Texture2D || obj is Cubemap || obj is MaterialSubGraphAsset || obj is Texture2DArray || obj is Texture3D);
+            return EditorUtility.IsPersistent(obj) && (
+                obj is Texture2D ||
+                obj is Cubemap ||
+                obj is SubGraphAsset asset && !asset.descendents.Contains(graph.assetGuid) && asset.assetGuid != graph.assetGuid ||
+                obj is Texture2DArray ||
+                obj is Texture3D);
         }
 
         static void OnDragUpdatedEvent(DragUpdatedEvent e)

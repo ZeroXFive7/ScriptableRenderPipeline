@@ -9,8 +9,40 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
 {
     public class UpgradeMenuItems
     {
-        // Remove a set of variables from the text file target by path
-        static void UpdateMaterialFile_RemoveLines(string path, string[] variableNames)
+        // Version 3
+
+        // Added RenderStates for shader graphs, we need to ovewrite the material prperties used for the rendering
+        // in these materials and synch them with the master node values (which are the shader default values, that's
+        // why we create a new material in this script).
+
+        // List of the render state properties to sync
+        static readonly string[] floatPropertiesToReset = {
+            kStencilRef, kStencilWriteMask,
+            kStencilRefDepth, kStencilWriteMaskDepth,
+            kStencilRefMV, kStencilWriteMaskMV,
+            kStencilRefDistortionVec, kStencilWriteMaskDistortionVec,
+            kStencilRefGBuffer, kStencilWriteMaskGBuffer, kZTestGBuffer,
+            kSurfaceType, kBlendMode, "_SrcBlend", "_DstBlend", "_AlphaSrcBlend", "_AlphaDstBlend",
+            kZWrite, "_CullMode", "_CullModeForward", kTransparentCullMode,
+            kZTestDepthEqualForOpaque,
+            kAlphaCutoffEnabled,
+            "_TransparentSortPriority", "_UseShadowThreshold",
+            kDoubleSidedEnable, kDoubleSidedNormalMode,
+            kTransparentBackfaceEnable, kReceivesSSR, kUseSplitLighting
+        };
+
+        static readonly string[] vectorPropertiesToReset = {
+            "_DoubleSidedConstants",
+        };
+
+        // This upgrade functioncopy all the keywords needed for the BlendStates
+        // to be synced with their master node values, then it calls the HDRP material keyword reset function and finally
+        // it set the render queue of the material to match the one on the shader graph.
+        // It's required to sync the shader default properties with the material because when you create a new material,
+        // by default the Lit shader is assigned to it and so write all his properties into the material. It's a problem
+        // because now that the shader graphs uses these properties, the material properties don't match the shader settings.
+        // This function basically fix this.
+        static bool UpdateMaterial_ShaderGraphRenderStates(string path, Material mat)
         {
             string[] readText = File.ReadAllLines(path);
             List<string> writeText = new List<string>();

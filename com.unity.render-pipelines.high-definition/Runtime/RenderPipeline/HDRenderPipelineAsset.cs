@@ -22,7 +22,30 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
         protected override UnityEngine.Rendering.RenderPipeline CreatePipeline()
         {
-            return new HDRenderPipeline(this);
+            // safe: When we return a null render pipline it will do nothing in the rendering
+            HDRenderPipeline pipeline = null;
+
+            // We need to do catch every errors that happend during the HDRP build, when we upgrade the
+            // HDRP package, some required assets are not yet imported by the package manager when the
+            // pipeline is created so in that case, we just return a null pipeline. Some error may appear
+            // when we upgrade the pipeline but it's better than breaking HDRP resources an causing more
+            // errors.
+            try
+            {
+                pipeline = new HDRenderPipeline(this, HDRenderPipeline.defaultAsset);
+            } catch (Exception e) {
+                UnityEngine.Debug.LogError(e);
+            }
+
+            return pipeline;
+        }
+
+        protected override void OnValidate()
+        {
+            //Do not reconstruct the pipeline if we modify other assets.
+            //OnValidate is called once at first selection of the asset.
+            if (GraphicsSettings.currentRenderPipeline == this)
+                base.OnValidate();
         }
 
         [SerializeField]
@@ -169,98 +192,44 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         }
 
         public override string[] renderingLayerMaskNames
-        {
-            get
-            {
-                return renderingLayerNames;
-            }
-        }
+            => renderingLayerNames;
 
         public override Shader defaultShader
-        {
-            get
-            {
-                return m_RenderPipelineResources.shaders.defaultPS;
-            }
-        }
+            => m_RenderPipelineResources?.shaders.defaultPS;
 
 #if UNITY_EDITOR
         public override Material defaultMaterial
-        {
-            get
-            {
-                return renderPipelineEditorResources == null ? null : renderPipelineEditorResources.materials.defaultDiffuseMat;
-            }
-        }
+            => renderPipelineEditorResources?.materials.defaultDiffuseMat;
 
         // call to GetAutodeskInteractiveShaderXXX are only from within editor
         public override Shader autodeskInteractiveShader
-        {
-            get
-            {
-                return renderPipelineEditorResources == null ? null : renderPipelineEditorResources.shaderGraphs.autodeskInteractive;
-            }
-        }
+            => renderPipelineEditorResources?.shaderGraphs.autodeskInteractive;
 
         public override Shader autodeskInteractiveTransparentShader
-        {
-            get
-            {
-                return renderPipelineEditorResources == null ? null : renderPipelineEditorResources.shaderGraphs.autodeskInteractiveTransparent;
-            }
-        }
+            => renderPipelineEditorResources?.shaderGraphs.autodeskInteractiveTransparent;
 
         public override Shader autodeskInteractiveMaskedShader
-        {
-            get
-            {
-                return renderPipelineEditorResources == null ? null : renderPipelineEditorResources.shaderGraphs.autodeskInteractiveMasked;
-            }
-        }
+            => renderPipelineEditorResources?.shaderGraphs.autodeskInteractiveMasked;
 
         public override Shader terrainDetailLitShader
-        {
-            get
-            {
-                return renderPipelineEditorResources == null ? null : renderPipelineEditorResources.shaders.terrainDetailLitShader;
-            }
-        }
+            => renderPipelineEditorResources?.shaders.terrainDetailLitShader;
 
         public override Shader terrainDetailGrassShader
-        {
-            get
-            {
-                return renderPipelineEditorResources == null ? null : renderPipelineEditorResources.shaders.terrainDetailGrassShader;
-            }
-        }
+            => renderPipelineEditorResources?.shaders.terrainDetailGrassShader;
 
         public override Shader terrainDetailGrassBillboardShader
-        {
-            get
-            {
-                return renderPipelineEditorResources == null ? null : renderPipelineEditorResources.shaders.terrainDetailGrassBillboardShader;
-            }
-        }
+            => renderPipelineEditorResources?.shaders.terrainDetailGrassBillboardShader;
 
         // Note: This function is HD specific
         public Material GetDefaultDecalMaterial()
-        {
-            return renderPipelineEditorResources == null ? null : renderPipelineEditorResources.materials.defaultDecalMat;
-        }
+            => renderPipelineEditorResources?.materials.defaultDecalMat;
 
         // Note: This function is HD specific
         public Material GetDefaultMirrorMaterial()
-        {
-            return renderPipelineEditorResources == null ? null : renderPipelineEditorResources.materials.defaultMirrorMat;
-        }
+            => renderPipelineEditorResources?.materials.defaultMirrorMat;
 
         public override Material defaultTerrainMaterial
-        {
-            get
-            {
-                return renderPipelineEditorResources == null ? null : renderPipelineEditorResources.materials.defaultTerrainMat;
-            }
-        }
+            => renderPipelineEditorResources?.materials.defaultTerrainMat;
 
         // Array structure that allow us to manipulate the set of defines that the HD render pipeline needs
         List<string> defineArray = new List<string>();

@@ -20,9 +20,11 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         PreRefractionColorPyramid,
         DepthPyramid,
         FinalColorPyramid,
-        // Raytracing
+
+        // Raytracing Only
         LightCluster,
-        RaytracedAreaShadow,
+        RayTracedGlobalIllumination,
+        RecursiveRayTracing,
         MaxLightingFullScreenDebug,
 
         // Rendering
@@ -310,7 +312,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             DebugViewGbuffer debugGBuffer = (DebugViewGbuffer)data.materialDebugSettings.debugViewGBuffer;
             return (debugLighting == DebugLightingMode.DiffuseLighting || debugLighting == DebugLightingMode.SpecularLighting) ||
                 (debugGBuffer == DebugViewGbuffer.BakeDiffuseLightingWithAlbedoPlusEmissive) ||
-                (data.fullScreenDebugMode == FullScreenDebugMode.PreRefractionColorPyramid || data.fullScreenDebugMode == FullScreenDebugMode.FinalColorPyramid || data.fullScreenDebugMode == FullScreenDebugMode.ScreenSpaceReflections || data.fullScreenDebugMode == FullScreenDebugMode.LightCluster || data.fullScreenDebugMode == FullScreenDebugMode.RaytracedAreaShadow);
+                (data.fullScreenDebugMode == FullScreenDebugMode.PreRefractionColorPyramid || data.fullScreenDebugMode == FullScreenDebugMode.FinalColorPyramid || data.fullScreenDebugMode == FullScreenDebugMode.ScreenSpaceReflections || data.fullScreenDebugMode == FullScreenDebugMode.LightCluster || data.fullScreenDebugMode == FullScreenDebugMode.ScreenSpaceShadows || data.fullScreenDebugMode == FullScreenDebugMode.NanTracker || data.fullScreenDebugMode == FullScreenDebugMode.ColorLog) || data.fullScreenDebugMode == FullScreenDebugMode.RayTracedGlobalIllumination;
         }
 
         void RegisterDisplayStatsDebug()
@@ -607,7 +609,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 });
             }
 
-            if (DebugNeedsExposure())
+            if (DebugNeedsExposure() || data.lightingDebugSettings.displaySkyReflection)
                 list.Add(new DebugUI.FloatField { displayName = "Debug Exposure", getter = () => data.lightingDebugSettings.debugExposure, setter = value => data.lightingDebugSettings.debugExposure = value });
 
 

@@ -153,7 +153,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             HDRenderPipeline hdPipeline = RenderPipelineManager.currentPipeline as HDRenderPipeline;
             if (hdPipeline != null)
             {
-                hdPipeline.m_RayTracingManager.RegisterEnvironment(this);
+                hdPipeline.RegisterEnvironment(this);
             }
         }
         void OnDestroy()
@@ -162,7 +162,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             HDRenderPipeline hdPipeline = RenderPipelineManager.currentPipeline as HDRenderPipeline;
             if (hdPipeline != null)
             {
-                hdPipeline.m_RayTracingManager.UnregisterEnvironment(this);
+                hdPipeline.UnregisterEnvironment(this);
             }
         }
 #endif

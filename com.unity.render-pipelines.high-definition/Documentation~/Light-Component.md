@@ -39,19 +39,11 @@ The properties available for Lights are in separate drop-down sections. Each dro
 - [Volumetrics](#VolumetricProperties)
 - [Shadows](#ShadowProperties)
 
-<a name=”AdvancedProperties”></a>
+### Animation
 
-#### Advanced properties
+To make the Light work with the **Animation window**, when you click on the **Add Property** button, you need to use the properties inside the **HD Additional Light Data** component and not inside the Light component itself. If you do edit the properties inside the Light component, this modifies the built-in light values, which HDRP does not support. Alternatively, you can use the record button and modify the values directly inside the Inspector.
 
-The default properties are suitable for most use-cases, but you can use **Advanced Properties** to fine-tune your Light component for a specific look or Light behavior. To enable the **advanced properties**, click the plus icon in the top right corner of each section in the Light Inspector. 
-
-![](Images/LightComponent1.png)
-
-The following image shows the Light Inspector window for a Realtime Rectangle Light with all of the advanced properties.
-
-![](Images/LightComponent2.png)
-
-<a name=”GeneralProperties”></a>
+<a name="GeneralProperties"></a>
 
 ### General
 

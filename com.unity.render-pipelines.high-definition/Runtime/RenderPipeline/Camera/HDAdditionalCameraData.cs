@@ -156,6 +156,128 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public FrameSettingsRenderType defaultFrameSettings;
 
         public ref FrameSettings renderingPathCustomFrameSettings => ref m_RenderingPathCustomFrameSettings;
+        
+        bool IFrameSettingsHistoryContainer.hasCustomFrameSettings
+            => customRenderingSettings;
+
+        FrameSettingsOverrideMask IFrameSettingsHistoryContainer.frameSettingsMask
+            => renderingPathCustomFrameSettingsOverrideMask;
+
+        FrameSettings IFrameSettingsHistoryContainer.frameSettings
+            => m_RenderingPathCustomFrameSettings;
+
+        FrameSettingsHistory m_RenderingPathHistory = new FrameSettingsHistory()
+        {
+            defaultType = FrameSettingsRenderType.Camera
+        };
+
+        FrameSettingsHistory IFrameSettingsHistoryContainer.frameSettingsHistory
+        {
+            get => m_RenderingPathHistory;
+            set => m_RenderingPathHistory = value;
+        }
+
+        string IFrameSettingsHistoryContainer.panelName
+            => m_CameraRegisterName;
+        
+        Action IDebugData.GetReset()
+                //caution: we actually need to retrieve the right
+                //m_FrameSettingsHistory as it is a struct so no direct
+                // => m_FrameSettingsHistory.TriggerReset
+                => () => m_RenderingPathHistory.TriggerReset();
+
+        AOVRequestDataCollection m_AOVRequestDataCollection = new AOVRequestDataCollection(null);
+
+        /// <summary>Set AOV requests to use.</summary>
+        /// <param name="aovRequests">Describes the requests to execute.</param>
+        /// <example>
+        /// <code>
+        /// using System.Collections.Generic;
+        /// using UnityEngine;
+        /// using UnityEngine.Rendering;
+        /// using UnityEngine.Rendering.HighDefinition;
+        /// using UnityEngine.Rendering.HighDefinition.Attributes;
+        ///
+        /// [ExecuteAlways]
+        /// [RequireComponent(typeof(Camera))]
+        /// [RequireComponent(typeof(HDAdditionalCameraData))]
+        /// public class SetupAOVCallbacks : MonoBehaviour
+        /// {
+        ///     private static RTHandle m_ColorRT;
+        ///
+        ///     [SerializeField] private Texture m_Target;
+        ///     [SerializeField] private DebugFullScreen m_DebugFullScreen;
+        ///     [SerializeField] private DebugLightFilterMode m_DebugLightFilter;
+        ///     [SerializeField] private MaterialSharedProperty m_MaterialSharedProperty;
+        ///     [SerializeField] private LightingProperty m_LightingProperty;
+        ///     [SerializeField] private AOVBuffers m_BuffersToCopy;
+        ///     [SerializeField] private List<GameObject> m_IncludedLights;
+        ///
+        ///
+        ///     void OnEnable()
+        ///     {
+        ///         var aovRequest = new AOVRequest(AOVRequest.@default)
+        ///             .SetLightFilter(m_DebugLightFilter);
+        ///         if (m_DebugFullScreen != DebugFullScreen.None)
+        ///             aovRequest = aovRequest.SetFullscreenOutput(m_DebugFullScreen);
+        ///         if (m_MaterialSharedProperty != MaterialSharedProperty.None)
+        ///             aovRequest = aovRequest.SetFullscreenOutput(m_MaterialSharedProperty);
+        ///         if (m_LightingProperty != LightingProperty.None)
+        ///             aovRequest = aovRequest.SetFullscreenOutput(m_LightingProperty);
+        ///
+        ///         var add = GetComponent<HDAdditionalCameraData>();
+        ///         add.SetAOVRequests(
+        ///             new AOVRequestBuilder()
+        ///                 .Add(
+        ///                     aovRequest,
+        ///                     bufferId => m_ColorRT ?? (m_ColorRT = RTHandles.Alloc(512, 512)),
+        ///                     m_IncludedLights.Count > 0 ? m_IncludedLights : null,
+        ///                     new []{ m_BuffersToCopy },
+        ///                     (cmd, textures, properties) =>
+        ///                     {
+        ///                         if (m_Target != null)
+        ///                             cmd.Blit(textures[0], m_Target);
+        ///                     })
+        ///                 .Build()
+        ///         );
+        ///     }
+        ///
+        ///     private void OnGUI()
+        ///     {
+        ///         GUI.DrawTexture(new Rect(10, 10, 512, 256), m_Target);
+        ///     }
+        ///
+        ///     void OnDisable()
+        ///     {
+        ///         var add = GetComponent<HDAdditionalCameraData>();
+        ///         add.SetAOVRequests(null);
+        ///     }
+        ///
+        ///     void OnValidate()
+        ///     {
+        ///         OnDisable();
+        ///         OnEnable();
+        ///     }
+        /// }
+        /// </code>
+        ///
+        /// Example use case:
+        /// * Export Normals: use MaterialSharedProperty.Normals and AOVBuffers.Color
+        /// * Export Color before post processing: use AOVBuffers.Color
+        /// * Export Color after post processing: use AOVBuffers.Output
+        /// * Export Depth stencil: use AOVBuffers.DepthStencil
+        /// * Export AO: use MaterialSharedProperty.AmbientOcclusion and AOVBuffers.Color
+        /// </example>
+        public void SetAOVRequests(AOVRequestDataCollection aovRequests)
+            => m_AOVRequestDataCollection = aovRequests;
+
+        /// <summary>
+        /// Use this property to get the aov requests.
+        ///
+        /// It is never null.
+        /// </summary>
+        public IEnumerable<AOVRequestData> aovRequests =>
+            m_AOVRequestDataCollection ?? (m_AOVRequestDataCollection = new AOVRequestDataCollection(null));
 
         // Use for debug windows
         // When camera name change we need to update the name in DebugWindows.

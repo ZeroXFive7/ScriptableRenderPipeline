@@ -127,9 +127,12 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         // Used internally to convert any light unit input into light intensity
         public LightUnit lightUnit = LightUnit.Lumen;
 
-        // Directional light only.
-        public float sunDiskSize = 1.0f;
-        public float sunHaloSize = 0.1f;
+                if (!IsValidLightUnitForType(legacyLight.type, m_LightTypeExtent, m_SpotLightShape, value))
+                {
+                    var supportedTypes = String.Join(", ", GetSupportedLightUnits(legacyLight.type, m_LightTypeExtent, m_SpotLightShape));
+                    Debug.LogError($"Set Light Unit '{value}' to a {GetLightTypeName()} is not allowed, only {supportedTypes} are supported.");
+                    return;
+                }
 
         // Not used for directional lights.
         public float fadeDistance = 10000.0f;
@@ -174,8 +177,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public byte showAdditionalSettings = 0;
         public float displayLightIntensity;
 
-        // When true, a mesh will be display to represent the area light (Can only be change in editor, component is added in Editor)
-        public bool displayAreaLightEmissiveMesh = false;
+                var supportedUnits = GetSupportedLightUnits(legacyLight.type, value, m_SpotLightShape);
+                // If the current light unit is not supported by the new light type, we change it
+                if (!supportedUnits.Any(u => u == lightUnit))
+                    lightUnit = supportedUnits.First();
 
         // Optional cookie for rectangular area lights
         public Texture areaLightCookie = null;
@@ -262,6 +267,893 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             }
         }
 
+        // Only for Punctual/Sphere/Disc
+        [SerializeField, FormerlySerializedAs("shapeRadius")]
+        float m_ShapeRadius = 0.0f;
+        /// <summary>
+        /// Get/Set the radius of a light
+        /// </summary>
+        public float shapeRadius
+        {
+            get => m_ShapeRadius;
+            set
+            {
+                if (m_ShapeRadius == value)
+                    return;
+
+                m_ShapeRadius = Mathf.Clamp(value, 0, float.MaxValue);
+                UpdateAllLightValues();
+            }
+        }
+
+        [SerializeField, FormerlySerializedAs("useCustomSpotLightShadowCone")]
+        bool m_UseCustomSpotLightShadowCone = false;
+        // Custom spot angle for spotlight shadows
+        /// <summary>
+        /// Toggle the custom spot light shadow cone.
+        /// </summary>
+        public bool useCustomSpotLightShadowCone
+        {
+            get => m_UseCustomSpotLightShadowCone;
+            set
+            {
+                if (m_UseCustomSpotLightShadowCone == value)
+                    return;
+
+                m_UseCustomSpotLightShadowCone = value;
+            }
+        }
+
+        [SerializeField, FormerlySerializedAs("customSpotLightShadowCone")]
+        float m_CustomSpotLightShadowCone = 30.0f;
+        /// <summary>
+        /// Get/Set the custom spot shadow cone value.
+        /// </summary>
+        /// <value></value>
+        public float customSpotLightShadowCone
+        {
+            get => m_CustomSpotLightShadowCone;
+            set
+            {
+                if (m_CustomSpotLightShadowCone == value)
+                    return;
+
+                m_CustomSpotLightShadowCone = value;
+            }
+        }
+
+        // Only for Spot/Point/Directional - use to cheaply fake specular spherical area light
+        // It is not 1 to make sure the highlight does not disappear.
+        [Range(0.0f, 1.0f)]
+        [SerializeField, FormerlySerializedAs("maxSmoothness")]
+        float m_MaxSmoothness = 0.99f;
+        /// <summary>
+        /// Get/Set the maximum smoothness of a punctual or directional light.
+        /// </summary>
+        public float maxSmoothness
+        {
+            get => m_MaxSmoothness;
+            set
+            {
+                if (m_MaxSmoothness == value)
+                    return;
+
+                m_MaxSmoothness = Mathf.Clamp01(value);
+            }
+        }
+
+        // If true, we apply the smooth attenuation factor on the range attenuation to get 0 value, else the attenuation is just inverse square and never reach 0
+        [SerializeField, FormerlySerializedAs("applyRangeAttenuation")]
+        bool m_ApplyRangeAttenuation = true;
+        /// <summary>
+        /// If enabled, apply a smooth attenuation factor so at the end of the range, the attenuation is 0.
+        /// Otherwise the inverse-square attenuation is used and the value never reaches 0.
+        /// </summary>
+        public bool applyRangeAttenuation
+        {
+            get => m_ApplyRangeAttenuation;
+            set
+            {
+                if (m_ApplyRangeAttenuation == value)
+                    return;
+
+                m_ApplyRangeAttenuation = value;
+                UpdateAllLightValues();
+            }
+        }
+
+        // When true, a mesh will be display to represent the area light (Can only be change in editor, component is added in Editor)
+        [SerializeField, FormerlySerializedAs("displayAreaLightEmissiveMesh")]
+        bool m_DisplayAreaLightEmissiveMesh = false;
+        /// <summary>
+        /// If enabled, display an emissive mesh rect synchronized with the intensity and color of the light.
+        /// </summary>
+        internal bool displayAreaLightEmissiveMesh
+        {
+            get => m_DisplayAreaLightEmissiveMesh;
+            set
+            {
+                if (m_DisplayAreaLightEmissiveMesh == value)
+                    return;
+
+                m_DisplayAreaLightEmissiveMesh = value;
+
+                UpdateAllLightValues();
+            }
+        }
+
+        // Optional cookie for rectangular area lights
+        [SerializeField, FormerlySerializedAs("areaLightCookie")]
+        Texture m_AreaLightCookie = null;
+        /// <summary>
+        /// Get/Set cookie texture for area lights.
+        /// </summary>
+        public Texture areaLightCookie
+        {
+            get => m_AreaLightCookie;
+            set
+            {
+                if (m_AreaLightCookie == value)
+                    return;
+
+                m_AreaLightCookie = value;
+                UpdateAllLightValues();
+            }
+        }
+
+        [Range(k_MinAreaLightShadowCone, k_MaxAreaLightShadowCone)]
+        [SerializeField, FormerlySerializedAs("areaLightShadowCone")]
+        float m_AreaLightShadowCone = 120.0f;
+        /// <summary>
+        /// Get/Set area light shadow cone value.
+        /// </summary>
+        public float areaLightShadowCone
+        {
+            get => m_AreaLightShadowCone;
+            set
+            {
+                if (m_AreaLightShadowCone == value)
+                    return;
+
+                m_AreaLightShadowCone = Mathf.Clamp(value, k_MinAreaLightShadowCone, k_MaxAreaLightShadowCone);
+                UpdateAllLightValues();
+            }
+        }
+
+        // Flag that tells us if the shadow should be screen space
+        [SerializeField, FormerlySerializedAs("useScreenSpaceShadows")]
+        bool m_UseScreenSpaceShadows = false;
+        /// <summary>
+        /// Controls if we resolve the directional light shadows in screen space (ray tracing only).
+        /// </summary>
+        public bool useScreenSpaceShadows
+        {
+            get => m_UseScreenSpaceShadows;
+            set
+            {
+                if (m_UseScreenSpaceShadows == value)
+                    return;
+
+                m_UseScreenSpaceShadows = value;
+            }
+        }
+
+        // Directional lights only.
+        [SerializeField, FormerlySerializedAs("interactsWithSky")]
+        bool m_InteractsWithSky = true;
+        /// <summary>
+        /// Controls if the directional light affect the Physically Based sky.
+        /// This have no effect on other skies.
+        /// </summary>
+        public bool interactsWithSky
+        {
+            get => m_InteractsWithSky;
+            set
+            {
+                if (m_InteractsWithSky == value)
+                    return;
+
+                m_InteractsWithSky = value;
+            }
+        }
+
+        [SerializeField, FormerlySerializedAs("angularDiameter")]
+        float m_AngularDiameter = 0;
+        /// <summary>
+        /// Angular diameter of the emissive celestial body represented by the light as seen from the camera (in degrees).
+        /// Used to render the sun/moon disk.
+        /// </summary>
+        public float angularDiameter
+        {
+            get => m_AngularDiameter;
+            set
+            {
+                if (m_AngularDiameter == value)
+                    return;
+
+                m_AngularDiameter = value;
+            }
+        }
+
+        [SerializeField, FormerlySerializedAs("distance")]
+        float m_Distance = 150000000.0f; // Sun to Earth
+        /// <summary>
+        /// Distance from the camera to the emissive celestial body represented by the light.
+        /// </summary>
+        public float distance
+        {
+            get => m_Distance;
+            set
+            {
+                if (m_Distance == value)
+                    return;
+
+                m_Distance = value;
+            }
+        }
+
+#if ENABLE_RAYTRACING
+        [SerializeField, FormerlySerializedAs("useRayTracedShadows")]
+        bool m_UseRayTracedShadows = false;
+        /// <summary>
+        /// Controls if we use ray traced shadows.
+        /// </summary>
+        public bool useRayTracedShadows
+        {
+            get => m_UseRayTracedShadows;
+            set
+            {
+                if (m_UseRayTracedShadows == value)
+                    return;
+
+                m_UseRayTracedShadows = value;
+            }
+        }
+
+        [Range(1, 32)]
+        [SerializeField, FormerlySerializedAs("numRayTracingSamples")]
+        int m_NumRayTracingSamples = 4;
+        /// <summary>
+        /// Controls the number of sample used for the ray traced shadows.
+        /// </summary>
+        public int numRayTracingSamples
+        {
+            get => m_NumRayTracingSamples;
+            set
+            {
+                if (m_NumRayTracingSamples == value)
+                    return;
+
+                m_NumRayTracingSamples = Mathf.Clamp(value, 1, 32);
+            }
+        }
+
+        [SerializeField, FormerlySerializedAs("filterTracedShadow")]
+        bool m_FilterTracedShadow = true;
+        /// <summary>
+        /// Toggle the filtering of ray traced shadows.
+        /// </summary>
+        public bool filterTracedShadow
+        {
+            get => m_FilterTracedShadow;
+            set
+            {
+                if (m_FilterTracedShadow == value)
+                    return;
+
+                m_FilterTracedShadow = value;
+            }
+        }
+
+        [Range(1, 32)]
+        [SerializeField, FormerlySerializedAs("filterSizeTraced")]
+        int m_FilterSizeTraced = 16;
+        /// <summary>
+        /// Control the size of the filter used for ray traced shadows
+        /// </summary>
+        public int filterSizeTraced
+        {
+            get => m_FilterSizeTraced;
+            set
+            {
+                if (m_FilterSizeTraced == value)
+                    return;
+
+                m_FilterSizeTraced = Mathf.Clamp(value, 1, 32);
+            }
+        }
+
+        [Range(0.0f, 2.0f)]
+        [SerializeField, FormerlySerializedAs("sunLightConeAngle")]
+        float m_SunLightConeAngle = 0.5f;
+        /// <summary>
+        /// Angular size of the sun in degree.
+        /// </summary>
+        public float sunLightConeAngle
+        {
+            get => m_SunLightConeAngle;
+            set
+            {
+                if (m_SunLightConeAngle == value)
+                    return;
+
+                m_SunLightConeAngle = Mathf.Clamp(value, 0.0f, 2.0f);
+            }
+        }
+
+        [SerializeField, FormerlySerializedAs("lightShadowRadius")]
+        float m_LightShadowRadius = 0.5f;
+        /// <summary>
+        /// Angular size of the sun in degree.
+        /// </summary>
+        public float lightShadowRadius
+        {
+            get => m_LightShadowRadius;
+            set
+            {
+                if (m_LightShadowRadius == value)
+                    return;
+
+                m_LightShadowRadius = Mathf.Max(value, 0.001f);
+            }
+        }
+#endif
+
+        [Range(k_MinEvsmExponent, k_MaxEvsmExponent)]
+        [SerializeField, FormerlySerializedAs("evsmExponent")]
+        float m_EvsmExponent = 15.0f;
+        /// <summary>
+        /// Controls the exponent used for EVSM shadows.
+        /// </summary>
+        public float evsmExponent
+        {
+            get => m_EvsmExponent;
+            set
+            {
+                if (m_EvsmExponent == value)
+                    return;
+
+                m_EvsmExponent = Mathf.Clamp(value, k_MinEvsmExponent, k_MaxEvsmExponent);
+            }
+        }
+
+        [Range(k_MinEvsmLightLeakBias, k_MaxEvsmLightLeakBias)]
+        [SerializeField, FormerlySerializedAs("evsmLightLeakBias")]
+        float m_EvsmLightLeakBias = 0.0f;
+        /// <summary>
+        /// Controls the light leak bias value for EVSM shadows.
+        /// </summary>
+        public float evsmLightLeakBias
+        {
+            get => m_EvsmLightLeakBias;
+            set
+            {
+                if (m_EvsmLightLeakBias == value)
+                    return;
+
+                m_EvsmLightLeakBias = Mathf.Clamp(value, k_MinEvsmLightLeakBias, k_MaxEvsmLightLeakBias);
+            }
+        }
+
+        [Range(k_MinEvsmVarianceBias, k_MaxEvsmVarianceBias)]
+        [SerializeField, FormerlySerializedAs("evsmVarianceBias")]
+        float m_EvsmVarianceBias = 1e-5f;
+        /// <summary>
+        /// Controls the variance bias used for EVSM shadows.
+        /// </summary>
+        public float evsmVarianceBias
+        {
+            get => m_EvsmVarianceBias;
+            set
+            {
+                if (m_EvsmVarianceBias == value)
+                    return;
+
+                m_EvsmVarianceBias = Mathf.Clamp(value, k_MinEvsmVarianceBias, k_MaxEvsmVarianceBias);
+            }
+        }
+
+        [Range(k_MinEvsmBlurPasses, k_MaxEvsmBlurPasses)]
+        [SerializeField, FormerlySerializedAs("evsmBlurPasses")]
+        int m_EvsmBlurPasses = 0;
+        /// <summary>
+        /// Controls the number of blur passes used for EVSM shadows.
+        /// </summary>
+        public int evsmBlurPasses
+        {
+            get => m_EvsmBlurPasses;
+            set
+            {
+                if (m_EvsmBlurPasses == value)
+                    return;
+
+                m_EvsmBlurPasses = Mathf.Clamp(value, k_MinEvsmBlurPasses, k_MaxEvsmBlurPasses);
+            }
+        }
+
+        // Now the renderingLayerMask is used for shadow layers and not light layers
+        [SerializeField, FormerlySerializedAs("lightlayersMask")]
+        LightLayerEnum m_LightlayersMask = LightLayerEnum.LightLayerDefault;
+        /// <summary>
+        /// Light Layers used for shadows only, for default Light Layers use Light.renderingLayerMask
+        /// </summary>
+        /// <value></value>
+        public LightLayerEnum lightlayersMask
+        {
+            get => linkShadowLayers ? (LightLayerEnum)RenderingLayerMaskToLightLayer(legacyLight.renderingLayerMask) : m_LightlayersMask;
+            set
+            {
+                if (m_LightlayersMask == value)
+                    return;
+
+                m_LightlayersMask = value;
+            }
+        }
+
+        [SerializeField, FormerlySerializedAs("linkShadowLayers")]
+        bool m_LinkShadowLayers = true;
+        /// <summary>
+        /// Controls if we want to synchronize shadow map light layers and light layers or not.
+        /// </summary>
+        public bool linkShadowLayers
+        {
+            get => m_LinkShadowLayers;
+            set
+            {
+                if (m_LinkShadowLayers == value)
+                    return;
+
+                m_LinkShadowLayers = value;
+            }
+        }
+
+        /// <summary>
+        /// Returns a mask of light layers as uint and handle the case of Everything as being 0xFF and not -1
+        /// </summary>
+        /// <returns></returns>
+        public uint GetLightLayers()
+        {
+            int value = (int)lightlayersMask;
+            return value < 0 ? (uint)LightLayerEnum.Everything : (uint)value;
+        }
+
+        // Shadow Settings
+        [SerializeField, FormerlySerializedAs("shadowNearPlane")]
+        float    m_ShadowNearPlane = 0.1f;
+        /// <summary>
+        /// Controls the near plane distance of the shadows.
+        /// </summary>
+        public float shadowNearPlane
+        {
+            get => m_ShadowNearPlane;
+            set
+            {
+                if (m_ShadowNearPlane == value)
+                    return;
+
+                m_ShadowNearPlane = Mathf.Clamp(value, HDShadowUtils.k_MinShadowNearPlane, HDShadowUtils.k_MaxShadowNearPlane);
+            }
+        }
+
+        // PCSS settings
+        [Range(0, 1.0f)]
+        [SerializeField, FormerlySerializedAs("shadowSoftness")]
+        float    m_ShadowSoftness = .5f;
+        /// <summary>
+        /// Controls how much softness you want for PCSS shadows.
+        /// </summary>
+        public float shadowSoftness
+        {
+            get => m_ShadowSoftness;
+            set
+            {
+                if (m_ShadowSoftness == value)
+                    return;
+
+                m_ShadowSoftness = Mathf.Clamp01(value);
+            }
+        }
+
+        [Range(1, 64)]
+        [SerializeField, FormerlySerializedAs("blockerSampleCount")]
+        int      m_BlockerSampleCount = 24;
+        /// <summary>
+        /// Controls the number of samples used to detect blockers for PCSS shadows.
+        /// </summary>
+        public int blockerSampleCount
+        {
+            get => m_BlockerSampleCount;
+            set
+            {
+                if (m_BlockerSampleCount == value)
+                    return;
+
+                m_BlockerSampleCount = Mathf.Clamp(value, 1, 64);
+            }
+        }
+
+        [Range(1, 64)]
+        [SerializeField, FormerlySerializedAs("filterSampleCount")]
+        int      m_FilterSampleCount = 16;
+        /// <summary>
+        /// Controls the number of samples used to filter for PCSS shadows.
+        /// </summary>
+        public int filterSampleCount
+        {
+            get => m_FilterSampleCount;
+            set
+            {
+                if (m_FilterSampleCount == value)
+                    return;
+
+                m_FilterSampleCount = Mathf.Clamp(value, 1, 64);
+            }
+        }
+
+        [Range(0, 0.001f)]
+        [SerializeField, FormerlySerializedAs("minFilterSize")]
+        float m_MinFilterSize = 0.00001f;
+        /// <summary>
+        /// Controls the minimum filter size of PCSS shadows.
+        /// </summary>
+        public float minFilterSize
+        {
+            get => m_MinFilterSize;
+            set
+            {
+                if (m_MinFilterSize == value)
+                    return;
+
+                m_MinFilterSize = Mathf.Clamp(value, 0.0f, 0.001f);
+            }
+        }
+
+        // Improved Moment Shadows settings
+        [Range(1, 32)]
+        [SerializeField, FormerlySerializedAs("kernelSize")]
+        int m_KernelSize = 5;
+        /// <summary>
+        /// Controls the kernel size for IMSM shadows.
+        /// </summary>
+        public int kernelSize
+        {
+            get => m_KernelSize;
+            set
+            {
+                if (m_KernelSize == value)
+                    return;
+
+                m_KernelSize = Mathf.Clamp(value, 1, 32);
+            }
+        }
+
+        [Range(0.0f, 9.0f)]
+        [SerializeField, FormerlySerializedAs("lightAngle")]
+        float m_LightAngle = 1.0f;
+        /// <summary>
+        /// Controls the light angle for IMSM shadows.
+        /// </summary>
+        public float lightAngle
+        {
+            get => m_LightAngle;
+            set
+            {
+                if (m_LightAngle == value)
+                    return;
+
+                m_LightAngle = Mathf.Clamp(value, 0.0f, 9.0f);
+            }
+        }
+
+        [Range(0.0001f, 0.01f)]
+        [SerializeField, FormerlySerializedAs("maxDepthBias")]
+        float m_MaxDepthBias = 0.001f;
+        /// <summary>
+        /// Controls the max depth bias for IMSM shadows.
+        /// </summary>
+        public float maxDepthBias
+        {
+            get => m_MaxDepthBias;
+            set
+            {
+                if (m_MaxDepthBias == value)
+                    return;
+
+                m_MaxDepthBias = Mathf.Clamp(value, 0.0001f, 0.01f);
+            }
+        }
+
+        /// <summary>
+        /// The range of the light.
+        /// </summary>
+        /// <value></value>
+        public float range
+        {
+            get => legacyLight.range;
+            set => legacyLight.range = value;
+        }
+
+        /// <summary>
+        /// Color of the light.
+        /// </summary>
+        public Color color
+        {
+            get => legacyLight.color;
+            set
+            {
+                legacyLight.color = value;
+
+                // Update Area Light Emissive mesh color
+                UpdateAreaLightEmissiveMesh();
+            }
+        }
+
+        #endregion
+
+        #region HDShadow Properties API (from AdditionalShadowData)
+        [SerializeField] private ShadowResolutionSettingValue m_ShadowResolution = new ShadowResolutionSettingValue
+        {
+            @override = k_DefaultShadowResolution,
+            useOverride = true,
+        };
+        public ShadowResolutionSettingValue shadowResolution => m_ShadowResolution;
+
+        [Range(0.0f, 1.0f)]
+        [SerializeField]
+        float m_ShadowDimmer = 1.0f;
+        /// <summary>
+        /// Get/Set the shadow dimmer.
+        /// </summary>
+        public float shadowDimmer
+        {
+            get => m_ShadowDimmer;
+            set
+            {
+                if (m_ShadowDimmer == value)
+                    return;
+
+                m_ShadowDimmer = Mathf.Clamp01(value);
+            }
+        }
+
+        [Range(0.0f, 1.0f)]
+        [SerializeField]
+        float m_VolumetricShadowDimmer = 1.0f;
+        /// <summary>
+        /// Get/Set the volumetric shadow dimmer value, between 0 and 1.
+        /// </summary>
+        public float volumetricShadowDimmer
+        {
+            get => useVolumetric ? m_VolumetricShadowDimmer : 0.0f;
+            set
+            {
+                if (m_VolumetricShadowDimmer == value)
+                    return;
+
+                m_VolumetricShadowDimmer = Mathf.Clamp01(value);
+            }
+        }
+
+        [SerializeField]
+        float m_ShadowFadeDistance = 10000.0f;
+        /// <summary>
+        /// Get/Set the shadow fade distance.
+        /// </summary>
+        public float shadowFadeDistance
+        {
+            get => m_ShadowFadeDistance;
+            set
+            {
+                if (m_ShadowFadeDistance == value)
+                    return;
+
+                m_ShadowFadeDistance = Mathf.Clamp(value, 0, float.MaxValue);
+            }
+        }
+
+        [SerializeField]
+        BoolScalableSettingValue m_UseContactShadow = new BoolScalableSettingValue { useOverride = true };
+        public BoolScalableSettingValue useContactShadow => m_UseContactShadow;
+
+        [SerializeField]
+        Color m_ShadowTint = Color.black;
+        /// <summary>
+        /// Controls the tint of the shadows.
+        /// </summary>
+        /// <value></value>
+        public Color shadowTint
+        {
+            get => m_ShadowTint;
+            set
+            {
+                if (m_ShadowTint == value)
+                    return;
+
+                m_ShadowTint = value;
+            }
+        }
+
+        [SerializeField]
+        float m_NormalBias = 0.75f;
+        /// <summary>
+        /// Get/Set the normal bias of the shadow maps.
+        /// </summary>
+        /// <value></value>
+        public float normalBias
+        {
+            get => m_NormalBias;
+            set
+            {
+                if (m_NormalBias == value)
+                    return;
+
+                m_NormalBias = value;
+            }
+        }
+
+        [SerializeField]
+        float m_ConstantBias = 0.15f;
+        /// <summary>
+        /// Get/Set the constant bias of the shadow maps.
+        /// </summary>
+        /// <value></value>
+        public float constantBias
+        {
+            get => m_ConstantBias;
+            set
+            {
+                if (m_ConstantBias == value)
+                    return;
+
+                m_ConstantBias = value;
+            }
+        }
+
+        [SerializeField]
+        ShadowUpdateMode m_ShadowUpdateMode = ShadowUpdateMode.EveryFrame;
+        /// <summary>
+        /// Get/Set the shadow update mode.
+        /// </summary>
+        /// <value></value>
+        public ShadowUpdateMode shadowUpdateMode
+        {
+            get => m_ShadowUpdateMode;
+            set
+            {
+                if (m_ShadowUpdateMode == value)
+                    return;
+
+                m_ShadowUpdateMode = value;
+            }
+        }
+
+#endregion
+
+#region Internal API for moving shadow datas from AdditionalShadowData to HDAdditionalLightData
+
+        [SerializeField]
+        float[] m_ShadowCascadeRatios = new float[3] { 0.05f, 0.2f, 0.3f };
+        internal float[] shadowCascadeRatios
+        {
+            get => m_ShadowCascadeRatios;
+            set => m_ShadowCascadeRatios = value;
+        }
+
+        [SerializeField]
+        float[] m_ShadowCascadeBorders = new float[4] { 0.2f, 0.2f, 0.2f, 0.2f };
+        internal float[] shadowCascadeBorders
+        {
+            get => m_ShadowCascadeBorders;
+            set => m_ShadowCascadeBorders = value;
+        }
+
+        [SerializeField]
+        int m_ShadowAlgorithm = 0;
+        internal int shadowAlgorithm
+        {
+            get => m_ShadowAlgorithm;
+            set => m_ShadowAlgorithm = value;
+        }
+
+        [SerializeField]
+        int m_ShadowVariant = 0;
+        internal int shadowVariant
+        {
+            get => m_ShadowVariant;
+            set => m_ShadowVariant = value;
+        }
+
+        [SerializeField]
+        int m_ShadowPrecision = 0;
+        internal int shadowPrecision
+        {
+            get => m_ShadowPrecision;
+            set => m_ShadowPrecision = value;
+        }
+
+#endregion
+
+#pragma warning disable 0414 // The field '...' is assigned but its value is never used, these fields are used by the inspector
+        // This is specific for the LightEditor GUI and not use at runtime
+        [SerializeField, FormerlySerializedAs("useOldInspector")]
+        bool useOldInspector = false;
+        [SerializeField, FormerlySerializedAs("useVolumetric")]
+        bool useVolumetric = true;
+        [SerializeField, FormerlySerializedAs("featuresFoldout")]
+        bool featuresFoldout = true;
+        [SerializeField, FormerlySerializedAs("showAdditionalSettings")]
+        byte showAdditionalSettings = 0;
+#pragma warning restore 0414
+
+        HDShadowRequest[]   shadowRequests;
+        bool                m_WillRenderShadowMap;
+        bool                m_WillRenderScreenSpaceShadow;
+#if ENABLE_RAYTRACING
+        bool                m_WillRenderRayTracedShadow;
+#endif
+        int[]               m_ShadowRequestIndices;
+        bool                m_ShadowMapRenderedSinceLastRequest = false;
+
+        // Data for cached shadow maps.
+        Vector2             m_CachedShadowResolution = new Vector2(0,0);
+        Vector3             m_CachedViewPos = new Vector3(0, 0, 0);
+
+        int[]               m_CachedResolutionRequestIndices = new int[6];
+        bool                m_CachedDataIsValid = true;
+        // This is useful to detect whether the atlas has been repacked since the light was last seen
+        int                 m_AtlasShapeID = 0;
+
+        [System.NonSerialized]
+        Plane[]             m_ShadowFrustumPlanes = new Plane[6];
+
+        #if ENABLE_RAYTRACING
+        // Temporary index that stores the current shadow index for the light
+        [System.NonSerialized] internal int shadowIndex;
+        #endif
+
+        [System.NonSerialized] HDShadowSettings    _ShadowSettings = null;
+        HDShadowSettings    m_ShadowSettings
+        {
+            get
+            {
+                if (_ShadowSettings == null)
+                    _ShadowSettings = VolumeManager.instance.stack.GetComponent<HDShadowSettings>();
+                return _ShadowSettings;
+            }
+        }
+
+        // Runtime datas used to compute light intensity
+        Light m_Light;
+        internal Light legacyLight
+        {
+            get
+            {
+                if (m_Light == null)
+                    m_Light = GetComponent<Light>();
+                return m_Light;
+            }
+        }
+
+        private void DisableCachedShadowSlot()
+        {
+            ShadowMapType shadowMapType = (lightTypeExtent == LightTypeExtent.Rectangle) ? ShadowMapType.AreaLightAtlas :
+                  (legacyLight.type != LightType.Directional) ? ShadowMapType.PunctualAtlas : ShadowMapType.CascadedDirectional;
+
+            if (WillRenderShadowMap() && !ShadowIsUpdatedEveryFrame())
+            {
+                HDShadowManager.instance.MarkCachedShadowSlotsAsEmpty(shadowMapType, GetInstanceID());
+            }
+        }
+
+        void OnDestroy()
+        {
+            DisableCachedShadowSlot();
+        }
+        void OnDisable()
+        {
+            DisableCachedShadowSlot();
+        }
+
         int GetShadowRequestCount()
         {
             return (m_Light.type == LightType.Point && lightTypeExtent == LightTypeExtent.Punctual) ? 6 : (m_Light.type == LightType.Directional) ? m_ShadowSettings.cascadeShadowSplitCount : 1;
@@ -321,9 +1213,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             if (m_Light.type == LightType.Directional)
                 shadowManager.UpdateDirectionalShadowResolution((int)viewportSize.x, m_ShadowSettings.cascadeShadowSplitCount);
 
-            // Reserver wanted resolution in the shadow atlas
-            ShadowMapType shadowMapType = (lightTypeExtent == LightTypeExtent.Rectangle) ? ShadowMapType.AreaLightAtlas :
-                                          (m_Light.type != LightType.Directional) ? ShadowMapType.PunctualAtlas : ShadowMapType.CascadedDirectional;
+            int count = GetShadowRequestCount();
+            bool needsCachedSlotsInAtlas = shadowsAreCached && !(ShadowIsUpdatedEveryFrame() || legacyLight.type == LightType.Directional);
 
             int count = GetShadowRequestCount();
             for (int index = 0; index < count; index++)
@@ -360,7 +1251,23 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 var         shadowRequest = shadowRequests[index];
                 Matrix4x4   invViewProjection = Matrix4x4.identity;
                 int         shadowRequestIndex = m_ShadowRequestIndices[index];
-                Vector2     viewportSize = manager.GetReservedResolution(shadowRequestIndex);
+
+                ShadowMapType shadowMapType = (lightTypeExtent == LightTypeExtent.Rectangle) ? ShadowMapType.AreaLightAtlas :
+                              (legacyLight.type != LightType.Directional) ? ShadowMapType.PunctualAtlas : ShadowMapType.CascadedDirectional;
+
+                bool hasCachedSlotInAtlas = !(ShadowIsUpdatedEveryFrame() || legacyLight.type == LightType.Directional);
+
+                bool shouldUseRequestFromCachedList = shadowIsCached && hasCachedSlotInAtlas && !manager.AtlasHasResized(shadowMapType);
+                bool cachedDataIsValid = shadowIsCached && m_CachedDataIsValid && (manager.GetAtlasShapeID(shadowMapType) == m_AtlasShapeID) && manager.CachedDataIsValid(shadowMapType);
+                HDShadowResolutionRequest resolutionRequest = manager.GetResolutionRequest(shadowMapType, shouldUseRequestFromCachedList, shouldUseRequestFromCachedList ? m_CachedResolutionRequestIndices[index] : shadowRequestIndex);
+
+                if (resolutionRequest == null)
+                    continue;
+
+                Vector2 viewportSize = resolutionRequest.resolution;
+
+                cachedDataIsValid = cachedDataIsValid || (legacyLight.type == LightType.Directional);
+                shadowIsCached = shadowIsCached && (hasCachedSlotInAtlas && cachedDataIsValid || legacyLight.type == LightType.Directional);
 
                 if (shadowRequestIndex == -1)
                     continue;
@@ -551,6 +1458,20 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 #if UNITY_EDITOR
             m_Light.SetLightDirty(); // Should be apply only to parameter that's affect GI, but make the code cleaner
 #endif
+            }
+
+            // We don't use the global settings of shadow mask by default
+            light.lightShadowCasterMode = LightShadowCasterMode.Everything;
+
+            lightData.constantBias         = 0.15f;
+            lightData.normalBias           = 0.75f;
+        }
+
+        void OnValidate()
+        {
+            UpdateBounds();
+            DisableCachedShadowSlot();
+            m_ShadowMapRenderedSinceLastRequest = false;
         }
 
         void SetLightIntensityPunctual(float intensity)
@@ -886,11 +1807,19 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         // As we have our own default value, we need to initialize the light intensity correctly
         public static void InitDefaultHDAdditionalLightData(HDAdditionalLightData lightData)
         {
-            // Special treatment for Unity built-in area light. Change it to our rectangle light
-            var light = lightData.gameObject.GetComponent<Light>();
+            lightUnit = LightUnit.Lux;
+            luxAtDistance = distance;
+            intensity = luxIntensity;
+        }
 
-            // Set light intensity and unit using its type
-            switch (light.type)
+        /// <summary>
+        /// Set the type of the light.
+        /// Note: this will also change the unit of the light if the current one is not supported by the new light type.
+        /// </summary>
+        /// <param name="type"></param>
+        public void SetLightType(HDLightType type)
+        {
+            switch (type)
             {
                 case LightType.Directional:
                     lightData.lightUnit = LightUnit.Lux;
@@ -957,34 +1886,53 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 // Disable the warning generated by deprecated fields (areaIntensity, directionalIntensity, ...)
 #pragma warning disable 618
 
-            // If we are deserializing an old version, convert the light intensity to the new system
-            if (needsIntensityUpdate_1_0)
-            {
-                switch (lightTypeExtent)
-                {
-                    case LightTypeExtent.Punctual:
-                        switch (m_Light.type)
-                        {
-                            case LightType.Directional:
-                                lightUnit = LightUnit.Lux;
-                                intensity = directionalIntensity;
-                                break;
-                            case LightType.Spot:
-                            case LightType.Point:
-                                lightUnit = LightUnit.Lumen;
-                                intensity = punctualIntensity;
-                                break;
-                        }
-                        break;
-                    case LightTypeExtent.Tube:
-                    case LightTypeExtent.Rectangle:
-                        lightUnit = LightUnit.Lumen;
-                        intensity = areaIntensity;
-                        break;
-                }
-                needsIntensityUpdate_1_0 = false;
-            }
-            if (m_Version <= 2)
+        /// <summary>
+        /// Set the shadow update mode.
+        /// </summary>
+        /// <param name="updateMode"></param>
+        public void SetShadowUpdateMode(ShadowUpdateMode updateMode) => shadowUpdateMode = updateMode;
+
+        // A bunch of function that changes stuff on the legacy light so users don't have to get the
+        // light component which would lead to synchronization problem with ou HD datas.
+        
+        /// <summary>
+        /// Set the range of the light.
+        /// </summary>
+        /// <param name="range"></param>
+        public void SetRange(float range) => legacyLight.range = range;
+
+        /// <summary>
+        /// Set the light layer and shadow map light layer masks. The feature must be enabled in the HDRP asset in norder to work.
+        /// </summary>
+        /// <param name="lightLayerMask"></param>
+        public void SetLightLayer(LightLayerEnum lightLayerMask) => legacyLight.renderingLayerMask = (int)lightLayerMask;
+
+        /// <summary>
+        /// Set the light culling mask.
+        /// </summary>
+        /// <param name="cullingMask"></param>
+        public void SetCullingMask(int cullingMask) => legacyLight.cullingMask = cullingMask;
+
+        /// <summary>
+        /// Set the light layer shadow cull distances.
+        /// </summary>
+        /// <param name="layerShadowCullDistances"></param>
+        /// <returns></returns>
+        public float[] SetLayerShadowCullDistances(float[] layerShadowCullDistances) => legacyLight.layerShadowCullDistances = layerShadowCullDistances;
+
+        /// <summary>
+        /// Get the list of supported light units depending on the current light type.
+        /// </summary>
+        /// <returns></returns>
+        public LightUnit[] GetSupportedLightUnits() => GetSupportedLightUnits(legacyLight.type, m_LightTypeExtent, m_SpotLightShape);
+
+        /// <summary>
+        /// Set the area light size.
+        /// </summary>
+        /// <param name="size"></param>
+        public void SetAreaLightSize(Vector2 size)
+        {
+            if (IsAreaLight(lightTypeExtent))
             {
                 // ShadowNearPlane have been move to HDRP as default legacy unity clamp it to 0.1 and we need to be able to go below that
                 shadowNearPlane = m_Light.shadowNearPlane;
@@ -993,6 +1941,53 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             {
                 m_Light.renderingLayerMask = LightLayerToRenderingLayerMask((int)lightLayers, m_Light.renderingLayerMask);
             }
+        }
+
+#endregion
+
+#region Utils
+
+        bool IsValidLightUnitForType(LightType type, LightTypeExtent typeExtent, SpotLightShape spotLightShape, LightUnit unit)
+        {
+            LightUnit[] allowedUnits = GetSupportedLightUnits(type, typeExtent, spotLightShape);
+
+            return allowedUnits.Any(u => u == unit);
+        }
+
+        [System.NonSerialized]
+        static Dictionary<int, LightUnit[]>  supportedLightTypeCache = new Dictionary<int, LightUnit[]>();
+        static LightUnit[] GetSupportedLightUnits(LightType type, LightTypeExtent typeExtent, SpotLightShape spotLightShape)
+        {
+            LightUnit[]     supportedTypes;
+
+            // Combine the two light types to access the dictionary
+            int cacheKey = ((int)type & 0xFF) << 0;
+            cacheKey |= ((int)typeExtent & 0xFF) << 8;
+            cacheKey |= ((int)spotLightShape & 0xFF) << 16;
+
+            // We cache the result once they are computed, it avoid garbage generated by Enum.GetValues and Linq.
+            if (supportedLightTypeCache.TryGetValue(cacheKey, out supportedTypes))
+                return supportedTypes;
+
+            if (IsAreaLight(typeExtent))
+                supportedTypes = Enum.GetValues(typeof(AreaLightUnit)).Cast<LightUnit>().ToArray();
+            else if (type == LightType.Directional || (type == LightType.Spot && spotLightShape == SpotLightShape.Box))
+                supportedTypes = Enum.GetValues(typeof(DirectionalLightUnit)).Cast<LightUnit>().ToArray();
+            else
+                supportedTypes = Enum.GetValues(typeof(PunctualLightUnit)).Cast<LightUnit>().ToArray();
+            
+            supportedLightTypeCache[cacheKey] = supportedTypes;
+
+            return supportedTypes;
+        }
+
+        string GetLightTypeName()
+        {
+            if (IsAreaLight(lightTypeExtent))
+                return lightTypeExtent.ToString();
+            else
+                return legacyLight.type.ToString();
+        }
 
             m_Version = currentVersion;
             version = currentVersion;

@@ -579,6 +579,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
                 "#pragma multi_compile _ DIRLIGHTMAP_COMBINED",
                 "#pragma multi_compile _ DYNAMICLIGHTMAP_ON",
                 "#define SHADOW_LOW",
+                DefineRaytracingKeyword(RayTracingNode.RaytracingVariant.Low)
             },
             Includes = new List<string>()
             {
@@ -676,6 +677,62 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
                 "#pragma multi_compile _ DIRLIGHTMAP_COMBINED",
                 "#pragma multi_compile _ DYNAMICLIGHTMAP_ON",
                 "#define SHADOW_LOW",
+                DefineRaytracingKeyword(RayTracingNode.RaytracingVariant.High)
+            },
+            Includes = new List<string>()
+            {
+                "#include \"Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/ShaderPassRaytracingForward.hlsl\"",
+            },
+            PixelShaderSlots = new List<int>()
+            {
+                HDLitMasterNode.AlbedoSlotId,
+                HDLitMasterNode.NormalSlotId,
+                HDLitMasterNode.BentNormalSlotId,
+                HDLitMasterNode.TangentSlotId,
+                HDLitMasterNode.SubsurfaceMaskSlotId,
+                HDLitMasterNode.ThicknessSlotId,
+                HDLitMasterNode.DiffusionProfileHashSlotId,
+                HDLitMasterNode.IridescenceMaskSlotId,
+                HDLitMasterNode.IridescenceThicknessSlotId,
+                HDLitMasterNode.SpecularColorSlotId,
+                HDLitMasterNode.CoatMaskSlotId,
+                HDLitMasterNode.MetallicSlotId,
+                HDLitMasterNode.EmissionSlotId,
+                HDLitMasterNode.SmoothnessSlotId,
+                HDLitMasterNode.AmbientOcclusionSlotId,
+                HDLitMasterNode.SpecularOcclusionSlotId,
+                HDLitMasterNode.AlphaSlotId,
+                HDLitMasterNode.AlphaThresholdSlotId,
+                HDLitMasterNode.AnisotropySlotId,
+                HDLitMasterNode.SpecularAAScreenSpaceVarianceSlotId,
+                HDLitMasterNode.SpecularAAThresholdSlotId,
+                HDLitMasterNode.RefractionIndexSlotId,
+                HDLitMasterNode.RefractionColorSlotId,
+                HDLitMasterNode.RefractionDistanceSlotId,
+            },
+            VertexShaderSlots = new List<int>()
+            {
+                HDLitMasterNode.PositionSlotId,
+                HDLitMasterNode.VertexNormalSlotID,
+                HDLitMasterNode.VertexTangentSlotID
+            },
+            UseInPreview = false
+        };
+
+        Pass m_PassRaytracingGBuffer = new Pass()
+        {
+            Name = "GBufferDXR",
+            LightMode = "GBufferDXR",
+            TemplateName = "HDLitRaytracingPass.template",
+            MaterialName = "Lit",
+            ShaderPassName = "SHADERPASS_RAYTRACING_GBUFFER",
+            ExtraDefines = new List<string>()
+            {
+                "#pragma multi_compile _ LIGHTMAP_ON",
+                "#pragma multi_compile _ DIRLIGHTMAP_COMBINED",
+                "#pragma multi_compile _ DYNAMICLIGHTMAP_ON",
+                "#define SHADOW_LOW",
+                DefineRaytracingKeyword(RayTracingNode.RaytracingVariant.High)
             },
             Includes = new List<string>()
             {

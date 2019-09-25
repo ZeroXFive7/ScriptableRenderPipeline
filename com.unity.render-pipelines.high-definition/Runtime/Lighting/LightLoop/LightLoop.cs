@@ -208,8 +208,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public LTCAreaLightCookieManager areaLightCookieManager { get { return m_AreaLightCookieManager; } }
         LTCAreaLightCookieManager m_AreaLightCookieManager;
 
-        // For now we don't use shadow cascade borders.
-        static public readonly bool s_UseCascadeBorders = false;
+        // This control if we use cascade borders for directional light by default
+        static internal readonly bool s_UseCascadeBorders = true;
 
         // Keep sorting array around to avoid garbage
         uint[] m_SortKeys = null;
@@ -1801,6 +1801,18 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     for (int lightIndex = 0, numLights = cullResults.visibleLights.Length; (lightIndex < numLights) && (sortCount < lightCount); ++lightIndex)
                     {
                         var light = cullResults.visibleLights[lightIndex];
+
+                        // We can skip the processing of lights that are so small to not affect at least a pixel on screen.
+                        // TODO: The minimum pixel size on screen should really be exposed as parameter, to allow small lights to be culled to user's taste.
+                        const int minimumPixelAreaOnScreen = 1;
+                        if ((light.screenRect.height * hdCamera.actualHeight) * (light.screenRect.width * hdCamera.actualWidth) < minimumPixelAreaOnScreen)
+                        {
+                            continue;
+                        }
+
+                        if (light.light != null && !aovRequest.IsLightEnabled(light.light.gameObject))
+                            continue;
+
                         var lightComponent = light.light;
 
                         // Light should always have additional data, however preview light right don't have, so we must handle the case by assigning HDUtils.s_DefaultHDAdditionalLightData
@@ -1813,80 +1825,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                         GPULightType gpuLightType = GPULightType.Point;
                         LightVolumeType lightVolumeType = LightVolumeType.Count;
 
-                        if (additionalData.lightTypeExtent == LightTypeExtent.Punctual)
-                        {
-                            lightCategory = LightCategory.Punctual;
-
-                            switch (light.lightType)
-                            {
-                                case LightType.Spot:
-                                    if (punctualLightcount >= m_MaxPunctualLightsOnScreen)
-                                        continue;
-                                    switch (additionalData.spotLightShape)
-                                    {
-                                        case SpotLightShape.Cone:
-                                            gpuLightType = GPULightType.Spot;
-                                            lightVolumeType = LightVolumeType.Cone;
-                                            break;
-                                        case SpotLightShape.Pyramid:
-                                            gpuLightType = GPULightType.ProjectorPyramid;
-                                            lightVolumeType = LightVolumeType.Cone;
-                                            break;
-                                        case SpotLightShape.Box:
-                                            gpuLightType = GPULightType.ProjectorBox;
-                                            lightVolumeType = LightVolumeType.Box;
-                                            break;
-                                        default:
-                                            Debug.Assert(false, "Encountered an unknown SpotLightShape.");
-                                            break;
-                                    }
-                                    break;
-
-                                case LightType.Directional:
-                                    if (directionalLightcount >= m_MaxDirectionalLightsOnScreen)
-                                        continue;
-                                    gpuLightType = GPULightType.Directional;
-                                    // No need to add volume, always visible
-                                    lightVolumeType = LightVolumeType.Count; // Count is none
-                                    break;
-
-                                case LightType.Point:
-                                    if (punctualLightcount >= m_MaxPunctualLightsOnScreen)
-                                        continue;
-                                    gpuLightType = GPULightType.Point;
-                                    lightVolumeType = LightVolumeType.Sphere;
-                                    break;
-
-                                default:
-                                    Debug.Assert(false, "Encountered an unknown LightType.");
-                                    break;
-                            }
-                        }
-                        else
-                        {
-                            lightCategory = LightCategory.Area;
-
-                            switch (additionalData.lightTypeExtent)
-                            {
-                                case LightTypeExtent.Rectangle:
-                                    if (areaLightCount >= m_MaxAreaLightsOnScreen)
-                                        continue;
-                                    gpuLightType = GPULightType.Rectangle;
-                                    lightVolumeType = LightVolumeType.Box;
-                                    break;
-
-                                case LightTypeExtent.Tube:
-                                    if (areaLightCount >= m_MaxAreaLightsOnScreen)
-                                        continue;
-                                    gpuLightType = GPULightType.Tube;
-                                    lightVolumeType = LightVolumeType.Box;
-                                    break;
-
-                                default:
-                                    Debug.Assert(false, "Encountered an unknown LightType.");
-                                    break;
-                            }
-                        }
+                        if (hasDebugLightFilter
+                            && !debugLightFilter.IsEnabledFor(gpuLightType, additionalData.spotLightShape))
+                            continue;
 
                         // 5 bit (0x1F) light category, 5 bit (0x1F) GPULightType, 5 bit (0x1F) lightVolume, 1 bit for shadow casting, 16 bit index
                         m_SortKeys[sortCount++] = (uint)lightCategory << 27 | (uint)gpuLightType << 22 | (uint)lightVolumeType << 17 | (uint)lightIndex;
@@ -1926,6 +1867,20 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
                         var light = cullResults.visibleLights[lightIndex];
                         var lightComponent = light.light;
+
+                        switch(lightCategory)
+                        {
+                            case LightCategory.Punctual:
+                                if (punctualLightcount >= m_MaxPunctualLightsOnScreen)
+                                    continue;
+                                break;
+                            case LightCategory.Area:
+                                if (areaLightCount >= m_MaxAreaLightsOnScreen)
+                                    continue;
+                                break;
+                            default:
+                                break;
+                        }
 
                         m_enableBakeShadowMask = m_enableBakeShadowMask || IsBakedShadowMaskLight(lightComponent);
 
@@ -2583,8 +2538,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 cmd.SetGlobalBuffer(HDShaderIDs._DecalDatas, m_DecalDatas);
                 cmd.SetGlobalInt(HDShaderIDs._DecalCount, DecalSystem.m_DecalDatasCount);
 
-                cmd.SetGlobalInt(HDShaderIDs._NumTileBigTileX, GetNumTileBigTileX(hdCamera));
-                cmd.SetGlobalInt(HDShaderIDs._NumTileBigTileY, GetNumTileBigTileY(hdCamera));
+                cmd.SetGlobalInt(HDShaderIDs._NumTileBigTileX, GetNumTileBigTileX(param.hdCamera));
+                cmd.SetGlobalInt(HDShaderIDs._NumTileBigTileY, GetNumTileBigTileY(param.hdCamera));
 
                 cmd.SetGlobalInt(HDShaderIDs._NumTileFtplX, GetNumTileFtplX(hdCamera));
                 cmd.SetGlobalInt(HDShaderIDs._NumTileFtplY, GetNumTileFtplY(hdCamera));

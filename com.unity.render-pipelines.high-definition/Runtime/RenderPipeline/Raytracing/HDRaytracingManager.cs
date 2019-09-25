@@ -136,7 +136,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             HDRenderPipeline hdPipeline = RenderPipelineManager.currentPipeline as HDRenderPipeline;
             if (hdPipeline != null)
             {
-                hdPipeline.m_RayTracingManager.SetDirty();
+                hdPipeline.SetRayTracingSceneDirty();
             }
         }
 #endif
@@ -361,7 +361,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             }
         }
 
-        // This function finds which subscenes are going to be used for the camera and computes their light clusters
+        // This function finds which sub-scenes are going to be used for the camera and computes their light clusters
         public void UpdateCameraData(CommandBuffer cmd, HDCamera hdCamera)
         {
             // Set all the acceleration structures that are currently allocated to not updated
@@ -419,6 +419,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 // Create the acceleration structure
                 subScene.accelerationStructure = new RaytracingAccelerationStructure();
 
+                // We need to define the maximal number of meshes for our geometries
+                int maxNumSubMeshes = 1;
+
                 // First of all let's process all the LOD groups
                 LODGroup[] lodGroupArray = UnityEngine.GameObject.FindObjectsOfType<LODGroup>();
                 for (var i = 0; i < lodGroupArray.Length; i++)
@@ -442,8 +445,17 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                                 // Is this object in one of the allowed layers ?
                                 if ((objectLayerValue & subScene.mask.value) != 0)
                                 {
+                                    Renderer currentRenderer = currentLOD.renderers[rendererIdx];
+
                                     // Add this fella to the renderer list
-                                    subScene.targetRenderers.Add(currentLOD.renderers[rendererIdx]);
+                                    subScene.targetRenderers.Add(currentRenderer);
+
+                                    // Also, we need to contribute to the maximal number of sub-meshes
+                                    MeshFilter currentFilter = currentRenderer.GetComponent<MeshFilter>();
+                                    if (currentFilter != null && currentFilter.sharedMesh != null)
+                                    {
+                                        maxNumSubMeshes = Mathf.Max(maxNumSubMeshes, currentFilter.sharedMesh.subMeshCount);
+                                    }
                                 }
                             }
                         }
@@ -459,7 +471,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     }
                 }
 
-                int maxNumSubMeshes = 1;
 
                 // Grab all the renderers from the scene
                 var rendererArray = UnityEngine.GameObject.FindObjectsOfType<Renderer>();
@@ -519,7 +530,12 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                             // For every sub-mesh/sub-material let's build the right flags
                             int numSubMeshes = currentRenderer.sharedMaterials.Length;
 
-                            uint instanceFlag = 0xff;
+                            // We need to build the instance flag for this renderer
+                            uint instanceFlag = 0x00;
+
+                            // Incorporate the shadow casting flag
+                            instanceFlag |= ((currentRenderer.shadowCastingMode == ShadowCastingMode.On) ? (uint)(1 << 2) : 0x00);
+
                             for (int meshIdx = 0; meshIdx < numSubMeshes; ++meshIdx)
                             {
                                 Material currentMaterial = currentRenderer.sharedMaterials[meshIdx];
@@ -536,7 +552,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                                     && HDRenderQueue.k_RenderQueue_AllTransparentRaytracing.upperBound >= currentMaterial.renderQueue);
 
                                     // Propagate the right mask
-                                    instanceFlag = materialIsTransparent ? (uint)0xf0 : (uint)0x0f;
+                                    instanceFlag |= materialIsTransparent ? (uint)(1 << 1) : (uint)(1 << 0);
 
                                     // Is the material alpha tested?
                                     subMeshCutoffArray[meshIdx] = currentMaterial.IsKeywordEnabled("_ALPHATEST_ON")

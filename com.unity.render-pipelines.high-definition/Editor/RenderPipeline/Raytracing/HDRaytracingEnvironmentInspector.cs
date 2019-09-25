@@ -70,12 +70,9 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             public static GUIContent cameraClusterRangeText = new GUIContent("Cluster Range");
 
             /////////////////////////////////////////////////////////////////////////////////////////////////
-            // Primary visibility
-            public static readonly GUIContent primaryRaytracingSectionText = EditorGUIUtility.TrTextContent("Primary Visiblity Raytracing");
-            public static readonly GUIContent raytracingEnableText = new GUIContent("Enable");
-            public static readonly GUIContent raytracedLayerMaskText = EditorGUIUtility.TrTextContent("Primary Visibility Layer Mask");
-            public static readonly GUIContent rayMaxDepth = new GUIContent("Raytracing Maximal Depth");
-            public static readonly GUIContent raytracingRayLength = new GUIContent("Raytracing Ray Length");
+            // Indirect Diffuse
+            public static readonly GUIContent indirectDiffuseSectionText = EditorGUIUtility.TrTextContent("Ray-traced Global Illumination");
+            public static readonly GUIContent indirectDiffuseLayerMaskText = EditorGUIUtility.TrTextContent("Global Illumination Layer Mask");
         }
 
         SerializedHDRaytracingEnvironment m_SerializedHDRaytracingEnvironment;
@@ -115,7 +112,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             HDRenderPipeline hdPipeline = RenderPipelineManager.currentPipeline as HDRenderPipeline;
             if (hdPipeline != null)
             {
-                hdPipeline.m_RayTracingManager.UpdateEnvironmentSubScenes();
+                hdPipeline.UpdateRayTracingSubScenes();
             }
         }
 

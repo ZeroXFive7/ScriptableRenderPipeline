@@ -333,7 +333,27 @@ float3 LoadCameraColor(uint2 pixelCoords)
 
 float3 SampleCameraColor(float2 uv)
 {
-    return LoadCameraColor(uint2(uv * _ScreenSize.xy));
+    return SampleCameraColor(uv, 0);
+}
+
+float4 SampleCustomColor(float2 uv)
+{
+    return SAMPLE_TEXTURE2D_X_LOD(_CustomColorTexture, s_trilinear_clamp_sampler, uv * _RTHandleScale.xy, 0);
+}
+
+float4 LoadCustomColor(uint2 pixelCoords)
+{
+    return LOAD_TEXTURE2D_X_LOD(_CustomColorTexture, pixelCoords, 0);
+}
+
+float LoadCustomDepth(uint2 pixelCoords)
+{
+    return LOAD_TEXTURE2D_X_LOD(_CustomDepthTexture, pixelCoords, 0).r;
+}
+
+float SampleCustomDepth(float2 uv)
+{
+    return LoadCustomDepth(uint2(uv * _ScreenSize.xy));
 }
 
 float4x4 OptimizeProjectionMatrix(float4x4 M)

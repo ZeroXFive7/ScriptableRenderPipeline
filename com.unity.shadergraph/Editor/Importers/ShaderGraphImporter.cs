@@ -54,6 +54,20 @@ Shader ""Hidden/GraphErrorShader2""
     }
     Fallback Off
 }";
+        
+        [SuppressMessage("ReSharper", "UnusedMember.Local")]
+        static string[] GatherDependenciesFromSourceFile(string assetPath)
+        {
+            try
+            {
+                return MinimalGraphData.GetDependencyPaths(assetPath);
+            }
+            catch (Exception e)
+            {
+                Debug.LogException(e);
+                return new string[0];
+            }
+        }
 
         public override void OnImportAsset(AssetImportContext ctx)
         {

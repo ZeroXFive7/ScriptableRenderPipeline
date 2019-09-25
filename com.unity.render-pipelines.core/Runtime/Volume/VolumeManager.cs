@@ -113,7 +113,7 @@ namespace UnityEngine.Rendering
 
             foreach (var kvp in m_SortedVolumes)
             {
-                if ((kvp.Key & mask) == 0)
+                if (kvp.Key != mask)
                     continue;
 
                 foreach (var volume in kvp.Value)
@@ -234,6 +234,13 @@ namespace UnityEngine.Rendering
             // Traverse all volumes
             foreach (var volume in volumes)
             {
+#if UNITY_EDITOR
+                // Skip volumes that aren't in the scene currently displayed in the scene view
+                if (needIsolationFilteredByRenderer
+                    && !IsVolumeRenderedByCamera(volume, trigger.GetComponent<Camera>()))
+                    continue;
+#endif
+
                 // Skip disabled volumes and volumes without any data or weight
                 if (!volume.enabled || volume.profileRef == null || volume.weight <= 0f)
                     continue;
@@ -343,5 +350,30 @@ namespace UnityEngine.Rendering
                 volumes[j + 1] = temp;
             }
         }
+
+        static bool IsVolumeRenderedByCamera(Volume volume, Camera camera)
+        {
+#if UNITY_2018_3_OR_NEWER && UNITY_EDITOR
+            return UnityEditor.SceneManagement.StageUtility.IsGameObjectRenderedByCamera(volume.gameObject, camera);
+#else
+            return true;
+#endif
+        }
+    }
+
+    /// <summary>
+    /// Scope in which is volume is filtered by its rendering camera.
+    /// </summary>
+    public struct VolumeIsolationScope : IDisposable
+    {
+        /// <summary>
+        /// Construct a scope in which is volume is filtered by its rendering camera.
+        /// </summary>
+        /// <param name="unused">Unused parameter</param>
+        public VolumeIsolationScope(bool unused)
+            => VolumeManager.needIsolationFilteredByRenderer = true;
+
+        void IDisposable.Dispose()
+            => VolumeManager.needIsolationFilteredByRenderer = false;
     }
 }

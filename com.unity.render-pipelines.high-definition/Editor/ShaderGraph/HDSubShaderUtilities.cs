@@ -956,6 +956,240 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             "#pragma multi_compile _ WRITE_MSAA_DEPTH"
         };
 
+        public static void SetStencilStateForDepth(ref Pass pass)
+        {
+            pass.StencilOverride = new List<string>()
+            {
+                "// Stencil setup",
+                "Stencil",
+                "{",
+                "   WriteMask [_StencilWriteMaskDepth]",
+                "   Ref [_StencilRefDepth]",
+                "   Comp Always",
+                "   Pass Replace",
+                "}"
+            };
+        }
+
+        public static void SetStencilStateForMotionVector(ref Pass pass)
+        {
+            pass.StencilOverride = new List<string>()
+            {
+                "// Stencil setup",
+                "Stencil",
+                "{",
+                "   WriteMask [_StencilWriteMaskMV]",
+                "   Ref [_StencilRefMV]",
+                "   Comp Always",
+                "   Pass Replace",
+                "}"
+            };
+        }
+
+        public static void SetStencilStateForDistortionVector(ref Pass pass)
+        {
+            pass.StencilOverride = new List<string>()
+            {
+                "// Stencil setup",
+                "Stencil",
+                "{",
+                "   WriteMask [_StencilRefDistortionVec]",
+                "   Ref [_StencilRefDistortionVec]",
+                "   Comp Always",
+                "   Pass Replace",
+                "}"
+            };
+        }
+
+        public static void SetStencilStateForForward(ref Pass pass)
+        {
+            pass.StencilOverride = new List<string>()
+            {
+                "// Stencil setup",
+                "Stencil",
+                "{",
+                "   WriteMask [_StencilWriteMask]",
+                "   Ref [_StencilRef]",
+                "   Comp Always",
+                "   Pass Replace",
+                "}"
+            };
+        }
+
+        public static void SetStencilStateForGBuffer(ref Pass pass)
+        {
+            pass.StencilOverride = new List<string>()
+            {
+                "// Stencil setup",
+                "Stencil",
+                "{",
+                "   WriteMask [_StencilWriteMaskGBuffer]",
+                "   Ref [_StencilRefGBuffer]",
+                "   Comp Always",
+                "   Pass Replace",
+                "}"
+            };
+        }
+
+        public static readonly string zClipShadowCaster = "ZClip [_ZClip]";
+        public static readonly string defaultCullMode = "Cull [_CullMode]";
+        public static readonly string cullModeForward = "Cull [_CullModeForward]";
+        public static readonly string zTestDepthEqualForOpaque = "ZTest [_ZTestDepthEqualForOpaque]";
+        public static readonly string zTestTransparent = "ZTest [_ZTestTransparent]";
+        public static readonly string zTestGBuffer = "ZTest [_ZTestGBuffer]";
+        public static readonly string zWriteOn = "ZWrite On";
+        public static readonly string zWriteOff = "ZWrite Off";
+        public static readonly string ZWriteDefault = "ZWrite [_ZWrite]";
+
+        public static void SetBlendModeForTransparentBackface(ref Pass pass) => SetBlendModeForForward(ref pass);
+        public static void SetBlendModeForForward(ref Pass pass)
+        {
+            pass.BlendOverride = "Blend [_SrcBlend] [_DstBlend], [_AlphaSrcBlend] [_AlphaDstBlend]";
+        }
+
+        public static void AddTags(ShaderGenerator generator, string pipeline, HDRenderTypeTags renderType, int queue)
+        {
+            ShaderStringBuilder builder = new ShaderStringBuilder();
+            builder.AppendLine("Tags");
+            using (builder.BlockScope())
+            {
+                builder.AppendLine("\"RenderPipeline\"=\"{0}\"", pipeline);
+                builder.AppendLine("\"RenderType\"=\"{0}\"", renderType);
+                builder.AppendLine("\"Queue\" = \"{0}\"", HDRenderQueue.GetShaderTagValue(queue));
+            }
+
+            generator.AddShaderChunk(builder.ToString());
+        }
+
+        // Utils property to add properties to the collector, all hidden because we use a custom UI to display them
+        static void AddIntProperty(this PropertyCollector collector, string referenceName, int defaultValue)
+        {
+            collector.AddShaderProperty(new Vector1ShaderProperty{
+                floatType = FloatType.Integer,
+                value = defaultValue,
+                hidden = true,
+                overrideReferenceName = referenceName,
+            });
+        }
+
+        static void AddFloatProperty(this PropertyCollector collector, string referenceName, float defaultValue)
+        {
+            collector.AddShaderProperty(new Vector1ShaderProperty{
+                floatType = FloatType.Default,
+                hidden = true,
+                value = defaultValue,
+                overrideReferenceName = referenceName,
+            });
+        }
+
+        static void AddFloatProperty(this PropertyCollector collector, string referenceName, string displayName, float defaultValue)
+        {
+            collector.AddShaderProperty(new Vector1ShaderProperty{
+                floatType = FloatType.Default,
+                value = defaultValue,
+                overrideReferenceName = referenceName,
+                hidden = true,
+                displayName = displayName,
+            });
+        }
+
+        static void AddToggleProperty(this PropertyCollector collector, string referenceName, bool defaultValue)
+        {
+            collector.AddShaderProperty(new BooleanShaderProperty{
+                value = defaultValue,
+                hidden = true,
+                overrideReferenceName = referenceName,
+            });
+        }
+
+        public static void AddStencilShaderProperties(PropertyCollector collector, bool splitLighting, bool receiveSSR)
+        {
+            // All these properties values will be patched with the material keyword update
+            collector.AddIntProperty("_StencilRef", 0); // StencilLightingUsage.NoLighting
+            collector.AddIntProperty("_StencilWriteMask", 3); // StencilMask.Lighting
+            // Depth prepass
+            collector.AddIntProperty("_StencilRefDepth", 0); // Nothing
+            collector.AddIntProperty("_StencilWriteMaskDepth", 32); // DoesntReceiveSSR
+            // Motion vector pass
+            collector.AddIntProperty("_StencilRefMV", 128); // StencilBitMask.ObjectMotionVectors
+            collector.AddIntProperty("_StencilWriteMaskMV", 128); // StencilBitMask.ObjectMotionVectors
+            // Distortion vector pass
+            collector.AddIntProperty("_StencilRefDistortionVec", 64); // StencilBitMask.DistortionVectors
+            collector.AddIntProperty("_StencilWriteMaskDistortionVec", 64); // StencilBitMask.DistortionVectors
+            // Gbuffer
+            collector.AddIntProperty("_StencilWriteMaskGBuffer", 3); // StencilMask.Lighting
+            collector.AddIntProperty("_StencilRefGBuffer", 2); // StencilLightingUsage.RegularLighting
+            collector.AddIntProperty("_ZTestGBuffer", 4);
+
+            collector.AddToggleProperty(kUseSplitLighting, splitLighting);
+            collector.AddToggleProperty(kReceivesSSR, receiveSSR);
+
+        }
+
+        public static void AddBlendingStatesShaderProperties(
+            PropertyCollector collector, SurfaceType surface, BlendMode blend, int sortingPriority,
+            bool zWrite, TransparentCullMode transparentCullMode, CompareFunction zTest, bool backThenFrontRendering)
+        {
+            collector.AddFloatProperty("_SurfaceType", (int)surface);
+            collector.AddFloatProperty("_BlendMode", (int)blend);
+
+            // All these properties values will be patched with the material keyword update
+            collector.AddFloatProperty("_SrcBlend", 1.0f);
+            collector.AddFloatProperty("_DstBlend", 0.0f);
+            collector.AddFloatProperty("_AlphaSrcBlend", 1.0f);
+            collector.AddFloatProperty("_AlphaDstBlend", 0.0f);
+            collector.AddToggleProperty("_ZWrite", zWrite);
+            collector.AddFloatProperty("_CullMode", (int)CullMode.Back);
+            collector.AddIntProperty("_TransparentSortPriority", sortingPriority);
+            collector.AddFloatProperty("_CullModeForward", (int)CullMode.Back);
+            collector.AddShaderProperty(new Vector1ShaderProperty{
+                overrideReferenceName = kTransparentCullMode,
+                floatType = FloatType.Enum,
+                value = (int)transparentCullMode,
+                enumNames = {"Front", "Back"},
+                enumValues = {(int)TransparentCullMode.Front, (int)TransparentCullMode.Back},
+                hidden = true,
+            });
+
+            // Add ZTest properties:
+            collector.AddIntProperty("_ZTestDepthEqualForOpaque", (int)CompareFunction.LessEqual);
+            collector.AddShaderProperty(new Vector1ShaderProperty{
+                overrideReferenceName = kZTestTransparent,
+                floatType = FloatType.Enum,
+                value = (int)zTest,
+                enumType = EnumType.CSharpEnum,
+                cSharpEnumType = typeof(CompareFunction),
+                hidden = true,
+            });
+
+            collector.AddToggleProperty(kTransparentBackfaceEnable, backThenFrontRendering);
+        }
+
+        public static void AddAlphaCutoffShaderProperties(PropertyCollector collector, bool alphaCutoff, bool shadowThreshold)
+        {
+            collector.AddToggleProperty("_AlphaCutoffEnable", alphaCutoff);
+            collector.AddFloatProperty("_TransparentSortPriority", "_TransparentSortPriority", 0);
+            collector.AddToggleProperty("_UseShadowThreshold", shadowThreshold);
+        }
+
+        public static void AddDoubleSidedProperty(PropertyCollector collector, DoubleSidedMode mode = DoubleSidedMode.Enabled)
+        {
+            var normalMode = ConvertDoubleSidedModeToDoubleSidedNormalMode(mode);
+            collector.AddToggleProperty("_DoubleSidedEnable", mode != DoubleSidedMode.Disabled);
+            collector.AddShaderProperty(new Vector1ShaderProperty{
+                enumNames = {"Flip", "Mirror", "None"}, // values will be 0, 1 and 2
+                floatType = FloatType.Enum,
+                overrideReferenceName = "_DoubleSidedNormalMode",
+                hidden = true,
+                value = (int)normalMode
+            });
+            collector.AddShaderProperty(new Vector4ShaderProperty{
+                overrideReferenceName = "_DoubleSidedConstants",
+                hidden = true,
+                value = new Vector4(1, 1, -1, 0)
+            });
+        }
+
         public static string RenderQueueName(HDRenderQueue.RenderQueueType value)
         {
             switch (value)

@@ -26,9 +26,8 @@ namespace UnityEngine.Rendering
         {
             get
             {
-                if (!enabled)
-                    return 1.0f;
-                else
+#if ENABLE_VR && ENABLE_VR_MODULE
+                if (enabled)
                     return XRSettings.eyeTextureResolutionScale;
             }
         }
@@ -37,9 +36,8 @@ namespace UnityEngine.Rendering
         {
             get
             {
-                if (!enabled)
-                    return 1.0f;
-                else
+#if ENABLE_VR && ENABLE_VR_MODULE
+                if (enabled)
                     return XRSettings.renderViewportScale;
             }
         }
@@ -55,7 +53,7 @@ namespace UnityEngine.Rendering
         { // SRP should use this to safely determine whether XR is enabled at runtime.
             get
             {
-#if ENABLE_VR
+#if ENABLE_VR && ENABLE_VR_MODULE
                 return XRSettings.enabled;
 #else
                 return false;
@@ -67,9 +65,11 @@ namespace UnityEngine.Rendering
         {
             get
             {
-                if (!enabled)
-                    return false;
-                return XRSettings.isDeviceActive;
+#if ENABLE_VR && ENABLE_VR_MODULE
+                if (enabled)
+                    return XRSettings.isDeviceActive;
+#endif
+                return false;
             }
         }
 
@@ -77,9 +77,11 @@ namespace UnityEngine.Rendering
         {
             get
             {
-                if (!enabled)
-                    return "No XR device loaded";
-                return XRSettings.loadedDeviceName;
+#if ENABLE_VR && ENABLE_VR_MODULE
+                if (enabled)
+                    return XRSettings.loadedDeviceName;
+#endif
+                return "No XR device loaded";
             }
         }
 
@@ -87,9 +89,11 @@ namespace UnityEngine.Rendering
         {
             get
             {
-                if (!enabled)
-                    return new string[1];
-                return XRSettings.supportedDevices;
+#if ENABLE_VR && ENABLE_VR_MODULE
+                if (enabled)
+                    return XRSettings.supportedDevices;
+#endif
+                return new string[1];
             }
         }
 
@@ -97,21 +101,9 @@ namespace UnityEngine.Rendering
         {
             get
             {
-                if (!enabled)
-                    return StereoRenderingMode.SinglePass;
-#if UNITY_2018_3_OR_NEWER
-                return (StereoRenderingMode)XRSettings.stereoRenderingMode;
-#else // Reverse engineer it
-                if (!enabled)
-                    return StereoRenderingMode.SinglePassMultiView;
-                if (eyeTextureDesc.vrUsage == VRTextureUsage.TwoEyes)
-                {
-                    if (eyeTextureDesc.dimension == UnityEngine.Rendering.TextureDimension.Tex2DArray)
-                        return StereoRenderingMode.SinglePassInstanced;
-                    return StereoRenderingMode.SinglePassDoubleWide;
-                }
-                else
-                    return StereoRenderingMode.MultiPass;
+#if ENABLE_VR && ENABLE_VR_MODULE
+                if (enabled)
+                    return (StereoRenderingMode)XRSettings.stereoRenderingMode;
 #endif
             }
         }
@@ -148,12 +140,11 @@ namespace UnityEngine.Rendering
         {
             get
             {
-                if (!enabled)
-                {
-                    return new RenderTextureDescriptor(0, 0);
-                }
-
-                return XRSettings.eyeTextureDesc;
+#if ENABLE_VR && ENABLE_VR_MODULE
+                if (enabled)
+                    return XRSettings.eyeTextureDesc;
+#endif
+                return new RenderTextureDescriptor(0, 0);
             }
         }
 
@@ -161,24 +152,22 @@ namespace UnityEngine.Rendering
         {
             get
             {
-                if (!enabled)
-                {
-                    return 0;
-                }
-
-                return XRSettings.eyeTextureWidth;
+#if ENABLE_VR && ENABLE_VR_MODULE
+                if (enabled)
+                    return XRSettings.eyeTextureWidth;
+#endif
+                return 0;
             }
         }
         public static int eyeTextureHeight
         {
             get
             {
-                if (!enabled)
-                {
-                    return 0;
-                }
-
-                return XRSettings.eyeTextureHeight;
+#if ENABLE_VR && ENABLE_VR_MODULE
+                if (enabled)
+                    return XRSettings.eyeTextureHeight;
+#endif
+                return 0;          
             }
         }
 

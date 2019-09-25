@@ -442,14 +442,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 // Final pass
                 using (new ProfilingSample(cmd, "Final Pass", CustomSamplerId.FinalPost.GetSampler()))
                 {
-                    // XRTODO: remove once SPI is working
-                    bool restoreSinglePass = false;
-                    if (camera.camera.stereoEnabled && XRGraphics.stereoRenderingMode == XRGraphics.StereoRenderingMode.SinglePass)
-                    {
-                        cmd.SetSinglePassStereo(SinglePassStereoMode.None);
-                        restoreSinglePass = true;
-                    }
-
                     DoFinalPass(cmd, camera, blueNoise, source, afterPostProcessTexture, finalRT, flipY);
                     PoolSource(ref source, null);
 
@@ -2126,6 +2118,58 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             }
 
             HDUtils.DrawFullScreen(cmd, backBufferRect, m_FinalPassMaterial, destination);
+        }
+
+        #endregion
+
+        #region User Post Processes
+
+        internal void DoUserBeforeTransparent(CommandBuffer cmd, HDCamera camera, RTHandle colorBuffer)
+        {
+            RTHandle source = colorBuffer;
+
+            using (new ProfilingSample(cmd, "Custom Post Processes Before Transparent", CustomSamplerId.CustomPostProcessBeforeTransparent.GetSampler()))
+            {
+                bool needsBlitToColorBuffer = false;
+                foreach (var typeString in HDRenderPipeline.defaultAsset.beforeTransparentCustomPostProcesses)
+                    needsBlitToColorBuffer |= RenderCustomPostProcess(cmd, camera, ref source, colorBuffer, Type.GetType(typeString));
+
+                if (needsBlitToColorBuffer)
+                {
+                    Rect backBufferRect = camera.finalViewport;
+                    HDUtils.BlitCameraTexture(cmd, source, colorBuffer);
+                }
+            }
+
+            PoolSourceGuard(ref source, null, colorBuffer);
+        }
+
+        bool RenderCustomPostProcess(CommandBuffer cmd, HDCamera camera, ref RTHandle source, RTHandle colorBuffer, Type customPostProcessComponentType)
+        {
+            if (customPostProcessComponentType == null)
+                return false;
+
+            var stack = VolumeManager.instance.stack;
+
+            if (stack.GetComponent(customPostProcessComponentType) is CustomPostProcessVolumeComponent customPP)
+            {
+                customPP.SetupIfNeeded();
+
+                if (customPP is IPostProcessComponent pp && pp.IsActive())
+                {
+                    var destination = m_Pool.Get(Vector2.one, k_ColorFormat);
+                    CoreUtils.SetRenderTarget(cmd, destination);
+                    using (new ProfilingSample(cmd, customPP.name))
+                    {
+                        customPP.Render(cmd, camera, source, destination);
+                    }
+                    PoolSourceGuard(ref source, destination, colorBuffer);
+
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         #endregion

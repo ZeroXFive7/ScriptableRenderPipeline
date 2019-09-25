@@ -202,8 +202,28 @@ namespace UnityEditor.ShaderGraph.Drawing
                 if (string.IsNullOrEmpty(path) || graphObject == null)
                     return;
 
-                bool VCSEnabled = (VersionControl.Provider.enabled && VersionControl.Provider.isActive);
-                CheckoutIfValid(path, VCSEnabled);
+                UpdateShaderGraphOnDisk(path);
+
+                if (GraphData.onSaveGraph != null)
+                {
+                    var shader = AssetDatabase.LoadAssetAtPath<Shader>(path);
+                    if (shader != null)
+                    {
+                        GraphData.onSaveGraph(shader);
+                    }                    
+                }
+            }
+
+            UpdateTitle();
+        }
+
+        public void SaveAs()
+        {
+            if (selectedGuid != null && graphObject != null)
+            {
+                var path = AssetDatabase.GUIDToAssetPath(selectedGuid);
+                if (string.IsNullOrEmpty(path) || graphObject == null)
+                    return;
 
                 if (m_GraphObject.graph.isSubGraph)
                     UpdateAbstractSubgraphOnDisk(path);
