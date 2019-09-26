@@ -110,7 +110,7 @@ namespace UnityEngine.Rendering.Universal
             bool mainLightShadows = m_MainLightShadowCasterPass.Setup(ref renderingData);
             bool additionalLightShadows = m_AdditionalLightsShadowCasterPass.Setup(ref renderingData);
             bool resolveShadowsInScreenSpace = mainLightShadows && renderingData.shadowData.requiresScreenSpaceShadowResolve;
-            
+
             // Depth prepass is generated in the following cases:
             // - We resolve shadows in screen space
             // - Scene view camera always requires a depth texture. We do a depth pre-pass to simplify it and it shouldn't matter much for editor.
@@ -135,18 +135,18 @@ namespace UnityEngine.Rendering.Universal
             m_ActiveCameraColorAttachment = (createColorTexture) ? m_CameraColorAttachment : RenderTargetHandle.CameraTarget;
             m_ActiveCameraDepthAttachment = (createDepthTexture) ? m_CameraDepthAttachment : RenderTargetHandle.CameraTarget;
             bool intermediateRenderTexture = createColorTexture || createDepthTexture;
-            
+
             if (intermediateRenderTexture)
                 CreateCameraRenderTarget(context, ref renderingData.cameraData);
-            
+
             ConfigureCameraTarget(m_ActiveCameraColorAttachment.Identifier(), m_ActiveCameraDepthAttachment.Identifier());
 
             // if rendering to intermediate render texture we don't have to create msaa backbuffer
             int backbufferMsaaSamples = (intermediateRenderTexture) ? 1 : cameraTargetDescriptor.msaaSamples;
-            
+
             if (Camera.main == camera && camera.cameraType == CameraType.Game && camera.targetTexture == null)
                 SetupBackbufferFormat(backbufferMsaaSamples, renderingData.cameraData.isStereoEnabled);
-            
+
             for (int i = 0; i < rendererFeatures.Count; ++i)
             {
                 rendererFeatures[i].AddRenderPasses(this, ref renderingData);
@@ -355,7 +355,7 @@ namespace UnityEngine.Rendering.Universal
             QualitySettings.antiAliasing = msaaSamples;
 #endif
         }
-        
+
         bool RequiresIntermediateColorTexture(ref RenderingData renderingData, RenderTextureDescriptor baseDescriptor)
         {
             ref CameraData cameraData = ref renderingData.cameraData;

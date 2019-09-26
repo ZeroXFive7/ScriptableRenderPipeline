@@ -10,6 +10,9 @@ struct Attributes
     float4 tangentOS    : TANGENT;
     float2 texcoord     : TEXCOORD0;
     float2 lightmapUV   : TEXCOORD1;
+#if _VERTEX_COLOR
+    float4 color        : COLOR;
+#endif
     UNITY_VERTEX_INPUT_INSTANCE_ID
 };
 
@@ -37,9 +40,13 @@ struct Varyings
     float4 shadowCoord              : TEXCOORD7;
 #endif
 
+#if _VERTEX_COLOR
+    float4 color                    : COLOR;
+#endif
+
     float4 positionCS               : SV_POSITION;
     UNITY_VERTEX_INPUT_INSTANCE_ID
-    UNITY_VERTEX_OUTPUT_STEREO
+        UNITY_VERTEX_OUTPUT_STEREO
 };
 
 void InitializeInputData(Varyings input, half3 normalTS, out InputData inputData)
@@ -116,6 +123,10 @@ Varyings LitPassVertex(Attributes input)
     output.shadowCoord = GetShadowCoord(vertexInput);
 #endif
 
+#if _VERTEX_COLOR
+    output.color = input.color;
+#endif
+
     output.positionCS = vertexInput.positionCS;
 
     return output;
@@ -129,6 +140,10 @@ half4 LitPassFragment(Varyings input) : SV_Target
 
     SurfaceData surfaceData;
     InitializeStandardLitSurfaceData(input.uv, surfaceData);
+
+#if _VERTEX_COLOR
+    surfaceData.albedo *= input.color;
+#endif
 
     InputData inputData;
     InitializeInputData(input, surfaceData.normalTS, inputData);

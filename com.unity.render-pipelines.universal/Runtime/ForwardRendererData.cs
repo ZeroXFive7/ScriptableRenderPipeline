@@ -42,7 +42,7 @@ namespace UnityEngine.Rendering.Universal
 
             [Reload("Shaders/Utils/ScreenSpaceShadows.shader")]
             public Shader screenSpaceShadowPS;
-        
+
             [Reload("Shaders/Utils/Sampling.shader")]
             public Shader samplingPS;
         }

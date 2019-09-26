@@ -145,7 +145,7 @@ namespace UnityEngine.Rendering.Universal
         public abstract void Setup(ScriptableRenderContext context, ref RenderingData renderingData);
 
         /// <summary>
-        /// Override this method to implement the lighting setup for the renderer. You can use this to
+        /// Override this method to implement the lighting setup for the renderer. You can use this to 
         /// compute and upload light CBUFFER for example.
         /// </summary>
         /// <param name="context">Use this render context to issue any draw commands during execution.</param>
@@ -265,7 +265,7 @@ namespace UnityEngine.Rendering.Universal
 #if UNITY_EDITOR
             // We need public API to tell if FrameDebugger is active and enabled. In that case
             // we want to force a clear to see properly the drawcall stepping.
-            // For now, to fix FrameDebugger in Editor, we force a clear.
+            // For now, to fix FrameDebugger in Editor, we force a clear. 
             cameraClearFlags = CameraClearFlags.SolidColor;
 #endif
 
@@ -310,6 +310,7 @@ namespace UnityEngine.Rendering.Universal
             cmd.DisableShaderKeyword(ShaderKeywordStrings.AdditionalLightShadows);
             cmd.DisableShaderKeyword(ShaderKeywordStrings.SoftShadows);
             cmd.DisableShaderKeyword(ShaderKeywordStrings.MixedLightingSubtractive);
+            cmd.DisableShaderKeyword(ShaderKeywordStrings.FirstPersonDepth);
             context.ExecuteCommandBuffer(cmd);
             CommandBufferPool.Release(cmd);
         }
@@ -351,7 +352,7 @@ namespace UnityEngine.Rendering.Universal
             ref CameraData cameraData = ref renderingData.cameraData;
 
             // When render pass doesn't call ConfigureTarget we assume it's expected to render to camera target
-            // which might be backbuffer or the framebuffer render textures.
+            // which might be backbuffer or the framebuffer render textures. 
             if (!renderPass.overrideCameraTarget)
             {
                 passColorAttachment = m_CameraColorTarget;
