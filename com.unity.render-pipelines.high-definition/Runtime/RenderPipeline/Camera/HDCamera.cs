@@ -23,7 +23,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public Camera    camera;
         public Vector4   taaJitter;
         public int       taaFrameIndex;
-        public Vector2   taaFrameRotation;
+        public float     taaSharpenStrength;
         public Vector4   zBufferParams;
         public Vector4   unity_OrthoParams;
         public Vector4   projectionParams;
@@ -372,17 +372,43 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
                 for (uint eyeIndex = 0; eyeIndex < 2; eyeIndex++)
                 {
-                    // For VR, TAA proj matrices don't need to be jittered
-                    var currProjStereo = camera.GetStereoProjectionMatrix((Camera.StereoscopicEye)eyeIndex);
-                    var gpuCurrProjStereo = GL.GetGPUProjectionMatrix(currProjStereo, true);
-                    var gpuCurrViewStereo = camera.GetStereoViewMatrix((Camera.StereoscopicEye)eyeIndex);
+                    antialiasing = m_AdditionalCameraData.antialiasing;
+                    SMAAQuality = m_AdditionalCameraData.SMAAQuality;
+                    taaSharpenStrength = m_AdditionalCameraData.taaSharpenStrength;
+                }
+                else
+                    antialiasing = AntialiasingMode.None;
+            }
 
-                    if (ShaderConfig.s_CameraRelativeRendering != 0)
-                    {
-                        // Zero out the translation component.
-                        gpuCurrViewStereo.SetColumn(3, new Vector4(0, 0, 0, 1));
-                    }
-                    var gpuCurrVPStereo = gpuCurrProjStereo * gpuCurrViewStereo;
+            if (antialiasing != AntialiasingMode.TemporalAntialiasing)
+            {
+                taaFrameIndex = 0;
+                taaJitter = Vector4.zero;
+            }
+        }
+
+        void GetXrViewParameters(int xrViewIndex, out Matrix4x4 proj, out Matrix4x4 view, out Vector3 cameraPosition)
+        {
+            proj = xr.GetProjMatrix(xrViewIndex);
+            view = xr.GetViewMatrix(xrViewIndex);
+            cameraPosition = view.inverse.GetColumn(3);
+        }
+
+        void UpdateAllViewConstants()
+        {
+            // Allocate or resize view constants buffers
+            if (xrViewConstants == null || xrViewConstants.Length != viewCount)
+            {
+                xrViewConstants = new ViewConstants[viewCount];
+            }
+
+            UpdateAllViewConstants(IsTAAEnabled(), true);
+        }
+
+        public void UpdateAllViewConstants(bool jitterProjectionMatrix)
+        {
+            UpdateAllViewConstants(jitterProjectionMatrix, false);
+        }
 
                     // A camera could be rendered multiple times per frame, only updates the previous view proj & pos if needed
                     if (m_LastFrameActive != Time.frameCount)
@@ -903,7 +929,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             cmd.SetGlobalVector(HDShaderIDs._ProjectionParams,          projectionParams);
             cmd.SetGlobalVector(HDShaderIDs.unity_OrthoParams,          unity_OrthoParams);
             cmd.SetGlobalVector(HDShaderIDs._ScreenParams,              screenParams);
-            cmd.SetGlobalVector(HDShaderIDs._TaaFrameInfo,              new Vector4(taaFrameRotation.x, taaFrameRotation.y, taaFrameIndex, taaEnabled ? 1 : 0));
+            cmd.SetGlobalVector(HDShaderIDs._TaaFrameInfo,              new Vector4(taaSharpenStrength, 0, taaFrameIndex, taaEnabled ? 1 : 0));
             cmd.SetGlobalVector(HDShaderIDs._TaaJitterStrength,         taaJitter);
             cmd.SetGlobalVectorArray(HDShaderIDs._FrustumPlanes,        frustumPlaneEquations);
 

@@ -191,8 +191,188 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         Texture2DArray  m_DefaultTexture2DArray;
         Cubemap         m_DefaultTextureCube;
 
-        PlanarReflectionProbeCache m_ReflectionPlanarProbeCache;
-        ReflectionProbeCache m_ReflectionProbeCache;
+        internal class LightLoopTextureCaches
+        {
+            // Structure for cookies used by directional and spotlights
+            public TextureCache2D               cookieTexArray { get; private set; }
+            public LTCAreaLightCookieManager    areaLightCookieManager { get; private set; }
+            // Structure for cookies used by point lights
+            public TextureCacheCubemap          cubeCookieTexArray { get; private set; }
+            public ReflectionProbeCache         reflectionProbeCache { get; private set; }
+            public PlanarReflectionProbeCache   reflectionPlanarProbeCache { get; private set; }
+            public List<Matrix4x4>              env2DCaptureVP { get; private set; }
+            public List<float>                  env2DCaptureForward { get; private set; }
+
+            Material m_CubeToPanoMaterial;
+
+            public void Initialize(HDRenderPipelineAsset hdrpAsset, RenderPipelineResources defaultResources,  IBLFilterBSDF[] iBLFilterBSDFArray)
+            {
+                var lightLoopSettings = hdrpAsset.currentPlatformRenderPipelineSettings.lightLoopSettings;
+
+                m_CubeToPanoMaterial = CoreUtils.CreateEngineMaterial(defaultResources.shaders.cubeToPanoPS);
+
+                areaLightCookieManager = new LTCAreaLightCookieManager(hdrpAsset, defaultResources, k_MaxCacheSize);
+
+                env2DCaptureVP = new List<Matrix4x4>();
+                env2DCaptureForward = new List<float>();
+                for (int i = 0, c = Mathf.Max(1, lightLoopSettings.planarReflectionProbeCacheSize); i < c; ++i)
+                {
+                    env2DCaptureVP.Add(Matrix4x4.identity);
+                    env2DCaptureForward.Add(0);
+                    env2DCaptureForward.Add(0);
+                    env2DCaptureForward.Add(0);
+                }
+
+                cookieTexArray = new TextureCache2D("Cookie");
+                int coockieSize = lightLoopSettings.cookieTexArraySize;
+                int coockieResolution = (int)lightLoopSettings.cookieSize;
+                if (TextureCache2D.GetApproxCacheSizeInByte(coockieSize, coockieResolution, 1) > k_MaxCacheSize)
+                    coockieSize = TextureCache2D.GetMaxCacheSizeForWeightInByte(k_MaxCacheSize, coockieResolution, 1);
+                cookieTexArray.AllocTextureArray(coockieSize, coockieResolution, coockieResolution, TextureFormat.RGBA32, true);
+                cubeCookieTexArray = new TextureCacheCubemap("Cookie");
+                int coockieCubeSize = lightLoopSettings.cubeCookieTexArraySize;
+                int coockieCubeResolution = (int)lightLoopSettings.pointCookieSize;
+                if (TextureCacheCubemap.GetApproxCacheSizeInByte(coockieCubeSize, coockieCubeResolution, 1) > k_MaxCacheSize)
+                    coockieCubeSize = TextureCacheCubemap.GetMaxCacheSizeForWeightInByte(k_MaxCacheSize, coockieCubeResolution, 1);
+                cubeCookieTexArray.AllocTextureArray(coockieCubeSize, coockieCubeResolution, TextureFormat.RGBA32, true, m_CubeToPanoMaterial);
+
+                // For regular reflection probes, we need to convolve with all the BSDF functions
+                TextureFormat probeCacheFormat = lightLoopSettings.reflectionCacheCompressed ? TextureFormat.BC6H : TextureFormat.RGBAHalf;
+                int reflectionCubeSize = lightLoopSettings.reflectionProbeCacheSize;
+                int reflectionCubeResolution = (int)lightLoopSettings.reflectionCubemapSize;
+                if (ReflectionProbeCache.GetApproxCacheSizeInByte(reflectionCubeSize, reflectionCubeResolution, iBLFilterBSDFArray.Length) > k_MaxCacheSize)
+                    reflectionCubeSize = ReflectionProbeCache.GetMaxCacheSizeForWeightInByte(k_MaxCacheSize, reflectionCubeResolution, iBLFilterBSDFArray.Length);
+                reflectionProbeCache = new ReflectionProbeCache(defaultResources, iBLFilterBSDFArray, reflectionCubeSize, reflectionCubeResolution, probeCacheFormat, true);
+
+                // For planar reflection we only convolve with the GGX filter, otherwise it would be too expensive
+                TextureFormat planarProbeCacheFormat = lightLoopSettings.planarReflectionCacheCompressed ? TextureFormat.BC6H : TextureFormat.RGBAHalf;
+                int reflectionPlanarSize = lightLoopSettings.planarReflectionProbeCacheSize;
+                int reflectionPlanarResolution = (int)lightLoopSettings.planarReflectionTextureSize;
+                if (ReflectionProbeCache.GetApproxCacheSizeInByte(reflectionPlanarSize, reflectionPlanarResolution, 1) > k_MaxCacheSize)
+                    reflectionPlanarSize = ReflectionProbeCache.GetMaxCacheSizeForWeightInByte(k_MaxCacheSize, reflectionPlanarResolution, 1);
+                reflectionPlanarProbeCache = new PlanarReflectionProbeCache(defaultResources, (IBLFilterGGX)iBLFilterBSDFArray[0], reflectionPlanarSize, reflectionPlanarResolution, planarProbeCacheFormat, true);
+            }
+
+            public void Cleanup()
+            {
+                reflectionProbeCache.Release();
+                reflectionPlanarProbeCache.Release();
+                cookieTexArray.Release();
+                cubeCookieTexArray.Release();
+                areaLightCookieManager.ReleaseResources();
+
+                CoreUtils.Destroy(m_CubeToPanoMaterial);
+            }
+
+            public void NewFrame()
+            {
+                areaLightCookieManager.NewFrame();
+                cookieTexArray.NewFrame();
+                cubeCookieTexArray.NewFrame();
+                reflectionProbeCache.NewFrame();
+                reflectionPlanarProbeCache.NewFrame();
+            }
+        }
+
+        internal class LightLoopLightData
+        {
+            public ComputeBuffer    directionalLightData { get; private set; }
+            public ComputeBuffer    lightData { get; private set; }
+            public ComputeBuffer    envLightData { get; private set; }
+            public ComputeBuffer    decalData { get; private set; }
+
+            public void Initialize(int directionalCount, int punctualCount, int areaLightCount, int envLightCount, int decalCount)
+            {
+                directionalLightData = new ComputeBuffer(directionalCount, System.Runtime.InteropServices.Marshal.SizeOf(typeof(DirectionalLightData)));
+                lightData = new ComputeBuffer(punctualCount + areaLightCount, System.Runtime.InteropServices.Marshal.SizeOf(typeof(LightData)));
+                envLightData = new ComputeBuffer(envLightCount, System.Runtime.InteropServices.Marshal.SizeOf(typeof(EnvLightData)));
+                decalData = new ComputeBuffer(decalCount, System.Runtime.InteropServices.Marshal.SizeOf(typeof(DecalData)));
+            }
+
+            public void Cleanup()
+            {
+                CoreUtils.SafeRelease(directionalLightData);
+                CoreUtils.SafeRelease(lightData);
+                CoreUtils.SafeRelease(envLightData);
+                CoreUtils.SafeRelease(decalData);
+            }
+        }
+
+        class TileAndClusterData
+        {
+            public ComputeBuffer lightVolumeDataBuffer;
+            public ComputeBuffer convexBoundsBuffer;
+            public ComputeBuffer AABBBoundsBuffer;
+            public ComputeBuffer lightList;
+            public ComputeBuffer tileList;
+            public ComputeBuffer tileFeatureFlags;
+            public ComputeBuffer dispatchIndirectBuffer;
+            public ComputeBuffer bigTileLightList;        // used for pre-pass coarse culling on 64x64 tiles
+            public ComputeBuffer perVoxelLightLists;
+            public ComputeBuffer perVoxelOffset;
+            public ComputeBuffer perTileLogBaseTweak;
+            public ComputeBuffer globalLightListAtomic;
+
+            public void Initialize()
+            {
+                globalLightListAtomic = new ComputeBuffer(1, sizeof(uint));
+            }
+
+            public void AllocateResolutionDependentBuffers(HDCamera hdCamera, int width, int height, int viewCount, int maxLightOnScreen)
+            {
+                var nrTilesX = (width + LightDefinitions.s_TileSizeFptl - 1) / LightDefinitions.s_TileSizeFptl;
+                var nrTilesY = (height + LightDefinitions.s_TileSizeFptl - 1) / LightDefinitions.s_TileSizeFptl;
+                var nrTiles = nrTilesX * nrTilesY * viewCount;
+                const int capacityUShortsPerTile = 32;
+                const int dwordsPerTile = (capacityUShortsPerTile + 1) >> 1;        // room for 31 lights and a nrLights value.
+
+                lightList = new ComputeBuffer((int)LightCategory.Count * dwordsPerTile * nrTiles, sizeof(uint));       // enough list memory for a 4k x 4k display
+                tileList = new ComputeBuffer((int)LightDefinitions.s_NumFeatureVariants * nrTiles, sizeof(uint));
+                tileFeatureFlags = new ComputeBuffer(nrTiles, sizeof(uint));
+
+                // Cluster
+                {
+                    var nrClustersX = (width + LightDefinitions.s_TileSizeClustered - 1) / LightDefinitions.s_TileSizeClustered;
+                    var nrClustersY = (height + LightDefinitions.s_TileSizeClustered - 1) / LightDefinitions.s_TileSizeClustered;
+                    var nrClusterTiles = nrClustersX * nrClustersY * viewCount;
+
+                    perVoxelOffset = new ComputeBuffer((int)LightCategory.Count * (1 << k_Log2NumClusters) * nrClusterTiles, sizeof(uint));
+                    perVoxelLightLists = new ComputeBuffer(NumLightIndicesPerClusteredTile() * nrClusterTiles, sizeof(uint));
+
+                    if (k_UseDepthBuffer)
+                    {
+                        perTileLogBaseTweak = new ComputeBuffer(nrClusterTiles, sizeof(float));
+                    }
+                }
+
+                if (hdCamera.frameSettings.IsEnabled(FrameSettingsField.BigTilePrepass))
+                {
+                    var nrBigTilesX = (width + 63) / 64;
+                    var nrBigTilesY = (height + 63) / 64;
+                    var nrBigTiles = nrBigTilesX * nrBigTilesY * viewCount;
+                    bigTileLightList = new ComputeBuffer(LightDefinitions.s_MaxNrBigTileLightsPlusOne * nrBigTiles, sizeof(uint));
+                }
+
+                // The bounds and light volumes are view-dependent, and AABB is additionally projection dependent.
+                // TODO: I don't think k_MaxLightsOnScreen corresponds to the actual correct light count for cullable light types (punctual, area, env, decal)
+                AABBBoundsBuffer = new ComputeBuffer(viewCount * 2 * maxLightOnScreen, 4 * sizeof(float));
+                convexBoundsBuffer = new ComputeBuffer(viewCount * maxLightOnScreen, System.Runtime.InteropServices.Marshal.SizeOf(typeof(SFiniteLightBound)));
+                lightVolumeDataBuffer = new ComputeBuffer(viewCount * maxLightOnScreen, System.Runtime.InteropServices.Marshal.SizeOf(typeof(LightVolumeData)));
+
+                // Need 3 ints for DispatchIndirect, but need 4 ints for DrawInstancedIndirect.
+                dispatchIndirectBuffer = new ComputeBuffer(viewCount * LightDefinitions.s_NumFeatureVariants * 4, sizeof(uint), ComputeBufferType.IndirectArguments);
+            }
+
+            public void ReleaseResolutionDependentBuffers()
+            {
+                CoreUtils.SafeRelease(lightList);
+                CoreUtils.SafeRelease(tileList);
+                CoreUtils.SafeRelease(tileFeatureFlags);
+
+                // enableClustered
+                CoreUtils.SafeRelease(perVoxelLightLists);
+                CoreUtils.SafeRelease(perVoxelOffset);
+                CoreUtils.SafeRelease(perTileLogBaseTweak);
 
         // Structure for cookies used by directional and spotlights
         public TextureCache2D cookieTexArray { get { return m_CookieTexArray; } }
@@ -984,9 +1164,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 m_CurrentSunLight = lightComponent;
                 m_CurrentShadowSortedSunLightIndex = sortedIndex;
             }
-
+            //Value of max smoothness is derived from AngularDiameter. Formula results from eyeballing. Angular diameter of 0 results in 1 and angular diameter of 80 results in 0.
+            float maxSmoothness = Mathf.Clamp01(1.35f / (1.0f + Mathf.Pow(1.15f * (0.0315f * additionalLightData.angularDiameter + 0.4f),2f)) - 0.11f);
             // Value of max smoothness is from artists point of view, need to convert from perceptual smoothness to roughness
-            lightData.minRoughness = Mathf.Max((1.0f - additionalLightData.maxSmoothness) * (1.0f - additionalLightData.maxSmoothness));
+            lightData.minRoughness = (1.0f - maxSmoothness) * (1.0f - maxSmoothness);
 
             lightData.shadowMaskSelector = Vector4.zero;
 
@@ -1249,9 +1430,11 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 #else
             // fix up shadow information
             lightData.shadowIndex = shadowIndex;
-            #endif
+#endif
+            //Value of max smoothness is derived from Radius. Formula results from eyeballing. Radius of 0 results in 1 and radius of 2.5 results in 0.
+            float maxSmoothness = Mathf.Clamp01(1.1725f / (1.01f + Mathf.Pow(1.0f * (additionalLightData.shapeRadius + 0.1f), 2f)) - 0.15f);
             // Value of max smoothness is from artists point of view, need to convert from perceptual smoothness to roughness
-            lightData.minRoughness = (1.0f - additionalLightData.maxSmoothness) * (1.0f - additionalLightData.maxSmoothness);
+            lightData.minRoughness = (1.0f - maxSmoothness) * (1.0f - maxSmoothness);
 
             lightData.shadowMaskSelector = Vector4.zero;
 
@@ -1746,9 +1929,82 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public bool PrepareLightsForGPU(CommandBuffer cmd, HDCamera hdCamera, CullingResults cullResults,
             HDProbeCullingResults hdProbeCullingResults, DensityVolumeList densityVolumes, DebugDisplaySettings debugDisplaySettings)
         {
-        #if ENABLE_RAYTRACING
-            HDRaytracingEnvironment raytracingEnv = m_RayTracingManager.CurrentEnvironment();
-        #endif
+            lightCategory = LightCategory.Count;
+            gpuLightType = GPULightType.Point;
+            lightVolumeType = LightVolumeType.Count;
+
+            if (lightTypeExtent == LightTypeExtent.Punctual)
+            {
+                lightCategory = LightCategory.Punctual;
+
+                switch (lightType)
+                {
+                    case LightType.Spot:
+                        switch (spotLightShape)
+                        {
+                            case SpotLightShape.Cone:
+                                gpuLightType = GPULightType.Spot;
+                                lightVolumeType = LightVolumeType.Cone;
+                                break;
+                            case SpotLightShape.Pyramid:
+                                gpuLightType = GPULightType.ProjectorPyramid;
+                                lightVolumeType = LightVolumeType.Cone;
+                                break;
+                            case SpotLightShape.Box:
+                                gpuLightType = GPULightType.ProjectorBox;
+                                lightVolumeType = LightVolumeType.Box;
+                                break;
+                            default:
+                                Debug.Assert(false, "Encountered an unknown SpotLightShape.");
+                                break;
+            }
+                        break;
+
+                    case LightType.Directional:
+                        gpuLightType = GPULightType.Directional;
+                        // No need to add volume, always visible
+                        lightVolumeType = LightVolumeType.Count; // Count is none
+                        break;
+
+                    case LightType.Point:
+                        gpuLightType = GPULightType.Point;
+                        lightVolumeType = LightVolumeType.Sphere;
+                        break;
+
+                    default:
+                        Debug.Assert(false, "Encountered an unknown LightType.");
+                        break;
+                }
+            }
+            else
+            {
+                lightCategory = LightCategory.Area;
+
+                switch (lightTypeExtent)
+                {
+                    case LightTypeExtent.Rectangle:
+                        gpuLightType = GPULightType.Rectangle;
+                        lightVolumeType = LightVolumeType.Box;
+                        break;
+
+                    case LightTypeExtent.Tube:
+                        gpuLightType = GPULightType.Tube;
+                        lightVolumeType = LightVolumeType.Box;
+                        break;
+
+                    default:
+                        Debug.Assert(false, "Encountered an unknown LightType.");
+                        break;
+                }
+            }
+        }
+
+        // Return true if BakedShadowMask are enabled
+        bool PrepareLightsForGPU(CommandBuffer cmd, HDCamera hdCamera, CullingResults cullResults,
+            HDProbeCullingResults hdProbeCullingResults, DensityVolumeList densityVolumes, DebugDisplaySettings debugDisplaySettings, AOVRequestData aovRequest)
+        {
+            var debugLightFilter = debugDisplaySettings.GetDebugLightFilterMode();
+            var hasDebugLightFilter = debugLightFilter != DebugLightFilterMode.None;
 
             using (new ProfilingSample(cmd, "Prepare Lights For GPU"))
             {
@@ -1761,6 +2017,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
                 // We need to properly reset this here otherwise if we go from 1 light to no visible light we would keep the old reference active.
                 m_CurrentSunLight = null;
+                m_CurrentSunLightAdditionalLightData = null;
                 m_CurrentShadowSortedSunLightIndex = -1;
                 m_DominantLightIndex = -1;
                 m_DominantLightValue = 0;

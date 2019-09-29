@@ -64,8 +64,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         RaytracingFilterReflection,
         RaytracingAmbientOcclusion,
         RaytracingFilterAO,
-        RaytracingShadowIntegration,
-        RaytracingShadowCombination,
+        RaytracingDirectionalLightShadow,
+        RaytracingLightShadow,
+        RaytracingIntegrateIndirectDiffuse,
+        RaytracingFilterIndirectDiffuse,
         RaytracingDebug,
 
         // Profile sampler for tile pass

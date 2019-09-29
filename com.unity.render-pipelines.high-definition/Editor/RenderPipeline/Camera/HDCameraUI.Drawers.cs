@@ -425,6 +425,14 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
         static void Drawer_Antialiasing(SerializedHDCamera p, Editor owner)
         {
             p.antialiasing.intValue = EditorGUILayout.Popup(antialiasingContent, p.antialiasing.intValue, antialiasingModeNames);
+            if (p.antialiasing.intValue == (int)HDAdditionalCameraData.AntialiasingMode.SubpixelMorphologicalAntiAliasing)
+            {
+                EditorGUILayout.PropertyField(p.SMAAQuality, SMAAQualityPresetContent);
+            }
+            else if(p.antialiasing.intValue == (int)HDAdditionalCameraData.AntialiasingMode.TemporalAntialiasing)
+            {
+                EditorGUILayout.PropertyField(p.taaSharpenStrength, TAASharpenContent);
+            }
         }
 
         static void Drawer_Dithering(SerializedHDCamera p, Editor owner)

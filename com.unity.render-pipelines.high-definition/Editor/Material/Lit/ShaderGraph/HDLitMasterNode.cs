@@ -887,5 +887,25 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
 
             base.CollectShaderProperties(collector, generationMode);
         }
+
+        public override void ValidateNode()
+        {
+            var hdPipelineAsset = GraphicsSettings.renderPipelineAsset as HDRenderPipelineAsset;
+
+            if (hdPipelineAsset == null)
+                return;
+
+            var diffusionProfileSlot = FindSlot<DiffusionProfileInputMaterialSlot>(DiffusionProfileHashSlotId);
+
+            if (diffusionProfileSlot == null)
+                return;
+
+            if ((diffusionProfileSlot.diffusionProfile) != null && !hdPipelineAsset.diffusionProfileSettingsList.Any(d => d == diffusionProfileSlot.diffusionProfile))
+            {
+                Debug.LogWarning($"Diffusion profile '{diffusionProfileSlot.diffusionProfile.name}' is not referenced in the current HDRP asset");
+            }
+
+            base.ValidateNode();
+        }
     }
 }

@@ -5,6 +5,7 @@ using UnityEditor.ShaderGraph;
 using UnityEditor.ShaderGraph.Drawing.Controls;
 using UnityEngine.Experimental.Rendering.HDPipeline;
 using System;
+using System.Linq;
 using UnityEngine.Rendering;
 
 namespace UnityEditor.Experimental.Rendering.HDPipeline
@@ -69,6 +70,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
                 m_SerializedDiffusionProfile = EditorJsonUtility.ToJson(serializedProfile, true);
                 m_DiffusionProfileAsset = value;
                 Dirty(ModificationScope.Node);
+                ValidateNode();
             }
         }
 
@@ -107,6 +109,21 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
                 hash = (diffusionProfile.profile.hash);
             
             visitor.AddShaderChunk(precision + " " + GetVariableNameForSlot(0) + " = asfloat(uint(" + hash + "));", true);
+        }
+
+        public override void ValidateNode()
+        {
+            base.ValidateNode();
+
+            var hdPipelineAsset = GraphicsSettings.renderPipelineAsset as HDRenderPipelineAsset;
+
+            if (hdPipelineAsset == null)
+                return;
+
+            if (diffusionProfile != null && !hdPipelineAsset.diffusionProfileSettingsList.Any(d => d == diffusionProfile))
+            {
+                Debug.LogWarning($"Diffusion profile '{diffusionProfile.name}' is not referenced in the current HDRP asset");
+            }
         }
     }
 }

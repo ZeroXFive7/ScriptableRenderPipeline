@@ -38,6 +38,11 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             m_MaterialFilterAreaLights = CoreUtils.CreateEngineMaterial(hdAsset.renderPipelineResources.shaders.filterAreaLightCookiesPS);
         }
 
+        internal void NewFrame()
+        {
+            m_AreaCookieTexArray.NewFrame();
+        }
+
         public void ReleaseResources()
         {
             if(m_AreaCookieTexArray != null)

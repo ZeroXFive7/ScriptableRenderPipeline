@@ -4,20 +4,26 @@ using System.Collections.Generic;
 
 namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
-#if ENABLE_RAYTRACING
-    public class RayCountManager
+    /// <summary>
+    /// The different ray count values that can be asked for.
+    /// </summary>
+    [GenerateHLSL]
+    public enum RayCountValues
     {
-        // Indices of the values that we can query
-        public enum RayCountValues
-        {
-            AmbientOcclusion = 0,
-            Reflection = 1,
-            AreaShadow = 2,
-            Total = 3
-        }
-        // Texture that keeps track of the ray count per pixel
-        public RTHandleSystem.RTHandle rayCountTexture { get { return m_RayCountTexture; } }
-        RTHandleSystem.RTHandle m_RayCountTexture = null;
+        Visibility = 0,
+        Indirect = 1,
+        Forward = 2,
+        GBuffer = 3,
+        Count = 4,
+        Total = 5
+    }
+
+    class RayCountManager
+    {
+        
+#if ENABLE_RAYTRACING
+        // Texture that holds the ray count per pixel
+        RTHandle m_RayCountTexture = null;
 
         // Buffer that holds the reductions of the ray count
         ComputeBuffer m_ReducedRayCountBuffer0 = null;
@@ -34,7 +40,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         // Given that the requests are guaranteed to be executed in order we use a queue to store it
         Queue<AsyncGPUReadbackRequest> rayCountReadbacks = new Queue<AsyncGPUReadbackRequest>();
 
-        public void Init(RenderPipelineResources renderPipelineResources, DebugDisplaySettings currentDebugDisplaySettings)
+        public void Init(HDRenderPipelineRayTracingResources rayTracingResources)
         {
             // Keep track of the external resources
             m_DebugDisplaySettings = currentDebugDisplaySettings;
@@ -184,11 +190,11 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             }
         }
 
-        public float GetRaysPerFrame(RayCountValues rayCountValue)
+        public uint GetRaysPerFrame(RayCountValues rayCountValue)
         {
             if (!m_DebugDisplaySettings.data.countRays)
             {
-                return 0.0f;
+                return 0;
             }
             else
             {

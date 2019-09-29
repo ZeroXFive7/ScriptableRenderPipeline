@@ -483,6 +483,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public static readonly int _RaytracingNoiseResolution       = Shader.PropertyToID("_RaytracingNoiseResolution");
         public static readonly int _RaytracingNumNoiseLayers        = Shader.PropertyToID("_RaytracingNumNoiseLayers");
         public static readonly int _RaytracingRayBias               = Shader.PropertyToID("_RaytracingRayBias");
+        public static readonly int _RayTracingLayerMask             = Shader.PropertyToID("_RayTracingLayerMask");
         public static readonly int _RaytracingNumSamples            = Shader.PropertyToID("_RaytracingNumSamples");
         public static readonly int _RaytracingRayMaxLength          = Shader.PropertyToID("_RaytracingRayMaxLength");
         public static readonly int _RaytracingMaxRecursion          = Shader.PropertyToID("_RaytracingMaxRecursion");
@@ -514,6 +515,37 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public static readonly int _AccumulatedFrameTexture         = Shader.PropertyToID("_AccumulatedFrameTexture");
         public static readonly int _TemporalAccumuationWeight       = Shader.PropertyToID("_TemporalAccumuationWeight");
         public static readonly int _SpatialFilterRadius             = Shader.PropertyToID("_SpatialFilterRadius");
+        public static readonly int _RaytracingReflectionMaxDistance = Shader.PropertyToID("_RaytracingReflectionMaxDistance");
+        public static readonly int _RaytracingHitDistanceTexture    = Shader.PropertyToID("_RaytracingHitDistanceTexture");
+        public static readonly int _RaytracingIntensityClamp        = Shader.PropertyToID("_RaytracingIntensityClamp");
+        public static readonly int _RaytracingPreExposition         = Shader.PropertyToID("_RaytracingPreExposition");
+        public static readonly int _RaytracingReflectionMinSmoothness   = Shader.PropertyToID("_RaytracingReflectionMinSmoothness");
+        public static readonly int _RaytracingVSNormalTexture       = Shader.PropertyToID("_RaytracingVSNormalTexture");
+        public static readonly int _RaytracingIncludeSky            = Shader.PropertyToID("_RaytracingIncludeSky");
+
+        // Shadows
+        public static readonly int _RaytracingTargetAreaLight       = Shader.PropertyToID("_RaytracingTargetAreaLight");
+        public static readonly int _RaytracingShadowSlot            = Shader.PropertyToID("_RaytracingShadowSlot");
+        public static readonly int _RaytracingAreaWorldToLocal      = Shader.PropertyToID("_RaytracingAreaWorldToLocal");
+        public static readonly int _RaytracedAreaShadowSample       = Shader.PropertyToID("_RaytracedAreaShadowSample");
+        public static readonly int _RaytracedAreaShadowIntegration = Shader.PropertyToID("_RaytracedAreaShadowIntegration");
+        public static readonly int _RaytracingDirectionBuffer       = Shader.PropertyToID("_RaytracingDirectionBuffer");
+        public static readonly int _RaytracingDistanceBuffer        = Shader.PropertyToID("_RaytracingDistanceBuffer");
+        public static readonly int _AreaShadowTexture               = Shader.PropertyToID("_AreaShadowTexture");
+        public static readonly int _AreaShadowTextureRW             = Shader.PropertyToID("_AreaShadowTextureRW");
+        public static readonly int _ScreenSpaceShadowsTextureRW     = Shader.PropertyToID("_ScreenSpaceShadowsTextureRW");
+        public static readonly int _AreaShadowHistory               = Shader.PropertyToID("_AreaShadowHistory");
+        public static readonly int _AreaShadowHistoryRW             = Shader.PropertyToID("_AreaShadowHistoryRW");
+        public static readonly int _AnalyticProbBuffer              = Shader.PropertyToID("_AnalyticProbBuffer");
+        public static readonly int _AnalyticHistoryBuffer           = Shader.PropertyToID("_AnalyticHistoryBuffer");
+        public static readonly int _RaytracingLightRadius           = Shader.PropertyToID("_RaytracingLightRadius");
+
+        public static readonly int _RaytracingSpotAngle             = Shader.PropertyToID("_RaytracingSpotAngle");
+        public static readonly int _RaytracedDirectionalShadowIntegration = Shader.PropertyToID("_RaytracedDirectionalShadowIntegration");
+        public static readonly int _DirectionalLightAngle            = Shader.PropertyToID("_DirectionalLightAngle");
+
+        // Ambient occlusion
+        public static readonly int _RaytracingAOIntensity           = Shader.PropertyToID("_RaytracingAOIntensity");
 
         public static readonly int _RayCountEnabled                 = Shader.PropertyToID("_RayCountEnabled");
         public static readonly int _RayCountTexture                 = Shader.PropertyToID("_RayCountTexture");
@@ -522,8 +554,29 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public static readonly int _OutputRayCountBuffer            = Shader.PropertyToID("_OutputRayCountBuffer");
         public static readonly int _InputBufferDimension            = Shader.PropertyToID("_InputBufferDimension");
         public static readonly int _OutputBufferDimension           = Shader.PropertyToID("_OutputBufferDimension");
-#else
-        public static readonly int _RaytracedAreaShadow             = Shader.PropertyToID("_RaytracedAreaShadow");
+
+        // Primary Visibility
+        public static readonly int _RaytracingFlagMask              = Shader.PropertyToID("_RaytracingFlagMask");
+        public static readonly int _RaytracingMinRecursion          = Shader.PropertyToID("_RaytracingMinRecursion");
+        public static readonly int _RaytracingMaxRecursion          = Shader.PropertyToID("_RaytracingMaxRecursion");
+        public static readonly int _RaytracingPrimaryDebug          = Shader.PropertyToID("_RaytracingPrimaryDebug");
+        public static readonly int _RaytracingCameraNearPlane       = Shader.PropertyToID("_RaytracingCameraNearPlane");
+
+        // Indirect diffuse
+        public static readonly int _RaytracedIndirectDiffuse            = Shader.PropertyToID("_RaytracedIndirectDiffuse");
+        public static readonly int _IndirectDiffuseTexture              = Shader.PropertyToID("_IndirectDiffuseTexture");
+        public static readonly int _IndirectDiffuseTextureRW            = Shader.PropertyToID("_IndirectDiffuseTextureRW");
+        public static readonly int _IndirectDiffuseHitPointTextureRW    = Shader.PropertyToID("_IndirectDiffuseHitPointTextureRW");
+        public static readonly int _UpscaledIndirectDiffuseTextureRW    = Shader.PropertyToID("_UpscaledIndirectDiffuseTextureRW");
+        
+        // Deferred Lighting
+        public static readonly int _RaytracingLitBufferRW           = Shader.PropertyToID("_RaytracingLitBufferRW");
+        public static readonly int _RaytracingDiffuseRay            = Shader.PropertyToID("_RaytracingDiffuseRay");
+
+        // Ray binning
+        public static readonly int _RayBinResult                    = Shader.PropertyToID("_RayBinResult");
+        public static readonly int _RayBinSizeResult                = Shader.PropertyToID("_RayBinSizeResult");
+        public static readonly int _RayBinTileCountX                = Shader.PropertyToID("_RayBinTileCountX");
 #endif
         // Preintegrated texture name
         public static readonly int _PreIntegratedFGD_GGXDisneyDiffuse = Shader.PropertyToID("_PreIntegratedFGD_GGXDisneyDiffuse");

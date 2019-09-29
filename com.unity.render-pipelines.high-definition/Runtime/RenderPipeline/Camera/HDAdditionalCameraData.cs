@@ -131,6 +131,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public bool dithering = false;
         public bool stopNaNs = false;
 
+        [Range(0, 2)]
+        public float taaSharpenStrength = 0.6f;
+
         // Physical parameters
         public HDPhysicalCamera physicalParameters = new HDPhysicalCamera();
 

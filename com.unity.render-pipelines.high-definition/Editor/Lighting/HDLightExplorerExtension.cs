@@ -28,13 +28,12 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
         struct VolumeData
         {
             public bool isGlobal;
-            public bool hasStaticLightingSky;
             public bool hasVisualEnvironment;
             public VolumeProfile profile;
             public FogType fogType;
             public SkyType skyType;
 
-            public VolumeData(bool isGlobal, VolumeProfile profile, bool hasStaticLightingSky)
+            public VolumeData(bool isGlobal, VolumeProfile profile)
             {
                 this.isGlobal = isGlobal;
                 this.profile = profile;
@@ -50,7 +49,6 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
                     this.skyType = (SkyType)1;
                     this.fogType = (FogType)0;
                 }
-                this.hasStaticLightingSky = hasStaticLightingSky;
             }
         }
 
@@ -58,7 +56,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
 
         static Dictionary<Volume, VolumeData> volumeDataPairing = new Dictionary<Volume, VolumeData>();
 
-        static Dictionary<ReflectionProbe, HDAdditionalReflectionData> reflectionProbeDataPairing = new Dictionary<ReflectionProbe, HDAdditionalReflectionData>();
+        static Dictionary<ReflectionProbe, SerializedObject> serializedReflectionProbeDataPairing = new Dictionary<ReflectionProbe, SerializedObject>();
 
         protected static class HDStyles
         {
@@ -88,14 +86,13 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             public static readonly GUIContent HasVisualEnvironment = EditorGUIUtility.TrTextContent("Has Visual Environment");
             public static readonly GUIContent FogType = EditorGUIUtility.TrTextContent("Fog Type");
             public static readonly GUIContent SkyType = EditorGUIUtility.TrTextContent("Sky Type");
-            public static readonly GUIContent HasStaticLightingSky = EditorGUIUtility.TrTextContent("Has Static Lighting Sky");
 
             public static readonly GUIContent ReflectionProbeMode = EditorGUIUtility.TrTextContent("Mode");
             public static readonly GUIContent ReflectionProbeShape = EditorGUIUtility.TrTextContent("Shape");
             public static readonly GUIContent ReflectionProbeShadowDistance = EditorGUIUtility.TrTextContent("Shadow Distance");
             public static readonly GUIContent ReflectionProbeNearClip = EditorGUIUtility.TrTextContent("Near Clip");
             public static readonly GUIContent ReflectionProbeFarClip = EditorGUIUtility.TrTextContent("Far Clip");
-            public static readonly GUIContent ParallaxCorrection = EditorGUIUtility.TrTextContent("Parallax Correction");
+            public static readonly GUIContent ParallaxCorrection = EditorGUIUtility.TrTextContent("Influence Volume as Proxy Volume");
             public static readonly GUIContent ReflectionProbeWeight = EditorGUIUtility.TrTextContent("Weight");
 
             public static readonly GUIContent[] LightmapBakeTypeTitles = { EditorGUIUtility.TrTextContent("Realtime"), EditorGUIUtility.TrTextContent("Mixed"), EditorGUIUtility.TrTextContent("Baked") };
@@ -122,8 +119,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             {
                 if (PrefabUtility.GetCorrespondingObjectFromSource(light) != null) // We have a prefab
                 {
-                    lightDataPairing[light] = new LightData(light.GetComponent<HDAdditionalLightData>(), light.GetComponent<AdditionalShadowData>(),
-                                                            true, PrefabUtility.GetCorrespondingObjectFromSource(PrefabUtility.GetOutermostPrefabInstanceRoot(light.gameObject)));
+                    lightDataPairing[light] = new LightData(light.GetComponent<HDAdditionalLightData>(),true, PrefabUtility.GetCorrespondingObjectFromSource(PrefabUtility.GetOutermostPrefabInstanceRoot(light.gameObject)));
                 }
                 else
                 {
@@ -139,7 +135,8 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             {
                 foreach (ReflectionProbe probe in reflectionProbes )
                 {
-                    reflectionProbeDataPairing[probe] = probe.GetComponent<HDAdditionalReflectionData>();
+                    HDAdditionalReflectionData hdAdditionalReflectionData = probe.GetComponent<HDAdditionalReflectionData>();
+                    serializedReflectionProbeDataPairing[probe] = hdAdditionalReflectionData != null ? new SerializedObject(hdAdditionalReflectionData) : null;
                 }
             }
             return reflectionProbes;
@@ -155,8 +152,9 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             var volumes = UnityEngine.Object.FindObjectsOfType<Volume>();
             foreach (var volume in volumes)
             {
-                bool hasStaticLightingSky = volume.GetComponent<StaticLightingSky>();
-                volumeDataPairing[volume] = new VolumeData(volume.isGlobal, volume.HasInstantiatedProfile() ? volume.profile : volume.sharedProfile, hasStaticLightingSky);
+                volumeDataPairing[volume] = !volume.HasInstantiatedProfile() && volume.sharedProfile == null
+                    ? new VolumeData(volume.isGlobal, null)
+                    : new VolumeData(volume.isGlobal, volume.HasInstantiatedProfile() ? volume.profile : volume.sharedProfile);
             }
             return volumes;
         }
@@ -287,7 +285,61 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
                         lightDataPairing[light].hdAdditionalLightData.affectSpecular = affectSpecular;
                     }
                 }),
-                new LightingExplorerTableColumn(LightingExplorerTableColumn.DataType.Custom, HDStyles.IsPrefab, "m_Intensity", 60, (r, prop, dep) =>                // 16: Prefab
+                new LightingExplorerTableColumn(LightingExplorerTableColumn.DataType.Float, HDStyles.FadeDistance, "m_Intensity", 60, (r, prop, dep) =>                // 18: Fade Distance
+                {
+                    Light light = prop.serializedObject.targetObject as Light;
+                    if(light == null || lightDataPairing[light].hdAdditionalLightData == null)
+                    {
+                        EditorGUI.LabelField(r,"null");
+                        return;
+                    }
+                    float fadeDistance = lightDataPairing[light].hdAdditionalLightData.fadeDistance;
+                    EditorGUI.BeginChangeCheck();
+                    fadeDistance = EditorGUI.FloatField(r, fadeDistance);
+                    if (EditorGUI.EndChangeCheck())
+                    {
+                        Undo.RecordObject(lightDataPairing[light].hdAdditionalLightData, "Changed light fade distance");
+                        lightDataPairing[light].hdAdditionalLightData.fadeDistance = fadeDistance;
+                    }
+                }),
+                new LightingExplorerTableColumn(LightingExplorerTableColumn.DataType.Float, HDStyles.ShadowFadeDistance, "m_Intensity", 60, (r, prop, dep) =>           // 19: Shadow Fade Distance
+                {
+                    Light light = prop.serializedObject.targetObject as Light;
+                    if(light == null || lightDataPairing[light].hdAdditionalLightData == null)
+                    {
+                        EditorGUI.LabelField(r,"null");
+                        return;
+                    }
+                    float shadowFadeDistance = lightDataPairing[light].hdAdditionalLightData.shadowFadeDistance;
+                    EditorGUI.BeginChangeCheck();
+                    shadowFadeDistance = EditorGUI.FloatField(r, shadowFadeDistance);
+                    if (EditorGUI.EndChangeCheck())
+                    {
+                        Undo.RecordObject(lightDataPairing[light].hdAdditionalLightData, "Changed light shadow fade distance");
+                        lightDataPairing[light].hdAdditionalLightData.shadowFadeDistance = shadowFadeDistance;
+                    }
+                }),
+                new LightingExplorerTableColumn(LightingExplorerTableColumn.DataType.Custom, HDStyles.LightLayer, "m_RenderingLayerMask", 80, (r, prop, dep) =>     // 20: Light Layer
+                {
+                    using (new EditorGUI.DisabledScope(!(GraphicsSettings.renderPipelineAsset as HDRenderPipelineAsset).currentPlatformRenderPipelineSettings.supportLightLayers))
+                    {
+                        Light light = prop.serializedObject.targetObject as Light;
+                        if(light == null || lightDataPairing[light].hdAdditionalLightData == null)
+                        {
+                            EditorGUI.LabelField(r,"null");
+                            return;
+                        }
+                        int lightLayer = (int)lightDataPairing[light].hdAdditionalLightData.lightlayersMask;
+                        EditorGUI.BeginChangeCheck();
+                        lightLayer = HDEditorUtils.LightLayerMaskPropertyDrawer(r, lightLayer);
+                        if (EditorGUI.EndChangeCheck())
+                        {
+                            Undo.RecordObject(lightDataPairing[light].hdAdditionalLightData, "Changed light layer");
+                            lightDataPairing[light].hdAdditionalLightData.lightlayersMask = (LightLayerEnum)lightLayer;
+                        }
+                    }
+                }),
+                new LightingExplorerTableColumn(LightingExplorerTableColumn.DataType.Custom, HDStyles.IsPrefab, "m_Intensity", 60, (r, prop, dep) =>                // 21: Prefab
                 {
                     Light light = prop.serializedObject.targetObject as Light;
                     if(light == null)
@@ -363,19 +415,6 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
                         EditorGUI.EndDisabledGroup();
                     }
                 }),
-                new LightingExplorerTableColumn(LightingExplorerTableColumn.DataType.Checkbox, HDStyles.HasStaticLightingSky, "sharedProfile", 100, (r, prop, dep) =>       // 8: Has Static Lighting Sky
-                {
-                    Volume volume = prop.serializedObject.targetObject as Volume;
-                    if(volume == null)
-                    {
-                        EditorGUI.LabelField(r,"null");
-                        return;
-                    }
-                    bool hasStaticLightingSky = volumeDataPairing[volume].hasStaticLightingSky;
-                    EditorGUI.BeginDisabledGroup(true);
-                    EditorGUI.Toggle(r, hasStaticLightingSky);
-                    EditorGUI.EndDisabledGroup();
-                }),
             };
         }
 
@@ -385,9 +424,18 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             {
                 new LightingExplorerTableColumn(LightingExplorerTableColumn.DataType.Name, HDStyles.Name, null, 200),                                               // 0: Name
                 new LightingExplorerTableColumn(LightingExplorerTableColumn.DataType.Checkbox, HDStyles.On, "m_Enabled", 25),                                       // 1: Enabled
-                new LightingExplorerTableColumn(LightingExplorerTableColumn.DataType.Enum, HDStyles.ReflectionProbeMode, "m_Mode", 60, (r, prop, dep) =>            // 2: Mode
+                new LightingExplorerTableColumn(LightingExplorerTableColumn.DataType.Custom, HDStyles.ReflectionProbeMode, "m_Mode", 60, (r, prop, dep) =>         // 2: Mode
                 {
-                    prop.intValue = (int)(UnityEngine.Rendering.ReflectionProbeMode)EditorGUI.EnumPopup(r,(UnityEngine.Rendering.ReflectionProbeMode)prop.intValue);
+                    ReflectionProbe probe = prop.serializedObject.targetObject as ReflectionProbe;
+                    if(probe == null)
+                    {
+                        EditorGUI.LabelField(r,"null");
+                        return;
+                    }
+                    SerializedObject serializedPaired = serializedReflectionProbeDataPairing[probe];
+                    serializedPaired.Update();
+                    EditorGUI.PropertyField(r,serializedPaired.FindProperty("m_ProbeSettings.mode"),GUIContent.none);
+                    serializedPaired.ApplyModifiedProperties();
                 }),
                 new LightingExplorerTableColumn(LightingExplorerTableColumn.DataType.Enum, HDStyles.ReflectionProbeShape, "m_Mode", 60, (r, prop, dep) =>           // 3: Shape
                 {
@@ -397,29 +445,63 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
                         EditorGUI.LabelField(r,"null");
                         return;
                     }
-                    InfluenceShape influenceShape = reflectionProbeDataPairing[probe].influenceVolume.shape;
-                    EditorGUI.BeginChangeCheck();
-                    influenceShape = (InfluenceShape)EditorGUI.EnumPopup(r, influenceShape);
-                    if (EditorGUI.EndChangeCheck())
-                    {
-                        reflectionProbeDataPairing[probe].influenceVolume.shape = influenceShape;
-                    }
+                    SerializedObject serializedPaired = serializedReflectionProbeDataPairing[probe];
+                    serializedPaired.Update();
+                    EditorGUI.PropertyField(r,serializedPaired.FindProperty("m_ProbeSettings.influence.m_Shape"),GUIContent.none);
+                    serializedPaired.ApplyModifiedProperties();
                 }),
-                new LightingExplorerTableColumn(LightingExplorerTableColumn.DataType.Float, HDStyles.ReflectionProbeShadowDistance, "m_ShadowDistance", 90),        // 4: Shadow distance
-                new LightingExplorerTableColumn(LightingExplorerTableColumn.DataType.Float, HDStyles.ReflectionProbeNearClip, "m_NearClip", 60),                    // 5: Near clip
-                new LightingExplorerTableColumn(LightingExplorerTableColumn.DataType.Float, HDStyles.ReflectionProbeFarClip, "m_FarClip", 60),                      // 6: Far clip
-                new LightingExplorerTableColumn(LightingExplorerTableColumn.DataType.Checkbox, HDStyles.ParallaxCorrection, "m_BoxProjection", 90),                 // 7: Parallax correction
-                new LightingExplorerTableColumn(LightingExplorerTableColumn.DataType.Float, HDStyles.ReflectionProbeWeight, "m_Mode", 60, (r, prop, dep) =>         // 8: Weight
+                new LightingExplorerTableColumn(LightingExplorerTableColumn.DataType.Float, HDStyles.ReflectionProbeNearClip, "m_NearClip", 60, (r, prop, dep) => // 5: Near clip
                 {
                     ReflectionProbe probe = prop.serializedObject.targetObject as ReflectionProbe;
-
-                    float weight = reflectionProbeDataPairing[probe].weight;
-                    EditorGUI.BeginChangeCheck();
-                    weight = EditorGUI.FloatField(r, weight);
-                    if (EditorGUI.EndChangeCheck())
+                    if(probe == null)
                     {
-                        reflectionProbeDataPairing[probe].weight = weight;
+                        EditorGUI.LabelField(r,"null");
+                        return;
                     }
+                    SerializedObject serializedPaired = serializedReflectionProbeDataPairing[probe];
+                    serializedPaired.Update();
+                    EditorGUI.PropertyField(r,serializedPaired.FindProperty("m_ProbeSettings.camera.frustum.nearClipPlane"),
+                    GUIContent.none);
+                    serializedPaired.ApplyModifiedProperties();
+                }),
+                new LightingExplorerTableColumn(LightingExplorerTableColumn.DataType.Float, HDStyles.ReflectionProbeFarClip, "m_FarClip", 60, (r, prop, dep) => // 6: Far Clip
+                {
+                    ReflectionProbe probe = prop.serializedObject.targetObject as ReflectionProbe;
+                    if(probe == null)
+                    {
+                        EditorGUI.LabelField(r,"null");
+                        return;
+                    }
+                    SerializedObject serializedPaired = serializedReflectionProbeDataPairing[probe];
+                    serializedPaired.Update();
+                    EditorGUI.PropertyField(r,serializedPaired.FindProperty("m_ProbeSettings.camera.frustum.farClipPlane"),GUIContent.none);
+                    serializedPaired.ApplyModifiedProperties();
+                }),
+                new LightingExplorerTableColumn(LightingExplorerTableColumn.DataType.Checkbox, HDStyles.ParallaxCorrection, "m_BoxProjection", 120, (r, prop, dep) => // 6: Use Influence volume as proxy
+                {
+                    ReflectionProbe probe = prop.serializedObject.targetObject as ReflectionProbe;
+                    if(probe == null)
+                    {
+                        EditorGUI.LabelField(r,"null");
+                        return;
+                    }
+                    SerializedObject serializedPaired = serializedReflectionProbeDataPairing[probe];
+                    serializedPaired.Update();
+                    EditorGUI.PropertyField(r,serializedPaired.FindProperty("m_ProbeSettings.proxySettings.useInfluenceVolumeAsProxyVolume"),GUIContent.none);
+                    serializedPaired.ApplyModifiedProperties();
+                }),
+                new LightingExplorerTableColumn(LightingExplorerTableColumn.DataType.Float, HDStyles.ReflectionProbeWeight, "m_FarClip", 60, (r, prop, dep) =>         // 7: Weight
+                {
+                    ReflectionProbe probe = prop.serializedObject.targetObject as ReflectionProbe;
+                    if(probe == null)
+                    {
+                        EditorGUI.LabelField(r,"null");
+                        return;
+                    }
+                    SerializedObject serializedPaired = serializedReflectionProbeDataPairing[probe];
+                    serializedPaired.Update();
+                    EditorGUI.PropertyField(r,serializedPaired.FindProperty("m_ProbeSettings.lighting.weight"),GUIContent.none);
+                    serializedPaired.ApplyModifiedProperties();
                 }),
             };
         }
@@ -438,7 +520,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
         {
             lightDataPairing.Clear();
             volumeDataPairing.Clear();
-            reflectionProbeDataPairing.Clear();
+            serializedReflectionProbeDataPairing.Clear();
         }
     }
 }

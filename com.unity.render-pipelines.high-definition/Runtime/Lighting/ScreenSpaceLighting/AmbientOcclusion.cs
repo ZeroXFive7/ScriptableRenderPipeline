@@ -17,10 +17,11 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         [Tooltip("Defines how much of the occlusion should be affected by ambient lighting.")]
         public ClampedFloatParameter directLightingStrength = new ClampedFloatParameter(0f, 0f, 1f);
 
-        // Hidden parameters
-        [HideInInspector] public ClampedFloatParameter noiseFilterTolerance = new ClampedFloatParameter(0f, -8f, 0f);
-        [HideInInspector] public ClampedFloatParameter blurTolerance = new ClampedFloatParameter(-4.6f, -8f, 1f);
-        [HideInInspector] public ClampedFloatParameter upsampleTolerance = new ClampedFloatParameter(-12f, -12f, -1f);
+        public LayerMaskParameter layerMask = new LayerMaskParameter(-1);
+        public ClampedFloatParameter rayLength = new ClampedFloatParameter(0.5f, 0f, 50f);
+        public ClampedIntParameter sampleCount = new ClampedIntParameter(4, 1, 64);
+        public BoolParameter denoise = new BoolParameter(false);
+        public ClampedFloatParameter denoiserRadius = new ClampedFloatParameter(0.5f, 0.001f, 1.0f);
     }
 
     public class AmbientOcclusionSystem
@@ -86,7 +87,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         readonly Material m_ResolveMaterial;
 
 #if ENABLE_RAYTRACING
-        public HDRaytracingManager m_RayTracingManager = new HDRaytracingManager();
         readonly HDRaytracingAmbientOcclusion m_RaytracingAmbientOcclusion = new HDRaytracingAmbientOcclusion();
 #endif
 
@@ -129,18 +129,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             m_ScaleFunctors = new ScaleFunc[(int)MipLevel.Count];
             m_ScaleFunctors[0] = size => size; // 0 is original size (mip0)
 
-            for (int i = 1; i < m_ScaleFunctors.Length; i++)
-            {
-                int mult = i;
-                m_ScaleFunctors[i] = size =>
-                {
-                    int div = 1 << mult;
-                    return new Vector2Int(
-                        (size.x + (div - 1)) / div,
-                        (size.y + (div - 1)) / div
-                    );
-                };
-            }
+        public AmbientOcclusionSystem(HDRenderPipelineAsset hdAsset, RenderPipelineResources defaultResources)
+        {
+            m_Settings = hdAsset.currentPlatformRenderPipelineSettings;
+            m_Resources = defaultResources;
 
             var fmtFP16 = supportMSAA ? GraphicsFormat.R16G16_SFloat  : GraphicsFormat.R16_SFloat;
             var fmtFP32 = supportMSAA ? GraphicsFormat.R32G32_SFloat : GraphicsFormat.R32_SFloat;
@@ -204,10 +196,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         }
 
 #if ENABLE_RAYTRACING
-        public void InitRaytracing(HDRaytracingManager raytracingManager, SharedRTManager sharedRTManager)
+        public void InitRaytracing(HDRenderPipeline renderPipeline)
         {
-            m_RayTracingManager = raytracingManager;
-            m_RaytracingAmbientOcclusion.Init(m_Resources, m_Settings, m_RayTracingManager, sharedRTManager);
+            m_RaytracingAmbientOcclusion.Init(renderPipeline);
         }
 #endif
 
@@ -217,10 +208,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         {
 
 #if ENABLE_RAYTRACING
-            HDRaytracingEnvironment rtEnvironement = m_RayTracingManager.CurrentEnvironment();
-            if (rtEnvironement != null && rtEnvironement.raytracedAO)
-                m_RaytracingAmbientOcclusion.RenderAO(camera, cmd, m_AmbientOcclusionTex, renderContext, frameCount);
-            else
+                if (camera.frameSettings.IsEnabled(FrameSettingsField.RayTracing) && settings.rayTracing.value)
+                    m_RaytracingAmbientOcclusion.RenderAO(camera, cmd, m_AmbientOcclusionTex, renderContext, frameCount);
+                else
 #endif
             {
                 Dispatch(cmd, camera, sharedRTManager);

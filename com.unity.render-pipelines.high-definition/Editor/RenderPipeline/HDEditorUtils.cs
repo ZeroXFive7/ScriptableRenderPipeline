@@ -188,6 +188,46 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
                 return res.ToString("n2") + " GB";
             }
         }
+
+        /// <summary>Provide a specific property drawer for LightLayer</summary>
+        /// <param name="label">The desired label</param>
+        /// <param name="property">The SerializedProperty (representing an int that should be displayed as a LightLayer)</param>
+        internal static void LightLayerMaskPropertyDrawer(GUIContent label, SerializedProperty property)
+        {
+            var renderingLayerMask = property.intValue;
+            int lightLayer;
+            if (property.hasMultipleDifferentValues)
+            {
+                EditorGUI.showMixedValue = true;
+                lightLayer = 0;
+            }
+            else
+                lightLayer = HDAdditionalLightData.RenderingLayerMaskToLightLayer(renderingLayerMask);
+            EditorGUI.BeginChangeCheck();
+            lightLayer = System.Convert.ToInt32(EditorGUILayout.EnumFlagsField(label, (LightLayerEnum)lightLayer));
+            if (EditorGUI.EndChangeCheck())
+            {
+                lightLayer = HDAdditionalLightData.LightLayerToRenderingLayerMask(lightLayer, renderingLayerMask);
+                property.intValue = lightLayer;
+            }
+            EditorGUI.showMixedValue = false;
+        }
+
+        /// <summary>Provide a specific property drawer for LightLayer (without label)</summary>
+        /// <param name="rect">The rect where to draw</param>
+        /// <param name="value">The value to display (representing an int that should be displayed as a LightLayer)</param>
+        /// <return> The value after modification</return>
+        internal static int LightLayerMaskPropertyDrawer(Rect rect, int value)
+        {
+            int lightLayer = HDAdditionalLightData.RenderingLayerMaskToLightLayer(value);
+            EditorGUI.BeginChangeCheck();
+            lightLayer = System.Convert.ToInt32(EditorGUI.EnumFlagsField(rect, (LightLayerEnum)lightLayer));
+            if (EditorGUI.EndChangeCheck())
+            {
+                lightLayer = HDAdditionalLightData.LightLayerToRenderingLayerMask(lightLayer, value);
+            }
+            return lightLayer;
+        }
     }
 
     public static partial class SerializedPropertyExtention
