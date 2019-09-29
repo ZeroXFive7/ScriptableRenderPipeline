@@ -350,6 +350,8 @@ namespace UnityEditor.Rendering.Universal
             {
                 selectedValueShadows = true;
                 selectedValueFirstPersonViewModel = true;
+                selectedFirstPersonViewModelRenderingLayerMask = RenderingLayer.Layer2;
+                selectedThirdPersonRenderingLayerMask = (RenderingLayer)(~(uint)selectedFirstPersonViewModelRenderingLayerMask);
                 selectedDepthOption = CameraOverrideOption.UsePipelineSettings;
                 selectedOpaqueOption = CameraOverrideOption.UsePipelineSettings;
                 selectedObliqueness = 0.0f;
@@ -367,6 +369,8 @@ namespace UnityEditor.Rendering.Universal
                 m_AdditionalCameraDataSO.Update();
                 selectedValueShadows = m_AdditionalCameraData.renderShadows;
                 selectedValueFirstPersonViewModel = m_AdditionalCameraData.supportsFirstPersonViewModelRendering;
+                selectedFirstPersonViewModelRenderingLayerMask = (RenderingLayer)m_AdditionalCameraData.firstPersonViewModelRenderingLayerMask;
+                selectedThirdPersonRenderingLayerMask = (RenderingLayer)m_AdditionalCameraData.thirdPersonRenderingLayerMask;
                 selectedObliqueness = m_AdditionalCameraDataObliquenessProp.floatValue;
                 selectedDepthOption = (CameraOverrideOption)m_AdditionalCameraDataRenderDepthProp.intValue;
                 selectedOpaqueOption =(CameraOverrideOption)m_AdditionalCameraDataRenderOpaqueProp.intValue;
@@ -498,7 +502,7 @@ namespace UnityEditor.Rendering.Universal
             var controlRect = BeginProperty(prop, style);
 
             EditorGUI.BeginChangeCheck();
-            value = (T)EditorGUILayout.EnumFlagsField(controlRect, style, (T)prop.intValue);
+            value = (T)EditorGUI.EnumFlagsField(controlRect, style, (T)Enum.ToObject(typeof(T), prop.intValue));
             if (EditorGUI.EndChangeCheck())
                 hasChanged = true;
 

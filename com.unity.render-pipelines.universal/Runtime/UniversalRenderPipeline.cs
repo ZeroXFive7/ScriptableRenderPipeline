@@ -532,7 +532,7 @@ namespace UnityEngine.Rendering.Universal
             return brightestDirectionalLightIndex;
         }
 
-        static void SetupPerFrameShaderConstants(LightweightRenderPipelineAsset asset)
+        static void SetupPerFrameShaderConstants(UniversalRenderPipelineAsset asset)
         {
             // When glossy reflections are OFF in the shader we set a constant color to use as indirect specular
             SphericalHarmonicsL2 ambientSH = RenderSettings.ambientProbe;
