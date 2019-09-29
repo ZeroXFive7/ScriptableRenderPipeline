@@ -25,6 +25,10 @@ namespace UnityEditor.Rendering.Universal
             public static GUIContent renderingShadows = EditorGUIUtility.TrTextContent("Render Shadows", "Enable this to make this camera render shadows.");
             public static GUIContent requireDepthTexture = EditorGUIUtility.TrTextContent("Depth Texture", "On makes this camera create a _CameraDepthTexture, which is a copy of the rendered depth values.\nOff makes the camera not create a depth texture.\nUse Pipeline Settings applies settings from the Render Pipeline Asset.");
             public static GUIContent requireOpaqueTexture = EditorGUIUtility.TrTextContent("Opaque Texture", "On makes this camera create a _CameraOpaqueTexture, which is a copy of the rendered view.\nOff makes the camera does not create an opaque texture.\nUse Pipeline Settings applies settings from the Render Pipeline Asset.");
+            public static GUIContent renderingFirstPersonViewModels = EditorGUIUtility.TrTextContent("Render First Person View Models", "Enable this to make this camera render first person view models with a separate FOV and depth pass.");
+            public static GUIContent obliqueness = EditorGUIUtility.TrTextContent("Vertical Obliqueness Normalized", "Vertical near plane offset amount.  Use to move center of view up/down in the world.");
+            public static GUIContent firstPersonViewModelRenderLayerText = EditorGUIUtility.TrTextContent("First Person Rendering Layer", "Used to identify which renderers should be drawn as first person view models");
+            public static GUIContent thirdPersonRenderLayerText = EditorGUIUtility.TrTextContent("Third Person Rendering Layer", "Used to identify which renderers should be drawn in third person");
             public static GUIContent allowMSAA = EditorGUIUtility.TrTextContent("MSAA", "Use Multi Sample Anti-Aliasing to reduce aliasing.");
             public static GUIContent allowHDR = EditorGUIUtility.TrTextContent("HDR", "High Dynamic Range gives you a wider range of light intensities, so your lighting looks more realistic. With it, you can still see details and experience less saturation even with bright light.", (Texture) null);
 
@@ -131,6 +135,10 @@ namespace UnityEditor.Rendering.Universal
         SerializedProperty m_AdditionalCameraDataAntialiasingQuality;
         SerializedProperty m_AdditionalCameraDataStopNaN;
         SerializedProperty m_AdditionalCameraDataDithering;
+        SerializedProperty m_AdditionalCameraDataRenderFirstPersonViewModelProp;
+        SerializedProperty m_AdditionalCameraDataObliquenessProp;
+        SerializedProperty m_AdditionalCameraDataFirstPersonViewModelRenderingLayerMaskProp;
+        SerializedProperty m_AdditionalCameraDataThirdPersonRenderingLayerMaskProp;
 
         void SetAnimationTarget(AnimBool anim, bool initialize, bool targetValue)
         {
@@ -172,6 +180,10 @@ namespace UnityEditor.Rendering.Universal
             m_AdditionalCameraDataRenderShadowsProp = m_AdditionalCameraDataSO.FindProperty("m_RenderShadows");
             m_AdditionalCameraDataRenderDepthProp = m_AdditionalCameraDataSO.FindProperty("m_RequiresDepthTextureOption");
             m_AdditionalCameraDataRenderOpaqueProp = m_AdditionalCameraDataSO.FindProperty("m_RequiresOpaqueTextureOption");
+            m_AdditionalCameraDataRenderFirstPersonViewModelProp = m_AdditionalCameraDataSO.FindProperty("m_SupportsFirstPersonViewModelRendering");
+            m_AdditionalCameraDataObliquenessProp = m_AdditionalCameraDataSO.FindProperty("m_Obliqueness");
+            m_AdditionalCameraDataFirstPersonViewModelRenderingLayerMaskProp = m_AdditionalCameraDataSO.FindProperty("m_FirstPersonViewModelRenderingLayerMask");
+            m_AdditionalCameraDataThirdPersonRenderingLayerMaskProp = m_AdditionalCameraDataSO.FindProperty("m_ThirdPersonRenderingLayerMask");
             m_AdditionalCameraDataRendererProp = m_AdditionalCameraDataSO.FindProperty("m_RendererOverrideOption");
             m_AdditionalCameraDataRendererDataProp = m_AdditionalCameraDataSO.FindProperty("m_RendererData");
             m_AdditionalCameraDataVolumeLayerMask = m_AdditionalCameraDataSO.FindProperty("m_VolumeLayerMask");
@@ -319,8 +331,12 @@ namespace UnityEditor.Rendering.Universal
         {
             bool hasChanged = false;
             bool selectedValueShadows;
+            bool selectedValueFirstPersonViewModel;
             CameraOverrideOption selectedDepthOption;
             CameraOverrideOption selectedOpaqueOption;
+            float selectedObliqueness;
+            RenderingLayer selectedFirstPersonViewModelRenderingLayerMask;
+            RenderingLayer selectedThirdPersonRenderingLayerMask;
             RendererOverrideOption selectedRendererOption;
             LayerMask selectedVolumeLayerMask;
             Transform selectedVolumeTrigger;
@@ -333,8 +349,12 @@ namespace UnityEditor.Rendering.Universal
             if (m_AdditionalCameraDataSO == null)
             {
                 selectedValueShadows = true;
+                selectedValueFirstPersonViewModel = true;
+                selectedFirstPersonViewModelRenderingLayerMask = RenderingLayer.Layer2;
+                selectedThirdPersonRenderingLayerMask = (RenderingLayer)(~(uint)selectedFirstPersonViewModelRenderingLayerMask);
                 selectedDepthOption = CameraOverrideOption.UsePipelineSettings;
                 selectedOpaqueOption = CameraOverrideOption.UsePipelineSettings;
+                selectedObliqueness = 0.0f;
                 selectedRendererOption = RendererOverrideOption.UsePipelineSettings;
                 selectedVolumeLayerMask = 1; // "Default"
                 selectedVolumeTrigger = null;
@@ -348,6 +368,10 @@ namespace UnityEditor.Rendering.Universal
             {
                 m_AdditionalCameraDataSO.Update();
                 selectedValueShadows = m_AdditionalCameraData.renderShadows;
+                selectedValueFirstPersonViewModel = m_AdditionalCameraData.supportsFirstPersonViewModelRendering;
+                selectedFirstPersonViewModelRenderingLayerMask = (RenderingLayer)m_AdditionalCameraData.firstPersonViewModelRenderingLayerMask;
+                selectedThirdPersonRenderingLayerMask = (RenderingLayer)m_AdditionalCameraData.thirdPersonRenderingLayerMask;
+                selectedObliqueness = m_AdditionalCameraDataObliquenessProp.floatValue;
                 selectedDepthOption = (CameraOverrideOption)m_AdditionalCameraDataRenderDepthProp.intValue;
                 selectedOpaqueOption =(CameraOverrideOption)m_AdditionalCameraDataRenderOpaqueProp.intValue;
                 selectedRendererOption = (RendererOverrideOption) m_AdditionalCameraDataRendererProp.intValue;
@@ -363,6 +387,7 @@ namespace UnityEditor.Rendering.Universal
             hasChanged |= DrawLayerMask(m_AdditionalCameraDataVolumeLayerMask, ref selectedVolumeLayerMask, Styles.volumeLayerMask);
             hasChanged |= DrawObjectField(m_AdditionalCameraDataVolumeTrigger, ref selectedVolumeTrigger, Styles.volumeTrigger);
             hasChanged |= DrawIntPopup(m_AdditionalCameraDataRendererProp, ref selectedRendererOption, Styles.rendererType, Styles.displayedRendererTypeOverride, Styles.rendererTypeOptions);
+            hasChanged |= DrawFloatField(m_AdditionalCameraDataObliquenessProp, ref selectedObliqueness, Styles.obliqueness);
 
             if (selectedRendererOption == RendererOverrideOption.Custom && m_AdditionalCameraDataSO != null)
             {
@@ -382,6 +407,7 @@ namespace UnityEditor.Rendering.Universal
             hasChanged |= DrawIntPopup(m_AdditionalCameraDataRenderOpaqueProp, ref selectedOpaqueOption, Styles.requireOpaqueTexture, Styles.displayedAdditionalDataOptions, Styles.additionalDataOptions);
             hasChanged |= DrawToggle(m_AdditionalCameraDataRenderShadowsProp, ref selectedValueShadows, Styles.renderingShadows);
             hasChanged |= DrawToggle(m_AdditionalCameraDataRenderPostProcessing, ref selectedRenderPostProcessing, Styles.renderPostProcessing);
+            hasChanged |= DrawToggle(m_AdditionalCameraDataRenderFirstPersonViewModelProp, ref selectedValueFirstPersonViewModel, Styles.renderingFirstPersonViewModels);
 
             if (selectedRenderPostProcessing)
             {
@@ -406,6 +432,14 @@ namespace UnityEditor.Rendering.Universal
                 EditorGUI.indentLevel--;
             }
 
+            if (selectedValueFirstPersonViewModel)
+            {
+                EditorGUI.indentLevel++;
+                hasChanged |= DrawEnumMask<RenderingLayer>(m_AdditionalCameraDataFirstPersonViewModelRenderingLayerMaskProp, ref selectedFirstPersonViewModelRenderingLayerMask, Styles.firstPersonViewModelRenderLayerText);
+                hasChanged |= DrawEnumMask<RenderingLayer>(m_AdditionalCameraDataThirdPersonRenderingLayerMaskProp, ref selectedThirdPersonRenderingLayerMask, Styles.thirdPersonRenderLayerText);
+                EditorGUI.indentLevel--;
+            }
+
             if (hasChanged)
             {
                 if (m_AdditionalCameraDataSO == null)
@@ -418,9 +452,13 @@ namespace UnityEditor.Rendering.Universal
                 m_AdditionalCameraDataRenderDepthProp.intValue = (int)selectedDepthOption;
                 m_AdditionalCameraDataRenderOpaqueProp.intValue = (int)selectedOpaqueOption;
                 m_AdditionalCameraDataRendererProp.intValue = (int)selectedRendererOption;
+                m_AdditionalCameraDataRenderFirstPersonViewModelProp.boolValue = selectedValueFirstPersonViewModel;
+                m_AdditionalCameraDataFirstPersonViewModelRenderingLayerMaskProp.longValue = (uint)selectedFirstPersonViewModelRenderingLayerMask;
+                m_AdditionalCameraDataThirdPersonRenderingLayerMaskProp.longValue = (uint)selectedThirdPersonRenderingLayerMask;
                 m_AdditionalCameraDataVolumeLayerMask.intValue = selectedVolumeLayerMask;
                 m_AdditionalCameraDataVolumeTrigger.objectReferenceValue = selectedVolumeTrigger;
                 m_AdditionalCameraDataRenderPostProcessing.boolValue = selectedRenderPostProcessing;
+                m_AdditionalCameraDataObliquenessProp.floatValue = selectedObliqueness;
                 m_AdditionalCameraDataAntialiasing.intValue = (int)selectedAntialiasing;
                 m_AdditionalCameraDataAntialiasingQuality.intValue = (int)selectedAntialiasingQuality;
                 m_AdditionalCameraDataStopNaN.boolValue = selectedStopNaN;
@@ -457,6 +495,21 @@ namespace UnityEditor.Rendering.Universal
             return hasChanged;
         }
 
+        bool DrawEnumMask<T>(SerializedProperty prop, ref T value, GUIContent style)
+            where T : Enum
+        {
+            bool hasChanged = false;
+            var controlRect = BeginProperty(prop, style);
+
+            EditorGUI.BeginChangeCheck();
+            value = (T)EditorGUI.EnumFlagsField(controlRect, style, (T)Enum.ToObject(typeof(T), prop.intValue));
+            if (EditorGUI.EndChangeCheck())
+                hasChanged = true;
+
+            EndProperty();
+            return hasChanged;
+        }
+
         bool DrawObjectField<T>(SerializedProperty prop, ref T value, GUIContent style)
             where T : UnityEngine.Object
         {
@@ -465,6 +518,20 @@ namespace UnityEditor.Rendering.Universal
 
             EditorGUI.BeginChangeCheck();
             value = (T)EditorGUI.ObjectField(controlRect, style, value, typeof(T), true);
+            if (EditorGUI.EndChangeCheck())
+                hasChanged = true;
+
+            EndProperty();
+            return hasChanged;
+        }
+
+        bool DrawFloatField(SerializedProperty prop, ref float value, GUIContent style)
+        {
+            bool hasChanged = false;
+            var controlRect = BeginProperty(prop, style);
+
+            EditorGUI.BeginChangeCheck();
+            value = EditorGUI.FloatField(controlRect, style, value);
             if (EditorGUI.EndChangeCheck())
                 hasChanged = true;
 

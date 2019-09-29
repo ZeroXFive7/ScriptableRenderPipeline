@@ -16,6 +16,7 @@ namespace UnityEditor.Rendering.Universal
             public static GUIContent lightingSettingsText = EditorGUIUtility.TrTextContent("Lighting");
             public static GUIContent shadowSettingsText = EditorGUIUtility.TrTextContent("Shadows");
             public static GUIContent postProcessingSettingsText = EditorGUIUtility.TrTextContent("Post-processing");
+            public static GUIContent firstPersonSettingsText = EditorGUIUtility.TrTextContent("First Person View Models");
             public static GUIContent advancedSettingsText = EditorGUIUtility.TrTextContent("Advanced");
 
             // General
@@ -55,6 +56,15 @@ namespace UnityEditor.Rendering.Universal
             public static string colorGradingModeSpecInfo = "The high dynamic range color grading mode works best on platforms that support floating point textures.";
             public static string colorGradingLutSizeWarning = "The minimal recommended LUT size for the high dynamic range color grading mode is 32. Using lower values will potentially result in color banding and posterization effects.";
 
+            // First Person View Model settings
+            public static GUIContent supportsFirstPersonViewModelRenderingText = EditorGUIUtility.TrTextContent("Rendering Supported", "If enabled pipeline will render first person view models with a separate projection matrix and depth test.");
+            public static GUIContent firstPersonViewModelRenderLayerText = EditorGUIUtility.TrTextContent("First Person Rendering Layer", "Used to identify which renderers should be drawn as first person view models");
+            public static GUIContent thirdPersonRenderLayerText = EditorGUIUtility.TrTextContent("Third Person Rendering Layer", "Used to identify which renderers should be drawn in third person");
+            public static GUIContent firstPersonViewModelFOVText = EditorGUIUtility.TrTextContent("Field Of View", "FOV used to render first person view models");
+            public static GUIContent firstPersonDepthBiasText = EditorGUIUtility.TrTextContent("Depth Bias", "Offset used to compensate for different depth values that result from different projcetion matrices.");
+            public static GUIContent firstPersonViewModelNearPlaneText = EditorGUIUtility.TrTextContent("Near Plane", "Near plane used to render first person view models");
+            public static GUIContent firstPersonViewModelFarPlaneText = EditorGUIUtility.TrTextContent("Far Plane", "Far plane used to render first person view models");
+
             // Advanced settings
             public static GUIContent srpBatcher = EditorGUIUtility.TrTextContent("SRP Batcher (Experimental)", "If enabled, the render pipeline uses the SRP batcher.");
             public static GUIContent dynamicBatching = EditorGUIUtility.TrTextContent("Dynamic Batching", "If enabled, the render pipeline will batch drawcalls with few triangles together by copying their vertex buffers into a shared buffer on a per-frame basis.");
@@ -73,10 +83,14 @@ namespace UnityEditor.Rendering.Universal
         SavedBool m_LightingSettingsFoldout;
         SavedBool m_ShadowSettingsFoldout;
         SavedBool m_PostProcessingSettingsFoldout;
+        SavedBool m_FirstPersonSettingsFoldout;
         SavedBool m_AdvancedSettingsFoldout;
 
         SerializedProperty m_RendererTypeProp;
         SerializedProperty m_RendererDataProp;
+
+        RenderingLayer m_firstPersonViewModelRenderingLayerMask;
+        RenderingLayer m_thirdPersonRenderingLayerMask;
 
         SerializedProperty m_RequireDepthTextureProp;
         SerializedProperty m_RequireOpaqueTextureProp;
@@ -104,6 +118,14 @@ namespace UnityEditor.Rendering.Universal
 
         SerializedProperty m_SoftShadowsSupportedProp;
 
+        SerializedProperty m_SupportsFirstPersonViewModelRenderingProp;
+        SerializedProperty m_FirstPersonViewModelRenderingLayerMaskProp;
+        SerializedProperty m_ThirdPersonRenderingLayerMaskProp;
+        SerializedProperty m_FirstPersonViewModelFOVProp;
+        SerializedProperty m_FirstPersonDepthBiasProp;
+        SerializedProperty m_FirstPersonViewModelNearPlaneProp;
+        SerializedProperty m_FirstPersonViewModelFarPlaneProp;
+
         SerializedProperty m_SRPBatcher;
         SerializedProperty m_SupportsDynamicBatching;
         SerializedProperty m_MixedLightingSupportedProp;
@@ -123,6 +145,7 @@ namespace UnityEditor.Rendering.Universal
             DrawLightingSettings();
             DrawShadowSettings();
             DrawPostProcessingSettings();
+            DrawFirstPersonViewModelSettings();
             DrawAdvancedSettings();
 
             serializedObject.ApplyModifiedProperties();
@@ -136,6 +159,7 @@ namespace UnityEditor.Rendering.Universal
             m_ShadowSettingsFoldout = new SavedBool($"{target.GetType()}.ShadowSettingsFoldout", false);
             m_PostProcessingSettingsFoldout = new SavedBool($"{target.GetType()}.PostProcessingSettingsFoldout", false);
             m_AdvancedSettingsFoldout = new SavedBool($"{target.GetType()}.AdvancedSettingsFoldout", false);
+            m_FirstPersonSettingsFoldout = new SavedBool($"{target.GetType()}.FirstPersonSettingsFoldout", false);
 
             m_RendererTypeProp = serializedObject.FindProperty("m_RendererType");
             m_RendererDataProp = serializedObject.FindProperty("m_RendererData");
@@ -164,6 +188,14 @@ namespace UnityEditor.Rendering.Universal
             m_ShadowDepthBiasProp = serializedObject.FindProperty("m_ShadowDepthBias");
             m_ShadowNormalBiasProp = serializedObject.FindProperty("m_ShadowNormalBias");
             m_SoftShadowsSupportedProp = serializedObject.FindProperty("m_SoftShadowsSupported");
+
+            m_SupportsFirstPersonViewModelRenderingProp = serializedObject.FindProperty("m_SupportsFirstPersonViewModelRendering");
+            m_FirstPersonViewModelRenderingLayerMaskProp = serializedObject.FindProperty("m_FirstPersonViewModelRenderingLayerMask");
+            m_ThirdPersonRenderingLayerMaskProp = serializedObject.FindProperty("m_ThirdPersonRenderingLayerMask");
+            m_FirstPersonViewModelFOVProp = serializedObject.FindProperty("m_FirstPersonViewModelFOV");
+            m_FirstPersonDepthBiasProp = serializedObject.FindProperty("m_FirstPersonDepthBias");
+            m_FirstPersonViewModelNearPlaneProp = serializedObject.FindProperty("m_FirstPersonViewModelNearPlane");
+            m_FirstPersonViewModelFarPlaneProp = serializedObject.FindProperty("m_FirstPersonViewModelFarPlane");
 
             m_SRPBatcher = serializedObject.FindProperty("m_UseSRPBatcher");
             m_SupportsDynamicBatching = serializedObject.FindProperty("m_SupportsDynamicBatching");
@@ -329,6 +361,41 @@ namespace UnityEditor.Rendering.Universal
                 m_ColorGradingLutSize.intValue = Mathf.Clamp(m_ColorGradingLutSize.intValue, UniversalRenderPipelineAsset.k_MinLutSize, UniversalRenderPipelineAsset.k_MaxLutSize);
                 if (isHdrOn && m_ColorGradingMode.intValue == (int)ColorGradingMode.HighDynamicRange && m_ColorGradingLutSize.intValue < 32)
                     EditorGUILayout.HelpBox(Styles.colorGradingLutSizeWarning, MessageType.Warning);
+
+                EditorGUI.indentLevel--;
+                EditorGUILayout.Space();
+                EditorGUILayout.Space();
+            }
+            EditorGUILayout.EndFoldoutHeaderGroup();
+        }
+
+        void DrawFirstPersonViewModelSettings()
+        {
+            m_FirstPersonSettingsFoldout.value = EditorGUILayout.BeginFoldoutHeaderGroup(m_FirstPersonSettingsFoldout.value, Styles.firstPersonSettingsText);
+            if (m_FirstPersonSettingsFoldout.value)
+            {
+                EditorGUI.indentLevel++;
+
+                EditorGUILayout.PropertyField(m_SupportsFirstPersonViewModelRenderingProp, Styles.supportsFirstPersonViewModelRenderingText);
+
+                // Do not enable changes to first person view model settings when view model rendering is disabled.
+                var disableGroup = !m_SupportsFirstPersonViewModelRenderingProp.boolValue;
+                EditorGUI.BeginDisabledGroup(disableGroup);
+
+                m_firstPersonViewModelRenderingLayerMask = (RenderingLayer)m_FirstPersonViewModelRenderingLayerMaskProp.intValue;
+                m_firstPersonViewModelRenderingLayerMask = (RenderingLayer)EditorGUILayout.EnumFlagsField(Styles.firstPersonViewModelRenderLayerText, m_firstPersonViewModelRenderingLayerMask);
+                m_FirstPersonViewModelRenderingLayerMaskProp.longValue = (uint)m_firstPersonViewModelRenderingLayerMask;
+
+                m_thirdPersonRenderingLayerMask = (RenderingLayer)m_ThirdPersonRenderingLayerMaskProp.intValue;
+                m_thirdPersonRenderingLayerMask = (RenderingLayer)EditorGUILayout.EnumFlagsField(Styles.thirdPersonRenderLayerText, m_thirdPersonRenderingLayerMask);
+                m_ThirdPersonRenderingLayerMaskProp.longValue = (uint)m_thirdPersonRenderingLayerMask;
+
+                m_FirstPersonViewModelFOVProp.floatValue = EditorGUILayout.FloatField(Styles.firstPersonViewModelFOVText, m_FirstPersonViewModelFOVProp.floatValue);
+                m_FirstPersonDepthBiasProp.floatValue = EditorGUILayout.FloatField(Styles.firstPersonDepthBiasText, m_FirstPersonDepthBiasProp.floatValue);
+                m_FirstPersonViewModelNearPlaneProp.floatValue = EditorGUILayout.FloatField(Styles.firstPersonViewModelNearPlaneText, m_FirstPersonViewModelNearPlaneProp.floatValue);
+                m_FirstPersonViewModelFarPlaneProp.floatValue = EditorGUILayout.FloatField(Styles.firstPersonViewModelFarPlaneText, m_FirstPersonViewModelFarPlaneProp.floatValue);
+
+                EditorGUI.EndDisabledGroup();
 
                 EditorGUI.indentLevel--;
                 EditorGUILayout.Space();

@@ -42,206 +42,214 @@ Shader "Universal Render Pipeline/Lit"
         [HideInInspector] _Cull("__cull", Float) = 2.0
 
         _ReceiveShadows("Receive Shadows", Float) = 1.0
-        // Editmode props
-        [HideInInspector] _QueueOffset("Queue offset", Float) = 0.0
+            // Editmode props
+            [HideInInspector] _QueueOffset("Queue offset", Float) = 0.0
 
-        // ObsoleteProperties
-        [HideInInspector] _MainTex("BaseMap", 2D) = "white" {}
-        [HideInInspector] _Color("Base Color", Color) = (0.5, 0.5, 0.5, 1)
-        [HideInInspector] _GlossMapScale("Smoothness", Float) = 0.0
-        [HideInInspector] _Glossiness("Smoothness", Float) = 0.0
-        [HideInInspector] _GlossyReflections("EnvironmentReflections", Float) = 0.0
+            // ObsoleteProperties
+            [HideInInspector] _MainTex("BaseMap", 2D) = "white" {}
+            [HideInInspector] _Color("Base Color", Color) = (0.5, 0.5, 0.5, 1)
+            [HideInInspector] _GlossMapScale("Smoothness", Float) = 0.0
+            [HideInInspector] _Glossiness("Smoothness", Float) = 0.0
+            [HideInInspector] _GlossyReflections("EnvironmentReflections", Float) = 0.0
     }
 
-    SubShader
-    {
-        // Universal Pipeline tag is required. If Universal render pipeline is not set in the graphics settings
-        // this Subshader will fail. One can add a subshader below or fallback to Standard built-in to make this
-        // material work with both Universal Render Pipeline and Builtin Unity Pipeline
-        Tags{"RenderType" = "Opaque" "RenderPipeline" = "UniversalPipeline" "IgnoreProjector" = "True"}
-        LOD 300
-
-        // ------------------------------------------------------------------
-        //  Forward pass. Shades all light in a single pass. GI + emission + Fog
-        Pass
+        SubShader
         {
-            // Lightmode matches the ShaderPassName set in UniversalRenderPipeline.cs. SRPDefaultUnlit and passes with
-            // no LightMode tag are also rendered by Universal Render Pipeline
-            Name "ForwardLit"
-            Tags{"LightMode" = "UniversalForward"}
+			// Universal Pipeline tag is required. If Universal render pipeline is not set in the graphics settings
+			// this Subshader will fail. One can add a subshader below or fallback to Standard built-in to make this
+			// material work with both Universal Render Pipeline and Builtin Unity Pipeline
+			Tags{"RenderType" = "Opaque" "RenderPipeline" = "UniversalPipeline" "IgnoreProjector" = "True"}
+			LOD 300
+	
+			// ------------------------------------------------------------------
+			//  Forward pass. Shades all light in a single pass. GI + emission + Fog
+			Pass
+			{
+				// Lightmode matches the ShaderPassName set in UniversalRenderPipeline.cs. SRPDefaultUnlit and passes with
+				// no LightMode tag are also rendered by Universal Render Pipeline
+				Name "ForwardLit"
+				Tags{"LightMode" = "UniversalForward"}
 
-            Blend[_SrcBlend][_DstBlend]
-            ZWrite[_ZWrite]
-            Cull[_Cull]
+                Blend[_SrcBlend][_DstBlend]
+                ZWrite[_ZWrite]
+                Cull[_Cull]
 
-            HLSLPROGRAM
-            // Required to compile gles 2.0 with standard SRP library
-            // All shaders must be compiled with HLSLcc and currently only gles is not using HLSLcc by default
-            #pragma prefer_hlslcc gles
-            #pragma exclude_renderers d3d11_9x
-            #pragma target 2.0
+                HLSLPROGRAM
+                // Required to compile gles 2.0 with standard SRP library
+                // All shaders must be compiled with HLSLcc and currently only gles is not using HLSLcc by default
+                #pragma prefer_hlslcc gles
+                #pragma exclude_renderers d3d11_9x
+                #pragma target 2.0
 
-            // -------------------------------------
-            // Material Keywords
-            #pragma shader_feature _NORMALMAP
-            #pragma shader_feature _ALPHATEST_ON
-            #pragma shader_feature _ALPHAPREMULTIPLY_ON
-            #pragma shader_feature _EMISSION
-            #pragma shader_feature _METALLICSPECGLOSSMAP
-            #pragma shader_feature _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
-            #pragma shader_feature _OCCLUSIONMAP
+                // -------------------------------------
+                // Material Keywords
+                #pragma shader_feature _NORMALMAP
+                #pragma shader_feature _ALPHATEST_ON
+                #pragma shader_feature _ALPHAPREMULTIPLY_ON
+                #pragma shader_feature _EMISSION
+                #pragma shader_feature _METALLICSPECGLOSSMAP
+                #pragma shader_feature _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+                #pragma shader_feature _OCCLUSIONMAP
 
-            #pragma shader_feature _SPECULARHIGHLIGHTS_OFF
-            #pragma shader_feature _ENVIRONMENTREFLECTIONS_OFF
-            #pragma shader_feature _SPECULAR_SETUP
-            #pragma shader_feature _RECEIVE_SHADOWS_OFF
+                #pragma shader_feature _SPECULARHIGHLIGHTS_OFF
+                #pragma shader_feature _ENVIRONMENTREFLECTIONS_OFF
+                #pragma shader_feature _SPECULAR_SETUP
+                #pragma shader_feature _RECEIVE_SHADOWS_OFF
 
-            // -------------------------------------
-            // Universal Pipeline keywords
-            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS
-            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS_CASCADE
-            #pragma multi_compile _ _ADDITIONAL_LIGHTS_VERTEX _ADDITIONAL_LIGHTS
-            #pragma multi_compile _ _ADDITIONAL_LIGHT_SHADOWS
-            #pragma multi_compile _ _SHADOWS_SOFT
-            #pragma multi_compile _ _MIXED_LIGHTING_SUBTRACTIVE
+                // -------------------------------------
+                // Universal Pipeline keywords
+                #pragma multi_compile _ _MAIN_LIGHT_SHADOWS
+                #pragma multi_compile _ _MAIN_LIGHT_SHADOWS_CASCADE
+                #pragma multi_compile _ _ADDITIONAL_LIGHTS_VERTEX _ADDITIONAL_LIGHTS
+                #pragma multi_compile _ _ADDITIONAL_LIGHT_SHADOWS
+                #pragma multi_compile _ _SHADOWS_SOFT
+                #pragma multi_compile _ _MIXED_LIGHTING_SUBTRACTIVE
 
-            // -------------------------------------
-            // Unity defined keywords
-            #pragma multi_compile _ DIRLIGHTMAP_COMBINED
-            #pragma multi_compile _ LIGHTMAP_ON
-            #pragma multi_compile_fog
+                // Giants Kettle keywords
+                #pragma multi_compile _ _FIRST_PERSON_DEPTH
 
-            //--------------------------------------
-            // GPU Instancing
-            #pragma multi_compile_instancing
+                // -------------------------------------
+                // Unity defined keywords
+                #pragma multi_compile _ DIRLIGHTMAP_COMBINED
+                #pragma multi_compile _ LIGHTMAP_ON
+                #pragma multi_compile_fog
 
-            #pragma vertex LitPassVertex
-            #pragma fragment LitPassFragment
+                //--------------------------------------
+                // GPU Instancing
+                #pragma multi_compile_instancing
 
-            #include "LitInput.hlsl"
-            #include "LitForwardPass.hlsl"
-            ENDHLSL
-        }
+                #pragma vertex LitPassVertex
+                #pragma fragment LitPassFragment
 
-        Pass
-        {
-            Name "ShadowCaster"
-            Tags{"LightMode" = "ShadowCaster"}
+                #define _VERTEX_COLOR 1
 
-            ZWrite On
-            ZTest LEqual
-            Cull[_Cull]
+                #include "LitInput.hlsl"
+                #include "LitForwardPass.hlsl"
+                ENDHLSL
+            }
+			
+            Pass
+            {
+                Name "ShadowCaster"
+                Tags{"LightMode" = "ShadowCaster"}
 
-            HLSLPROGRAM
-            // Required to compile gles 2.0 with standard srp library
-            #pragma prefer_hlslcc gles
-            #pragma exclude_renderers d3d11_9x
-            #pragma target 2.0
+                ZWrite On
+                ZTest LEqual
+                Cull[_Cull]
 
-            // -------------------------------------
-            // Material Keywords
-            #pragma shader_feature _ALPHATEST_ON
+                HLSLPROGRAM
+                // Required to compile gles 2.0 with standard srp library
+                #pragma prefer_hlslcc gles
+                #pragma exclude_renderers d3d11_9x
+                #pragma target 2.0
 
-            //--------------------------------------
-            // GPU Instancing
-            #pragma multi_compile_instancing
-            #pragma shader_feature _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+                // -------------------------------------
+                // Material Keywords
+                #pragma shader_feature _ALPHATEST_ON
 
-            #pragma vertex ShadowPassVertex
-            #pragma fragment ShadowPassFragment
+                //--------------------------------------
+                // GPU Instancing
+                #pragma multi_compile_instancing
+                #pragma shader_feature _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
 
-            #include "Packages/com.unity.render-pipelines.universal/Shaders/LitInput.hlsl"
-            #include "Packages/com.unity.render-pipelines.universal/Shaders/ShadowCasterPass.hlsl"
-            ENDHLSL
-        }
+                #pragma vertex ShadowPassVertex
+                #pragma fragment ShadowPassFragment
 
-        Pass
-        {
-            Name "DepthOnly"
-            Tags{"LightMode" = "DepthOnly"}
+                #include "Packages/com.unity.render-pipelines.universal/Shaders/LitInput.hlsl"
+                #include "Packages/com.unity.render-pipelines.universal/Shaders/ShadowCasterPass.hlsl"
+                ENDHLSL
+            }
 
-            ZWrite On
-            ColorMask 0
-            Cull[_Cull]
+            Pass
+            {
+                Name "DepthOnly"
+                Tags{"LightMode" = "DepthOnly"}
 
-            HLSLPROGRAM
-            // Required to compile gles 2.0 with standard srp library
-            #pragma prefer_hlslcc gles
-            #pragma exclude_renderers d3d11_9x
-            #pragma target 2.0
+                ZWrite On
+                ColorMask 0
+                Cull[_Cull]
 
-            #pragma vertex DepthOnlyVertex
-            #pragma fragment DepthOnlyFragment
+                HLSLPROGRAM
+                // Required to compile gles 2.0 with standard srp library
+                #pragma prefer_hlslcc gles
+                #pragma exclude_renderers d3d11_9x
+                #pragma target 2.0
 
-            // -------------------------------------
-            // Material Keywords
-            #pragma shader_feature _ALPHATEST_ON
-            #pragma shader_feature _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+                #pragma vertex DepthOnlyVertex
+                #pragma fragment DepthOnlyFragment
 
-            //--------------------------------------
-            // GPU Instancing
-            #pragma multi_compile_instancing
+                // -------------------------------------
+                // Material Keywords
+                #pragma shader_feature _ALPHATEST_ON
+                #pragma shader_feature _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
 
-            #include "Packages/com.unity.render-pipelines.universal/Shaders/LitInput.hlsl"
-            #include "Packages/com.unity.render-pipelines.universal/Shaders/DepthOnlyPass.hlsl"
-            ENDHLSL
-        }
+                // Giants Kettle keywords
+                #pragma multi_compile _ _FIRST_PERSON_DEPTH
 
-        // This pass it not used during regular rendering, only for lightmap baking.
-        Pass
-        {
-            Name "Meta"
-            Tags{"LightMode" = "Meta"}
+                //--------------------------------------
+                // GPU Instancing
+                #pragma multi_compile_instancing
 
-            Cull Off
+                #include "Packages/com.unity.render-pipelines.universal/Shaders/LitInput.hlsl"
+                #include "Packages/com.unity.render-pipelines.universal/Shaders/DepthOnlyPass.hlsl"
+                ENDHLSL
+            }
 
-            HLSLPROGRAM
-            // Required to compile gles 2.0 with standard srp library
-            #pragma prefer_hlslcc gles
-            #pragma exclude_renderers d3d11_9x
+                // This pass it not used during regular rendering, only for lightmap baking.
+                Pass
+                {
+                    Name "Meta"
+                    Tags{"LightMode" = "Meta"}
 
-            #pragma vertex UniversalVertexMeta
-            #pragma fragment UniversalFragmentMeta
+                    Cull Off
 
-            #pragma shader_feature _SPECULAR_SETUP
-            #pragma shader_feature _EMISSION
-            #pragma shader_feature _METALLICSPECGLOSSMAP
-            #pragma shader_feature _ALPHATEST_ON
-            #pragma shader_feature _ _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+                    HLSLPROGRAM
+                // Required to compile gles 2.0 with standard srp library
+                #pragma prefer_hlslcc gles
+                #pragma exclude_renderers d3d11_9x
 
-            #pragma shader_feature _SPECGLOSSMAP
+                #pragma vertex UniversalVertexMeta
+                #pragma fragment UniversalFragmentMeta
 
-            #include "Packages/com.unity.render-pipelines.universal/Shaders/LitInput.hlsl"
-            #include "Packages/com.unity.render-pipelines.universal/Shaders/LitMetaPass.hlsl"
+                #pragma shader_feature _SPECULAR_SETUP
+                #pragma shader_feature _EMISSION
+                #pragma shader_feature _METALLICSPECGLOSSMAP
+                #pragma shader_feature _ALPHATEST_ON
+                #pragma shader_feature _ _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
 
-            ENDHLSL
-        }
-        Pass
-        {
-            Name "Universal2D"
-            Tags{ "LightMode" = "Universal2D" }
+                #pragma shader_feature _SPECGLOSSMAP
 
-            Blend[_SrcBlend][_DstBlend]
-            ZWrite[_ZWrite]
-            Cull[_Cull]
+                #include "Packages/com.unity.render-pipelines.universal/Shaders/LitInput.hlsl"
+                #include "Packages/com.unity.render-pipelines.universal/Shaders/LitMetaPass.hlsl"
 
-            HLSLPROGRAM
-            // Required to compile gles 2.0 with standard srp library
-            #pragma prefer_hlslcc gles
-            #pragma exclude_renderers d3d11_9x
+                ENDHLSL
+            }
+            Pass
+            {
+                Name "Universal2D"
+                Tags{ "LightMode" = "Universal2D" }
 
-            #pragma vertex vert
-            #pragma fragment frag
-            #pragma shader_feature _ALPHATEST_ON
-            #pragma shader_feature _ALPHAPREMULTIPLY_ON
+                Blend[_SrcBlend][_DstBlend]
+                ZWrite[_ZWrite]
+                Cull[_Cull]
 
-            #include "Packages/com.unity.render-pipelines.universal/Shaders/LitInput.hlsl"
-            #include "Packages/com.unity.render-pipelines.universal/Shaders/Utils/Universal2D.hlsl"
-            ENDHLSL
-        }
+                HLSLPROGRAM
+                // Required to compile gles 2.0 with standard srp library
+                #pragma prefer_hlslcc gles
+                #pragma exclude_renderers d3d11_9x
+
+                #pragma vertex vert
+                #pragma fragment frag
+                #pragma shader_feature _ALPHATEST_ON
+                #pragma shader_feature _ALPHAPREMULTIPLY_ON
+
+                #include "Packages/com.unity.render-pipelines.universal/Shaders/LitInput.hlsl"
+                #include "Packages/com.unity.render-pipelines.universal/Shaders/Utils/Universal2D.hlsl"
+                ENDHLSL
+            }
 
 
-    }
-    FallBack "Hidden/InternalErrorShader"
-    CustomEditor "UnityEditor.Rendering.Universal.ShaderGUI.LitShader"
+            }
+                FallBack "Hidden/InternalErrorShader"
+                CustomEditor "UnityEditor.Rendering.Universal.ShaderGUI.LitShader"
 }
