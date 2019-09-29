@@ -98,8 +98,12 @@ namespace UnityEngine.Rendering.Universal
         HighDynamicRange
     }
 
+
     public class UniversalRenderPipelineAsset : RenderPipelineAsset, ISerializationCallbackReceiver
     {
+        private const uint DEFAULT_FIRST_PERSON_LAYER_MASK = 2;
+        private const uint DEFAULT_THIRD_PERSON_LAYER_MASK = uint.MaxValue & ~DEFAULT_FIRST_PERSON_LAYER_MASK;
+
         Shader m_DefaultShader;
 
         // Default values set when a new UniversalRenderPipeline asset is created
@@ -155,6 +159,15 @@ namespace UnityEngine.Rendering.Universal
         // Post-processing settings
         [SerializeField] ColorGradingMode m_ColorGradingMode = ColorGradingMode.LowDynamicRange;
         [SerializeField] int m_ColorGradingLutSize = 32;
+
+        // First Person View Model settings.
+        [SerializeField] bool m_SupportsFirstPersonViewModelRendering = true;
+        [SerializeField] float m_FirstPersonViewModelFOV = 46.0f;
+        [SerializeField] float m_FirstPersonDepthBias = 0.075f;
+        [SerializeField] float m_FirstPersonViewModelNearPlane = 0.01f;
+        [SerializeField] float m_FirstPersonViewModelFarPlane = 30.0f;
+        [SerializeField] uint m_FirstPersonViewModelRenderingLayerMask = DEFAULT_FIRST_PERSON_LAYER_MASK;
+        [SerializeField] uint m_ThirdPersonRenderingLayerMask = DEFAULT_THIRD_PERSON_LAYER_MASK;
 
         // Deprecated settings
         [SerializeField] ShadowQuality m_ShadowType = ShadowQuality.HardShadows;
@@ -562,6 +575,41 @@ namespace UnityEngine.Rendering.Universal
         public bool supportsMixedLighting
         {
             get { return m_MixedLightingSupported; }
+        }
+
+        public bool supportsFirstPersonViewModelRendering
+        {
+            get { return m_SupportsFirstPersonViewModelRendering; }
+        }
+
+        public uint firstPersonViewModelRenderingLayerMask
+        {
+            get { return m_FirstPersonViewModelRenderingLayerMask; }
+        }
+
+        public uint thirdPersonRenderingLayerMask
+        {
+            get { return m_ThirdPersonRenderingLayerMask; }
+        }
+
+        public float firstPersonViewModelFOV
+        {
+            get { return m_FirstPersonViewModelFOV; }
+        }
+
+        public float firstPersonDepthBias
+        {
+            get { return m_FirstPersonDepthBias; }
+        }
+
+        public float firstPersonViewModelNearPlane
+        {
+            get { return m_FirstPersonViewModelNearPlane; }
+        }
+
+        public float firstPersonViewModelFarPlane
+        {
+            get { return m_FirstPersonViewModelFarPlane; }
         }
 
         public ShaderVariantLogLevel shaderVariantLogLevel

@@ -901,6 +901,21 @@ namespace UnityEditor.Rendering.Universal
             return hasChanged;
         }
 
+        bool DrawEnumMask<T>(SerializedProperty prop, ref T value, GUIContent style)
+            where T : Enum
+        {
+            bool hasChanged = false;
+            var controlRect = BeginProperty(prop, style);
+
+            EditorGUI.BeginChangeCheck();
+            value = (T)EditorGUI.EnumFlagsField(controlRect, style, (T)Enum.ToObject(typeof(T), prop.intValue));
+            if (EditorGUI.EndChangeCheck())
+                hasChanged = true;
+
+            EndProperty();
+            return hasChanged;
+        }
+
         bool DrawObjectField<T>(SerializedProperty prop, ref T value, GUIContent style)
             where T : UnityEngine.Object
         {

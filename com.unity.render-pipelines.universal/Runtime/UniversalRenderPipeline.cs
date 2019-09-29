@@ -26,6 +26,7 @@ namespace UnityEngine.Rendering.Universal
         {
             public static int _GlossyEnvironmentColor;
             public static int _SubtractiveShadowColor;
+            public static int _FirstPersonDepthBias;
 
             public static int _Time;
             public static int _SinTime;
@@ -120,6 +121,7 @@ namespace UnityEngine.Rendering.Universal
 
             PerFrameBuffer._GlossyEnvironmentColor = Shader.PropertyToID("_GlossyEnvironmentColor");
             PerFrameBuffer._SubtractiveShadowColor = Shader.PropertyToID("_SubtractiveShadowColor");
+            PerFrameBuffer._FirstPersonDepthBias = Shader.PropertyToID("_FirstPersonDepthBias");
 
             PerFrameBuffer._Time = Shader.PropertyToID("_Time");
             PerFrameBuffer._SinTime = Shader.PropertyToID("_SinTime");
@@ -166,7 +168,7 @@ namespace UnityEngine.Rendering.Universal
 
             GraphicsSettings.lightsUseLinearIntensity = (QualitySettings.activeColorSpace == ColorSpace.Linear);
             GraphicsSettings.useScriptableRenderPipelineBatching = asset.useSRPBatcher;
-            SetupPerFrameShaderConstants();
+            SetupPerFrameShaderConstants(asset);
 
             SortCameras(cameras);
             foreach (Camera camera in cameras)
@@ -348,6 +350,28 @@ namespace UnityEngine.Rendering.Universal
 			bool needsAlphaChannel = camera.targetTexture == null && Graphics.preserveFramebufferAlpha && PlatformNeedsToKillAlpha();
             cameraData.cameraTargetDescriptor = CreateRenderTextureDescriptor(camera, cameraData.renderScale,
                 cameraData.isStereoEnabled, cameraData.isHdrEnabled, msaaSamples, needsAlphaChannel);
+
+            // Configure first person view model rendering settings.
+            cameraData.supportsFirstPersonViewModelRendering = additionalCameraData != null ? additionalCameraData.supportsFirstPersonViewModelRendering : settings.supportsFirstPersonViewModelRendering;
+            cameraData.firstPersonViewModelRenderingLayerMask = additionalCameraData != null ? additionalCameraData.firstPersonViewModelRenderingLayerMask : settings.firstPersonViewModelRenderingLayerMask;
+            cameraData.thirdPersonRenderingLayerMask = additionalCameraData != null ? additionalCameraData.thirdPersonRenderingLayerMask : settings.thirdPersonRenderingLayerMask;
+
+            // Apply obliqueness to camera.
+            var obliqueness = additionalCameraData != null ? additionalCameraData.obliqueness : 0.0f;
+            if (!cameraData.isSceneViewCamera)
+            {
+                cameraData.camera.SetObliqueness(obliqueness);
+            }
+
+            // Calculate first person view model matrix.
+            cameraData.firstPersonViewModelProjectionMatrix = Matrix4x4.Perspective(
+                settings.firstPersonViewModelFOV,
+                camera.aspect,
+                settings.firstPersonViewModelNearPlane,
+                settings.firstPersonViewModelFarPlane);
+
+            // Apply obliqueness settings.
+            cameraData.firstPersonViewModelProjectionMatrix.SetObliqueness(obliqueness);
         }
 
         static void InitializeRenderingData(UniversalRenderPipelineAsset settings, ref CameraData cameraData, ref CullingResults cullResults,
@@ -556,7 +580,7 @@ namespace UnityEngine.Rendering.Universal
             return brightestDirectionalLightIndex;
         }
 
-        static void SetupPerFrameShaderConstants()
+        static void SetupPerFrameShaderConstants(UniversalRenderPipelineAsset asset)
         {
             // When glossy reflections are OFF in the shader we set a constant color to use as indirect specular
             SphericalHarmonicsL2 ambientSH = RenderSettings.ambientProbe;
@@ -566,6 +590,9 @@ namespace UnityEngine.Rendering.Universal
 
             // Used when subtractive mode is selected
             Shader.SetGlobalVector(PerFrameBuffer._SubtractiveShadowColor, CoreUtils.ConvertSRGBToActiveColorSpace(RenderSettings.subtractiveShadowColor));
+
+            // Used to compensate for different FOVs when rendering first, third person.
+            Shader.SetGlobalFloat(PerFrameBuffer._FirstPersonDepthBias, asset.firstPersonDepthBias);
         }
 
         static void SetupPerCameraShaderConstants(CameraData cameraData)
