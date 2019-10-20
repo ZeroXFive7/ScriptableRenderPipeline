@@ -35,16 +35,37 @@ namespace UnityEngine.Rendering.Universal
             // Setup additional render state blocks for each possible render pass.
             m_DefaultRenderStateBlock = new RenderStateBlock(RenderStateMask.Nothing);
 
-            m_FirstPersonRenderStateBlock = new RenderStateBlock(RenderStateMask.Stencil);
-            m_FirstPersonRenderStateBlock.stencilReference = FIRST_PERSON_MASK_STENCIL_REFERENCE;
-            m_FirstPersonRenderStateBlock.stencilState = new StencilState(
-                enabled: true,
-                readMask: 255,
-                writeMask: 255,
-                compareFunction: CompareFunction.Always,
-                passOperation: StencilOp.Replace,
-                failOperation: StencilOp.Keep
-            );
+
+            if (opaque)
+            {
+                m_FirstPersonRenderStateBlock = new RenderStateBlock(RenderStateMask.Stencil);
+                m_FirstPersonRenderStateBlock.stencilReference = FIRST_PERSON_MASK_STENCIL_REFERENCE;
+                m_FirstPersonRenderStateBlock.stencilState = new StencilState(
+                    enabled: true,
+                    readMask: 255,
+                    writeMask: 255,
+                    compareFunction: CompareFunction.Always,
+                    passOperation: StencilOp.Replace,
+                    failOperation: StencilOp.Keep
+                );
+            }
+            else
+            {
+                m_FirstPersonRenderStateBlock = new RenderStateBlock(RenderStateMask.Depth | RenderStateMask.Stencil);
+                m_FirstPersonRenderStateBlock.stencilReference = FIRST_PERSON_MASK_STENCIL_REFERENCE;
+                m_FirstPersonRenderStateBlock.stencilState = new StencilState(
+                    enabled: true,
+                    readMask: 255,
+                    writeMask: 255,
+                    compareFunction: CompareFunction.NotEqual,
+                    passOperation: StencilOp.Keep,
+                    failOperation: StencilOp.Keep
+                );
+
+                m_FirstPersonRenderStateBlock.depthState = new DepthState(
+                    writeEnabled: false,
+                    compareFunction: CompareFunction.Always);
+            }
 
             m_ThirdPersonRenderStateBlock = new RenderStateBlock(RenderStateMask.Stencil);
             m_ThirdPersonRenderStateBlock.stencilReference = FIRST_PERSON_MASK_STENCIL_REFERENCE;
