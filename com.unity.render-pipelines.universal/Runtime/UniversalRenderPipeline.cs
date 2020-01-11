@@ -188,14 +188,16 @@ namespace UnityEngine.Rendering.Universal
 
         public static void RenderSingleCamera(ScriptableRenderContext context, Camera camera)
         {
-            if (!camera.TryGetCullingParameters(IsStereoEnabled(camera), out var cullingParameters))
-                return;
-
-            var settings = asset;
             UniversalAdditionalCameraData additionalCameraData = null;
             if (camera.cameraType == CameraType.Game || camera.cameraType == CameraType.VR)
                 camera.gameObject.TryGetComponent(out additionalCameraData);
 
+            ConfigureCameraBeforeRender(camera, additionalCameraData);
+
+            if (!camera.TryGetCullingParameters(IsStereoEnabled(camera), out var cullingParameters))
+                return;
+
+            var settings = asset;
             InitializeCameraData(settings, camera, additionalCameraData, out var cameraData);
             SetupPerCameraShaderConstants(cameraData);
 
@@ -260,6 +262,16 @@ namespace UnityEngine.Rendering.Universal
                 Application.platform == RuntimePlatform.Android ||
                 Application.platform == RuntimePlatform.tvOS;
 		}
+
+        static void ConfigureCameraBeforeRender(Camera camera, UniversalAdditionalCameraData additionalCameraData)
+        {
+            // Apply obliqueness before any rendering operations.
+            var obliqueness = additionalCameraData != null ? additionalCameraData.obliqueness : 0.0f;
+            if (camera.cameraType != CameraType.SceneView)
+            {
+                camera.SetObliqueness(obliqueness);
+            }
+        }
 
         static void InitializeCameraData(UniversalRenderPipelineAsset settings, Camera camera, UniversalAdditionalCameraData additionalCameraData, out CameraData cameraData)
         {
@@ -356,13 +368,6 @@ namespace UnityEngine.Rendering.Universal
             cameraData.firstPersonViewModelRenderingLayerMask = additionalCameraData != null ? additionalCameraData.firstPersonViewModelRenderingLayerMask : settings.firstPersonViewModelRenderingLayerMask;
             cameraData.thirdPersonRenderingLayerMask = additionalCameraData != null ? additionalCameraData.thirdPersonRenderingLayerMask : settings.thirdPersonRenderingLayerMask;
 
-            // Apply obliqueness to camera.
-            var obliqueness = additionalCameraData != null ? additionalCameraData.obliqueness : 0.0f;
-            if (!cameraData.isSceneViewCamera)
-            {
-                cameraData.camera.SetObliqueness(obliqueness);
-            }
-
             // Calculate first person view model matrix.
             cameraData.firstPersonViewModelProjectionMatrix = Matrix4x4.Perspective(
                 settings.firstPersonViewModelFOV,
@@ -371,6 +376,7 @@ namespace UnityEngine.Rendering.Universal
                 settings.firstPersonViewModelFarPlane);
 
             // Apply obliqueness settings.
+            var obliqueness = additionalCameraData != null ? additionalCameraData.obliqueness : 0.0f;
             cameraData.firstPersonViewModelProjectionMatrix.SetObliqueness(obliqueness);
         }
 
