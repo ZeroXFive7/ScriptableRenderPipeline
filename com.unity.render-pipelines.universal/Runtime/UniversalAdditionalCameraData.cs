@@ -83,7 +83,7 @@ namespace UnityEngine.Rendering.Universal
 
         [Tooltip("If enabled this camera will attempt to render first person view models.")]
         [SerializeField]
-        bool m_SupportsFirstPersonViewModelRendering = true;
+        bool m_SupportsFirstPersonViewModelRendering = false;
 
         [SerializeField]
         uint m_FirstPersonViewModelRenderingLayerMask = DEFAULT_FIRST_PERSON_LAYER_MASK;
