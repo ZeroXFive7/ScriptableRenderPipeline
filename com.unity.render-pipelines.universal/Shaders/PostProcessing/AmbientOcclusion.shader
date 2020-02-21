@@ -28,13 +28,14 @@ Shader "Hidden/Universal Render Pipeline/Ambient Occlusion"
     static const float kBeta = 0.002;
 
     TEXTURE2D_X(_MainTex);
-    TEXTURE2D_X_FLOAT(_CameraDepthTexture);
+    TEXTURE2D(_CameraDepthTexture); SAMPLER(sampler_CameraDepthTexture);
     TEXTURE2D(_CameraDepthNormalsTexture);
 
     float4 _MainTex_TexelSize;
 
     float4 _AOParams;
     float3 _AOColor;
+    float3 _AOSampleKernel[16];
 
     // Sample count
     #if !defined(SHADER_API_GLES)
@@ -81,21 +82,25 @@ Shader "Hidden/Universal Render Pipeline/Ambient Occlusion"
     // Depth/normal sampling functions
     float SampleDepth(float2 uv)
     {
-        float depth = LOAD_TEXTURE2D_X(_CameraDepthTexture, uv).x;
-        depth = LinearEyeDepth(depth, _ZBufferParams);
-        return depth * _ProjectionParams.z + CheckBounds(uv, depth);
+        float depth = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, sampler_CameraDepthTexture, uv).x;
+        return LinearEyeDepth(depth, _ZBufferParams) + CheckBounds(uv, depth);
     }
 
     float3 SampleNormal(float2 uv)
     {
-        float4 cdn = SAMPLE_TEXTURE2D(_CameraDepthNormalsTexture, sampler_LinearClamp, uv);
-        return cdn * float3(1.0, 1.0, -1.0);
+        float3 normal = SAMPLE_TEXTURE2D(_CameraDepthNormalsTexture, sampler_LinearClamp, uv).xyz;
+        return normalize(normal * 2.0 - 1.0);
     }
 
     float SampleDepthNormal(float2 uv, out float3 normal)
     {
-        normal = SampleNormal(UnityStereoTransformScreenSpaceTex(uv));
+        normal = SampleNormal(uv);
         return SampleDepth(uv);
+    }
+
+    float2 GetRandomUV(float2 uv)
+    {
+        return uv;
     }
 
     // Normal vector comparer (for geometry-aware weighting)
@@ -134,170 +139,59 @@ Shader "Hidden/Universal Render Pipeline/Ambient Occlusion"
         return float3((uv * 2.0 - 1.0 - p13_31) / p11_22 * CheckPerspective(depth), depth);
     }
 
-    // Sample point picker
-    float3 PickSamplePoint(float2 uv, float index)
+    float2 ReconstructImagePos(float3 posViewSpace)
     {
-        // Uniformaly distributed points on a unit sphere
-        // http://mathworld.wolfram.com/SpherePointPicking.html
-#if defined(FIX_SAMPLING_PATTERN)
-        float gn = GradientNoise(uv * DOWNSAMPLE);
-        // FIXEME: This was added to avoid a NVIDIA driver issue.
-        //                                   vvvvvvvvvvvv
-        float u = frac(UVRandom(0.0, index + uv.x * 1e-10) + gn) * 2.0 - 1.0;
-        float theta = (UVRandom(1.0, index + uv.x * 1e-10) + gn) * TWO_PI;
-#else
-        float u = UVRandom(uv.x + _Time.x, uv.y + index) * 2.0 - 1.0;
-        float theta = UVRandom(-uv.x - _Time.x, uv.y + index) * TWO_PI;
+        float4 posClipSpace = mul(unity_CameraProjection, float4(posViewSpace, 1.0));
+        float2 posImageSpace = posClipSpace.xy / posClipSpace.w;
+        posImageSpace = posImageSpace * 0.5 + 0.5;
+
+#if UNITY_UV_STARTS_AT_TOP
+        posImageSpace = 1.0 - posImageSpace;
 #endif
-        float3 v = float3(CosSin(theta) * sqrt(1.0 - u * u), u);
-        // Make them distributed between [0, _Radius]
-        float l = sqrt((index + 1.0) / SAMPLE_COUNT) * RADIUS;
-        return v * l;
+        return posImageSpace;
+    }
+
+    inline float GetObscurance(int index, float3x3 tbn, float3 basePosVS)
+    {
+        float3 sampleOffsetVS = mul(_AOSampleKernel[index].xyz, tbn) * RADIUS;
+        float3 samplePosVS = basePosVS + sampleOffsetVS;
+        float2 sampleUV = ReconstructImagePos(samplePosVS);
+        float sampleDepth = SampleDepth(sampleUV);
+
+        float rangeCheck = abs(basePosVS.z - sampleDepth) < RADIUS ? 1.0 : 0.0;
+        return (sampleDepth <= samplePosVS.z ? 1.0 : 0.0) * rangeCheck;
     }
 
     half4 FragObscurance(Varyings input) : SV_Target
     {
         UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
 
-        float2 uv = input.uv;
-
-        // Parameters used in coordinate conversion
+        // Parameters used in coordinate conversion.
         float3x3 proj = (float3x3)unity_CameraProjection;
         float2 p11_22 = float2(unity_CameraProjection._11, unity_CameraProjection._22);
         float2 p13_31 = float2(unity_CameraProjection._13, unity_CameraProjection._23);
 
-        // View space normal and depth
-        float3 norm_o;
-        float depth_o = SampleDepthNormal(uv, norm_o);
+        // Retrieve world-space normal, depth, and view-space position at this fragment.
+        float3 normal;
+        float depth = SampleDepthNormal(input.uv, normal);
+        float3 viewPos = ReconstructViewPos(input.uv, depth, p11_22, p13_31);
 
-        // Reconstruct the view-space position.
-        float3 vpos_o = ReconstructViewPos(uv, depth_o, p11_22, p13_31);
+        float3 random = normalize(float3(0.5, 0.5, 0.5));
+        float3 tangent = normalize(random - normal * dot(random, normal));
+        float3 bitangent = cross(normal, tangent);
+        float3x3 tbn = float3x3(tangent, bitangent, normal);
 
-        float ao = 0.0;
+        // Now iterate over kernel, comparing depth.
+        float obscurance = 0.0;
 
         for (int s = 0; s < int(SAMPLE_COUNT); s++)
         {
-            // Sample point
-#if defined(SHADER_API_D3D11)
-            // This 'floor(1.0001 * s)' operation is needed to avoid a NVidia shader issue. This issue
-            // is only observed on DX11.
-            float3 v_s1 = PickSamplePoint(uv, floor(1.0001 * s));
-#else
-            float3 v_s1 = PickSamplePoint(uv, s);
-#endif
-
-            v_s1 = faceforward(v_s1, -norm_o, v_s1);
-            float3 vpos_s1 = vpos_o + v_s1;
-
-            // Reproject the sample point
-            float3 spos_s1 = mul(proj, vpos_s1);
-            float2 uv_s1_01 = (spos_s1.xy / CheckPerspective(vpos_s1.z) + 1.0) * 0.5;
-
-            // Depth at the sample point
-            float depth_s1 = SampleDepth(uv_s1_01);
-
-            // Relative position of the sample point
-            float3 vpos_s2 = ReconstructViewPos(uv_s1_01, depth_s1, p11_22, p13_31);
-            float3 v_s2 = vpos_s2 - vpos_o;
-
-            // Estimate the obscurance value
-            float a1 = max(dot(v_s2, norm_o) - kBeta * depth_o, 0.0);
-            float a2 = dot(v_s2, v_s2) + 0.00001;
-            ao += a1 / a2;
+            obscurance += GetObscurance(s, tbn, viewPos);
         }
 
-        ao *= RADIUS; // Intensity normalization
+        float ao = 1.0 - (obscurance / (float)SAMPLE_COUNT);
 
-        // Apply other parameters.
-        ao = PositivePow(ao * INTENSITY / SAMPLE_COUNT, kContrast);
-
-        return PackAONormal(ao, norm_o);
-    }
-
-        half4 FragBlur(Varyings input) : SV_Target
-        {
-            UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
-    
-        #if defined(BLUR_HORIZONTAL)
-        // Horizontal pass: Always use 2 texels interval to match to
-        // the dither pattern.
-        float2 delta = float2(_MainTex_TexelSize.x * 2.0, 0.0);
-    #else
-        // Vertical pass: Apply _Downsample to match to the dither
-        // pattern in the original occlusion buffer.
-        float2 delta = float2(0.0, _MainTex_TexelSize.y / DOWNSAMPLE * 2.0);
-    #endif
-    
-    #if defined(BLUR_HIGH_QUALITY)
-    
-        // High quality 7-tap Gaussian with adaptive sampling
-    
-        half4 p0 = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, input.uv);
-        half4 p1a = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, input.uv - delta);
-        half4 p1b = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, input.uv + delta);
-        half4 p2a = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, input.uv - delta * 2.0);
-        half4 p2b = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, input.uv + delta * 2.0);
-        half4 p3a = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, input.uv - delta * 3.2307692308);
-        half4 p3b = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, input.uv + delta * 3.2307692308);
-    
-    #if defined(BLUR_SAMPLE_CENTER_NORMAL)
-        half3 n0 = SampleNormal(input.uv);
-    #else
-        half3 n0 = GetPackedNormal(p0);
-    #endif
-    
-        half w0 = 0.37004405286;
-        half w1a = CompareNormal(n0, GetPackedNormal(p1a)) * 0.31718061674;
-        half w1b = CompareNormal(n0, GetPackedNormal(p1b)) * 0.31718061674;
-        half w2a = CompareNormal(n0, GetPackedNormal(p2a)) * 0.19823788546;
-        half w2b = CompareNormal(n0, GetPackedNormal(p2b)) * 0.19823788546;
-        half w3a = CompareNormal(n0, GetPackedNormal(p3a)) * 0.11453744493;
-        half w3b = CompareNormal(n0, GetPackedNormal(p3b)) * 0.11453744493;
-    
-        half s;
-        s = GetPackedAO(p0) * w0;
-        s += GetPackedAO(p1a) * w1a;
-        s += GetPackedAO(p1b) * w1b;
-        s += GetPackedAO(p2a) * w2a;
-        s += GetPackedAO(p2b) * w2b;
-        s += GetPackedAO(p3a) * w3a;
-        s += GetPackedAO(p3b) * w3b;
-    
-        s /= w0 + w1a + w1b + w2a + w2b + w3a + w3b;
-    
-    #else
-    
-        // Fater 5-tap Gaussian with linear sampling
-        half4 p0 = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, input.uv);
-        half4 p1a = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, input.uv - delta * 1.3846153846);
-        half4 p1b = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, input.uv + delta * 1.3846153846);
-        half4 p2a = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, input.uv - delta * 3.2307692308);
-        half4 p2b = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, input.uv + delta * 3.2307692308);
-    
-    #if defined(BLUR_SAMPLE_CENTER_NORMAL)
-        half3 n0 = SampleNormal(input.uv);
-    #else
-        half3 n0 = GetPackedNormal(p0);
-    #endif
-    
-        half w0 = 0.2270270270;
-        half w1a = CompareNormal(n0, GetPackedNormal(p1a)) * 0.3162162162;
-        half w1b = CompareNormal(n0, GetPackedNormal(p1b)) * 0.3162162162;
-        half w2a = CompareNormal(n0, GetPackedNormal(p2a)) * 0.0702702703;
-        half w2b = CompareNormal(n0, GetPackedNormal(p2b)) * 0.0702702703;
-    
-        half s;
-        s = GetPackedAO(p0) * w0;
-        s += GetPackedAO(p1a) * w1a;
-        s += GetPackedAO(p1b) * w1b;
-        s += GetPackedAO(p2a) * w2a;
-        s += GetPackedAO(p2b) * w2b;
-    
-        s /= w0 + w1a + w1b + w2a + w2b;
-    
-    #endif
-    
-        return PackAONormal(s, n0);
+        return half4(ao, ao, ao, 1.0);
     }
 
     half4 FragBlurH(Varyings input) : SV_Target
@@ -306,15 +200,15 @@ Shader "Hidden/Universal Render Pipeline/Ambient Occlusion"
         float texelSize = _MainTex_TexelSize.x * 2.0;
 
         // 9-tap gaussian blur on the downsampled source
-        half3 c0 = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, input.uv - float2(texelSize * 4.0, 0.0));
-        half3 c1 = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, input.uv - float2(texelSize * 3.0, 0.0));
-        half3 c2 = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, input.uv - float2(texelSize * 2.0, 0.0));
-        half3 c3 = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, input.uv - float2(texelSize * 1.0, 0.0));
-        half3 c4 = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, input.uv                               );
-        half3 c5 = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, input.uv + float2(texelSize * 1.0, 0.0));
-        half3 c6 = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, input.uv + float2(texelSize * 2.0, 0.0));
-        half3 c7 = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, input.uv + float2(texelSize * 3.0, 0.0));
-        half3 c8 = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, input.uv + float2(texelSize * 4.0, 0.0));
+        half3 c0 = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, input.uv - float2(texelSize * 4.0, 0.0)).xyz;
+        half3 c1 = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, input.uv - float2(texelSize * 3.0, 0.0)).xyz;
+        half3 c2 = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, input.uv - float2(texelSize * 2.0, 0.0)).xyz;
+        half3 c3 = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, input.uv - float2(texelSize * 1.0, 0.0)).xyz;
+        half3 c4 = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, input.uv                               ).xyz;
+        half3 c5 = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, input.uv + float2(texelSize * 1.0, 0.0)).xyz;
+        half3 c6 = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, input.uv + float2(texelSize * 2.0, 0.0)).xyz;
+        half3 c7 = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, input.uv + float2(texelSize * 3.0, 0.0)).xyz;
+        half3 c8 = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, input.uv + float2(texelSize * 4.0, 0.0)).xyz;
 
         half3 color = c0 * 0.01621622 + c1 * 0.05405405 + c2 * 0.12162162 + c3 * 0.19459459
                     + c4 * 0.22702703
@@ -329,11 +223,11 @@ Shader "Hidden/Universal Render Pipeline/Ambient Occlusion"
         float texelSize = _MainTex_TexelSize.y;
 
         // Optimized bilinear 5-tap gaussian on the same-sized source (9-tap equivalent)
-        half3 c0 = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, input.uv - float2(0.0, texelSize * 3.23076923));
-        half3 c1 = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, input.uv - float2(0.0, texelSize * 1.38461538));
-        half3 c2 = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, input.uv                                      );
-        half3 c3 = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, input.uv + float2(0.0, texelSize * 1.38461538));
-        half3 c4 = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, input.uv + float2(0.0, texelSize * 3.23076923));
+        half3 c0 = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, input.uv - float2(0.0, texelSize * 3.23076923)).xyz;
+        half3 c1 = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, input.uv - float2(0.0, texelSize * 1.38461538)).xyz;
+        half3 c2 = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, input.uv                                      ).xyz;
+        half3 c3 = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, input.uv + float2(0.0, texelSize * 1.38461538)).xyz;
+        half3 c4 = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, input.uv + float2(0.0, texelSize * 3.23076923)).xyz;
 
         half3 color = c0 * 0.07027027 + c1 * 0.31621622
                     + c2 * 0.22702703

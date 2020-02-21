@@ -16,7 +16,7 @@ namespace UnityEngine.Rendering.Universal.Internal
     // TODO: TAA
     // TODO: Motion blur
     /// <summary>
-    /// Renders the post-processing effect stack.
+    /// Renders the post-processing effect stack.MAX_AO_KERNEL_SIZE
     /// </summary>
     public class PostProcessPass : ScriptableRenderPass
     {
@@ -48,6 +48,7 @@ namespace UnityEngine.Rendering.Universal.Internal
 
         // Misc
         const int k_MaxPyramidSize = 16;
+        const int k_MaxAOKernelSize = 16;
         readonly GraphicsFormat m_DefaultHDRFormat;
         bool m_UseRGBM;
         readonly GraphicsFormat m_GaussianCoCFormat;
@@ -58,6 +59,7 @@ namespace UnityEngine.Rendering.Universal.Internal
         Vector4[] m_BokehKernel;
         int m_BokehHash;
         bool m_IsStereo;
+        Vector4[] m_AmbientOcclusionSampleKernel;
 
         // True when this is the very last pass in the pipeline
         bool m_IsFinalPass;
@@ -106,6 +108,8 @@ namespace UnityEngine.Rendering.Universal.Internal
 
             ShaderConstants._AmbientOcclusionMipDown = Shader.PropertyToID("_AmbientOcclusionMipDown");
             ShaderConstants._AmbientOcclusionMipUp = Shader.PropertyToID("_AmbientOcclusionMipUp");
+
+            m_AmbientOcclusionSampleKernel = new Vector4[k_MaxAOKernelSize];
 
             m_MRT2 = new RenderTargetIdentifier[2];
             m_ResetHistory = true;
@@ -838,6 +842,17 @@ namespace UnityEngine.Rendering.Universal.Internal
             var ambientOcclusionMaterial = m_Materials.ambientOcclusion;
 
             // Prefilter
+            var aoParams = new Vector4(m_AmbientOcclusion.intensity.value,
+                m_AmbientOcclusion.sampleRadius.value,
+                m_AmbientOcclusion.downsample.value,
+                m_AmbientOcclusion.sampleCount.value);
+
+            ambientOcclusionMaterial.SetVector(ShaderConstants._AOParams, aoParams);
+            ambientOcclusionMaterial.SetColor(ShaderConstants._AOColor, m_AmbientOcclusion.color.value);
+
+            RandomizeAOKernel(m_AmbientOcclusionSampleKernel, m_AmbientOcclusion.sampleCount.value);
+            ambientOcclusionMaterial.SetVectorArray(ShaderConstants._AOSampleKernel, m_AmbientOcclusionSampleKernel);
+
             var desc = GetStereoCompatibleDescriptor(tw, th, GraphicsFormat.R16G16B16A16_SFloat);
             cmd.GetTemporaryRT(ShaderConstants._AmbientOcclusionMipDown, desc, FilterMode.Bilinear);
             cmd.GetTemporaryRT(ShaderConstants._AmbientOcclusionMipUp, desc, FilterMode.Bilinear);
@@ -856,6 +871,34 @@ namespace UnityEngine.Rendering.Universal.Internal
             cmd.SetGlobalTexture(ShaderConstants._AmbientOcclusion_Texture, ShaderConstants._AmbientOcclusionMipDown);
 
             uberMaterial.EnableKeyword(ShaderKeywordStrings.AmbientOcclusion);
+        }
+
+        private void RandomizeAOKernel(Vector4[] kernel, int maxSize)
+        {
+            maxSize = Mathf.Min(kernel.Length, maxSize);
+
+            int i = 0;
+            for (; i < maxSize; ++i)
+            {
+                // First create a random point on a unit-radius hemisphere oriented around z.
+                var randomX = UnityEngine.Random.Range(-1.0f, 1.0f);
+                var randomY = UnityEngine.Random.Range(-1.0f, 1.0f);
+                var randomZ = UnityEngine.Random.Range(0.0f, 1.0f);
+                var randomHemispherePoint = new Vector3(randomX, randomY, randomZ).normalized;
+
+                // Then scale with an accelerating multiplier to distribute points throughout the hemisphere.
+                var scale = (float)i / (float)maxSize;
+                scale = Mathf.Lerp(0.1f, 1.0f, scale * scale);
+                randomHemispherePoint *= scale;
+
+                // Then store in Vector4 for transfer to shader.
+                kernel[i] = randomHemispherePoint;
+            }
+
+            for (; i < kernel.Length; ++i)
+            {
+                kernel[i] = new Vector4(0, 0, 0, 0);
+            }
         }
 
         #endregion
@@ -1119,6 +1162,9 @@ namespace UnityEngine.Rendering.Universal.Internal
             public static readonly int _UserLut_Params             = Shader.PropertyToID("_UserLut_Params");
             public static readonly int _InternalLut                = Shader.PropertyToID("_InternalLut");
             public static readonly int _UserLut                    = Shader.PropertyToID("_UserLut");
+            public static readonly int _AOParams                   = Shader.PropertyToID("_AOParams");
+            public static readonly int _AOColor                    = Shader.PropertyToID("_AOColor");
+            public static readonly int _AOSampleKernel             = Shader.PropertyToID("_AOSampleKernel");
             public static readonly int _AmbientOcclusion_Texture   = Shader.PropertyToID("_AmbientOcclusion_Texture");
 
             public static int[] _BloomMipUp;
