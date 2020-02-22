@@ -21,7 +21,10 @@
         // Otherwise evaluate SH fully per-pixel
 #endif
 
-
+#ifdef _AMBIENT_OCCLUSION
+    TEXTURE2D(_AmbientOcclusionTexture);
+    SAMPLER(sampler__AmbientOcclusionTexture);
+#endif
 #ifdef LIGHTMAP_ON
     #define DECLARE_LIGHTMAP_OR_SH(lmName, shName, index) float2 lmName : TEXCOORD##index
     #define OUTPUT_LIGHTMAP_UV(lightmapUV, lightmapScaleOffset, OUT) OUT.xy = lightmapUV.xy * lightmapScaleOffset.xy + lightmapScaleOffset.zw;
@@ -514,6 +517,23 @@ void MixRealtimeAndBakedGI(inout Light light, half3 normalWS, inout half3 bakedG
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+//                      Occlusion Helpers                                    //
+///////////////////////////////////////////////////////////////////////////////
+#ifdef _AMBIENT_OCCLUSION
+half SampleAmbientOcclusionMap(float4 shadowCoord)
+{
+    shadowCoord.xy /= shadowCoord.w;
+
+    // The stereo transform has to happen after the manual perspective divide
+    shadowCoord.xy = UnityStereoTransformScreenSpaceTex(shadowCoord.xy);
+
+    half occlusion = SAMPLE_TEXTURE2D(_AmbientOcclusionTexture, sampler__AmbientOcclusionTexture, shadowCoord.xy).x;
+
+    return occlusion;
+}
+#endif
+
+///////////////////////////////////////////////////////////////////////////////
 //                      Lighting Functions                                   //
 ///////////////////////////////////////////////////////////////////////////////
 half3 LightingLambert(half3 lightColor, half3 lightDir, half3 normal)
@@ -572,6 +592,10 @@ half4 UniversalFragmentPBR(InputData inputData, half3 albedo, half metallic, hal
 
     Light mainLight = GetMainLight(inputData.shadowCoord);
     MixRealtimeAndBakedGI(mainLight, inputData.normalWS, inputData.bakedGI, half4(0, 0, 0, 0));
+
+#ifdef _AMBIENT_OCCLUSION
+    occlusion = SampleAmbientOcclusionMap(inputData.shadowCoord);
+#endif
 
     half3 color = GlobalIllumination(brdfData, inputData.bakedGI, occlusion, inputData.normalWS, inputData.viewDirectionWS);
     color += LightingPhysicallyBased(brdfData, mainLight, inputData.normalWS, inputData.viewDirectionWS);

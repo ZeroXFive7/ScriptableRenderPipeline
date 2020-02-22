@@ -9,7 +9,6 @@ Shader "Hidden/Universal Render Pipeline/UberPost"
         #pragma multi_compile_local _ _FILM_GRAIN
         #pragma multi_compile_local _ _DITHERING
 		#pragma multi_compile_local _ _LINEAR_TO_SRGB_CONVERSION
-        #pragma multi_compile_local _ _AMBIENT_OCCLUSION
 
         #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
         #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Filtering.hlsl"
@@ -31,7 +30,6 @@ Shader "Hidden/Universal Render Pipeline/UberPost"
         TEXTURE2D(_InternalLut);
         TEXTURE2D(_UserLut);
         TEXTURE2D(_BlueNoise_Texture);
-        TEXTURE2D(_AmbientOcclusionTexture);
 
         float4 _Lut_Params;
         float4 _UserLut_Params;
@@ -144,13 +142,6 @@ Shader "Hidden/Universal Render Pipeline/UberPost"
             #if UNITY_COLORSPACE_GAMMA
             {
                 color = SRGBToLinear(color);
-            }
-            #endif
-
-            #if defined(_AMBIENT_OCCLUSION)
-            {
-                half4 ambientOcclusion = SAMPLE_TEXTURE2D_X(_AmbientOcclusionTexture, sampler_LinearClamp, uvDistorted);
-                color *= ambientOcclusion.x;
             }
             #endif
 

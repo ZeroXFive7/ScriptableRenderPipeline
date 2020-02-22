@@ -107,6 +107,7 @@ Shader "Universal Render Pipeline/Lit"
 
                 // Giants Kettle keywords
                 #pragma multi_compile _ _FIRST_PERSON_DEPTH
+                #pragma multi_compile _ _AMBIENT_OCCLUSION
 
                 // -------------------------------------
                 // Unity defined keywords

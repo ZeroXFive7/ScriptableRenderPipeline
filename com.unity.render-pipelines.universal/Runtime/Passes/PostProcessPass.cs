@@ -36,7 +36,6 @@ namespace UnityEngine.Rendering.Universal.Internal
         DepthOfField m_DepthOfField;
         MotionBlur m_MotionBlur;
         PaniniProjection m_PaniniProjection;
-        AmbientOcclusion m_AmbientOcclusion;
         Bloom m_Bloom;
         LensDistortion m_LensDistortion;
         ChromaticAberration m_ChromaticAberration;
@@ -162,7 +161,6 @@ namespace UnityEngine.Rendering.Universal.Internal
             m_MotionBlur          = stack.GetComponent<MotionBlur>();
             m_PaniniProjection    = stack.GetComponent<PaniniProjection>();
             m_Bloom               = stack.GetComponent<Bloom>();
-            m_AmbientOcclusion    = stack.GetComponent<AmbientOcclusion>();
             m_LensDistortion      = stack.GetComponent<LensDistortion>();
             m_ChromaticAberration = stack.GetComponent<ChromaticAberration>();
             m_Vignette            = stack.GetComponent<Vignette>();
@@ -306,13 +304,6 @@ namespace UnityEngine.Rendering.Universal.Internal
                         SetupBloom(cmd, GetSource(), m_Materials.uber);
                 }
 
-                bool ambientOcclusionActive = m_AmbientOcclusion.IsActive();
-                if (ambientOcclusionActive)
-                {
-                    using (new ProfilingSample(cmd, "Ambient Occlusion"))
-                        SetupAmbientOcclusion(cmd, GetSource(), m_Materials.uber);
-                }
-
                 // Setup other effects constants
                 SetupLensDistortion(m_Materials.uber, cameraData.isSceneViewCamera);
                 SetupChromaticAberration(m_Materials.uber);
@@ -353,9 +344,6 @@ namespace UnityEngine.Rendering.Universal.Internal
                 // Cleanup
                 if (bloomActive)
                     cmd.ReleaseTemporaryRT(ShaderConstants._BloomMipUp[0]);
-
-                if (ambientOcclusionActive)
-                    cmd.ReleaseTemporaryRT(ShaderConstants._AmbientOcclusionMipDown);
 
                 if (destination != -1)
                     cmd.ReleaseTemporaryRT(ShaderConstants._TempTarget);
@@ -826,54 +814,6 @@ namespace UnityEngine.Rendering.Universal.Internal
 
         #endregion
 
-        #region Ambient Occlusion
-
-        private void SetupAmbientOcclusion(CommandBuffer cmd, int source, Material uberMaterial)
-        {
-            // Start at half-res
-            int tw = m_Descriptor.width >> 1;
-            int th = m_Descriptor.height >> 1;
-
-            // Material setup
-            var ambientOcclusionMaterial = m_Materials.ambientOcclusion;
-
-            // Prefilter
-            var aoParams = new Vector4(m_AmbientOcclusion.intensity.value,
-                m_AmbientOcclusion.sampleRadius.value,
-                m_AmbientOcclusion.downsample.value,
-                m_AmbientOcclusion.sampleCount.value);
-
-            ambientOcclusionMaterial.SetVector(ShaderConstants._AOParams, aoParams);
-            ambientOcclusionMaterial.SetColor(ShaderConstants._AOColor, m_AmbientOcclusion.color.value);
-
-            var intermediateDesc = GetStereoCompatibleDescriptor(tw, th, GraphicsFormat.R16G16B16A16_SFloat);
-            cmd.GetTemporaryRT(ShaderConstants._AmbientOcclusionMipDown, intermediateDesc, FilterMode.Bilinear);
-            cmd.GetTemporaryRT(ShaderConstants._AmbientOcclusionMipUp, intermediateDesc, FilterMode.Bilinear);
-            cmd.Blit(source, ShaderConstants._AmbientOcclusionMipDown, ambientOcclusionMaterial, 0);
-
-            // Classic two pass gaussian blur - use mipUp as a temporary target
-            //   First pass does 2x downsampling + 9-tap gaussian
-            //   Second pass does 9-tap gaussian using a 5-tap filter + bilinear filtering
-            cmd.Blit(ShaderConstants._AmbientOcclusionMipDown, ShaderConstants._AmbientOcclusionMipUp, ambientOcclusionMaterial, 1);
-            cmd.Blit(ShaderConstants._AmbientOcclusionMipUp, ShaderConstants._AmbientOcclusionMipDown, ambientOcclusionMaterial, 2);
-
-            // Final texture is single-channel.
-            var finalDesc = GetStereoCompatibleDescriptor(m_Descriptor.width, m_Descriptor.height, GraphicsFormat.R16_SFloat);
-            cmd.GetTemporaryRT(ShaderConstants._AmbientOcclusionTexture, finalDesc, FilterMode.Bilinear);
-            cmd.Blit(ShaderConstants._AmbientOcclusionMipDown, ShaderConstants._AmbientOcclusionTexture, ambientOcclusionMaterial, 3);
-
-            // Cleanup
-            cmd.ReleaseTemporaryRT(ShaderConstants._AmbientOcclusionMipUp);
-            cmd.ReleaseTemporaryRT(ShaderConstants._AmbientOcclusionMipDown);
-
-            // Setup ambient occlusion on uber
-            cmd.SetGlobalTexture(ShaderConstants._AmbientOcclusionTexture, ShaderConstants._AmbientOcclusionTexture);
-
-            uberMaterial.EnableKeyword(ShaderKeywordStrings.AmbientOcclusion);
-        }
-
-        #endregion
-
         #region Lens Distortion
 
         void SetupLensDistortion(Material material, bool isSceneView)
@@ -1076,7 +1016,6 @@ namespace UnityEngine.Rendering.Universal.Internal
                 cameraMotionBlur = Load(data.shaders.cameraMotionBlurPS);
                 paniniProjection = Load(data.shaders.paniniProjectionPS);
                 bloom = Load(data.shaders.bloomPS);
-                ambientOcclusion = Load(data.shaders.ambientOcclusionPS);
                 uber = Load(data.shaders.uberPostPS);
                 finalPass = Load(data.shaders.finalPostPassPS);
             }
@@ -1133,12 +1072,6 @@ namespace UnityEngine.Rendering.Universal.Internal
             public static readonly int _UserLut_Params             = Shader.PropertyToID("_UserLut_Params");
             public static readonly int _InternalLut                = Shader.PropertyToID("_InternalLut");
             public static readonly int _UserLut                    = Shader.PropertyToID("_UserLut");
-            public static readonly int _AOParams                   = Shader.PropertyToID("_AOParams");
-            public static readonly int _AOColor                    = Shader.PropertyToID("_AOColor");
-            public static readonly int _AOSampleKernel             = Shader.PropertyToID("_AOSampleKernel");
-            public static readonly int _AmbientOcclusionTexture    = Shader.PropertyToID("_AmbientOcclusionTexture");
-            public static readonly int _AmbientOcclusionMipDown    = Shader.PropertyToID("_AmbientOcclusionMipDown");
-            public static readonly int _AmbientOcclusionMipUp      = Shader.PropertyToID("_AmbientOcclusionMipUp");
 
             public static int[] _BloomMipUp;
             public static int[] _BloomMipDown;

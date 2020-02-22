@@ -59,9 +59,6 @@ namespace UnityEngine.Rendering.Universal
             [Reload("Shaders/PostProcessing/Bloom.shader")]
             public Shader bloomPS;
 
-            [Reload("Shaders/PostProcessing/AmbientOcclusion.shader")]
-            public Shader ambientOcclusionPS;
-
             [Reload("Shaders/PostProcessing/UberPost.shader")]
             public Shader uberPostPS;
 
