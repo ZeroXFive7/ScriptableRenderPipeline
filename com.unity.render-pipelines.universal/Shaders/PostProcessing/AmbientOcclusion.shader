@@ -30,12 +30,14 @@ Shader "Hidden/Universal Render Pipeline/Ambient Occlusion"
     TEXTURE2D_X(_MainTex);
     TEXTURE2D(_CameraDepthTexture); SAMPLER(sampler_CameraDepthTexture);
     TEXTURE2D(_CameraDepthNormalsTexture);
+    TEXTURE2D(_AONoise);
 
     float4 _MainTex_TexelSize;
 
     float4 _AOParams;
     float3 _AOColor;
     float3 _AOSampleKernel[16];
+    float2 _AORenderTargetSize;
 
     // Sample count
     #if !defined(SHADER_API_GLES)
@@ -49,21 +51,62 @@ Shader "Hidden/Universal Render Pipeline/Ambient Occlusion"
     #define INTENSITY _AOParams.x
     #define RADIUS _AOParams.y
     #define DOWNSAMPLE _AOParams.z
+    #define NOISE_SCALE _AORenderTargetSize / 4.0
 
-    // Accessors for packed AO/normal buffer
-    half4 PackAONormal(half ao, half3 n)
+    // Encoding/decoding [0..1) floats into 8 bit/channel RG. Note that 1.0 will not be encoded properly.
+    inline float2 EncodeFloatRG(float v)
     {
-        return half4(ao, n * 0.5 + 0.5);
+        float2 kEncodeMul = float2(1.0, 255.0);
+        float kEncodeBit = 1.0 / 255.0;
+        float2 enc = kEncodeMul * v;
+        enc = frac(enc);
+        enc.x -= enc.y * kEncodeBit;
+        return enc;
+    }
+    inline float DecodeFloatRG(float2 enc)
+    {
+        float2 kDecodeDot = float2(1.0, 1 / 255.0);
+        return dot(enc, kDecodeDot);
     }
 
-    half GetPackedAO(half4 p)
+    // Encoding/decoding view space normals into 2D 0..1 vector
+    inline float2 EncodeViewNormalStereo(float3 n)
     {
-        return p.r;
+        float kScale = 1.7777;
+        float2 enc;
+        enc = n.xy / (n.z + 1);
+        enc /= kScale;
+        enc = enc * 0.5 + 0.5;
+        return enc;
+    }
+    inline float3 DecodeViewNormalStereo(float4 enc4)
+    {
+        float kScale = 1.7777;
+        float3 nn = enc4.xyz * float3(2 * kScale, 2 * kScale, 0) + float3(-kScale, -kScale, 1);
+        float g = 2.0 / dot(nn.xyz, nn.xyz);
+        float3 n;
+        n.xy = g * nn.xy;
+
+#if defined(UNITY_REVERSED_Z)
+        n.z = 1 - g;
+#else
+        n.z = g - 1;
+#endif
+        return n;
     }
 
-    half3 GetPackedNormal(half4 p)
+    inline float4 EncodeDepthNormal(float depth, float3 normal)
     {
-        return p.gba * 2.0 - 1.0;
+        float4 enc;
+        enc.xy = EncodeViewNormalStereo(normal);
+        enc.zw = EncodeFloatRG(depth);
+        return enc;
+    }
+
+    inline void DecodeDepthNormal(float4 enc, out float depth, out float3 normal)
+    {
+        depth = DecodeFloatRG(enc.zw);
+        normal = DecodeViewNormalStereo(enc);
     }
 
     // Boundary check for depth sampler
@@ -88,40 +131,18 @@ Shader "Hidden/Universal Render Pipeline/Ambient Occlusion"
 
     float3 SampleNormal(float2 uv)
     {
-        float3 normal = SAMPLE_TEXTURE2D(_CameraDepthNormalsTexture, sampler_LinearClamp, uv).xyz;
-        return normalize(normal * 2.0 - 1.0);
+        float4 encodedDepthNormal = SAMPLE_TEXTURE2D(_CameraDepthNormalsTexture, sampler_LinearClamp, uv);
+
+        float depth;
+        float3 normal;
+        DecodeDepthNormal(encodedDepthNormal, depth, normal);
+        return normal;
     }
 
     float SampleDepthNormal(float2 uv, out float3 normal)
     {
         normal = SampleNormal(uv);
         return SampleDepth(uv);
-    }
-
-    float2 GetRandomUV(float2 uv)
-    {
-        return uv;
-    }
-
-    // Normal vector comparer (for geometry-aware weighting)
-    half CompareNormal(half3 d1, half3 d2)
-    {
-        return smoothstep(kGeometryCoeff, 1.0, dot(d1, d2));
-    }
-
-    // Trigonometric function utility
-    float2 CosSin(float theta)
-    {
-        float sn, cs;
-        sincos(theta, sn, cs);
-        return float2(cs, sn);
-    }
-
-    // Pseudo random number generator with 2D coordinates
-    float UVRandom(float u, float v)
-    {
-        float f = dot(float2(12.9898, 78.233), float2(u, v));
-        return frac(43758.5453 * sin(f));
     }
 
     // Check if the camera is perspective.
@@ -153,13 +174,14 @@ Shader "Hidden/Universal Render Pipeline/Ambient Occlusion"
 
     inline float GetObscurance(int index, float3x3 tbn, float3 basePosVS)
     {
-        float3 sampleOffsetVS = mul(_AOSampleKernel[index].xyz, tbn) * RADIUS;
+        float3 sampleOffsetVS = mul(_AOSampleKernel[index], tbn) * RADIUS;
         float3 samplePosVS = basePosVS + sampleOffsetVS;
         float2 sampleUV = ReconstructImagePos(samplePosVS);
         float sampleDepth = SampleDepth(sampleUV);
 
-        float rangeCheck = abs(basePosVS.z - sampleDepth) < RADIUS ? 1.0 : 0.0;
-        return (sampleDepth <= samplePosVS.z ? 1.0 : 0.0) * rangeCheck;
+        float rangeCheck = smoothstep(0.0, 1.0, RADIUS / abs(sampleDepth - basePosVS.z));
+        float obscurance = step(sampleDepth, samplePosVS.z);
+        return obscurance * rangeCheck;
     }
 
     half4 FragObscurance(Varyings input) : SV_Target
@@ -176,14 +198,20 @@ Shader "Hidden/Universal Render Pipeline/Ambient Occlusion"
         float depth = SampleDepthNormal(input.uv, normal);
         float3 viewPos = ReconstructViewPos(input.uv, depth, p11_22, p13_31);
 
-        float3 random = normalize(float3(0.5, 0.5, 0.5));
-        float3 tangent = normalize(random - normal * dot(random, normal));
+        // Next construct basis randomly rotated around normal.
+        float2 random = SAMPLE_TEXTURE2D(_AONoise, sampler_LinearRepeat, input.uv * NOISE_SCALE).xy;
+        random = random * 2.0 - 1.0;
+
+        float3 random3D = float3(random.xy, 0);
+        float3 tangent = normalize(random3D - normal * dot(random3D, normal));
         float3 bitangent = cross(normal, tangent);
+
         float3x3 tbn = float3x3(tangent, bitangent, normal);
 
         // Now iterate over kernel, comparing depth.
         float obscurance = 0.0;
 
+        [unroll]
         for (int s = 0; s < int(SAMPLE_COUNT); s++)
         {
             obscurance += GetObscurance(s, tbn, viewPos);

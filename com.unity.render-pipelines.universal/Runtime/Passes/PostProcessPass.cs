@@ -48,7 +48,9 @@ namespace UnityEngine.Rendering.Universal.Internal
 
         // Misc
         const int k_MaxPyramidSize = 16;
-        const int k_MaxAOKernelSize = 16;
+        const int k_MaxAOKernelSize = 64;
+        const int k_AONoiseWidth = 4;
+        const int k_AONoiseHeight = 4;
         readonly GraphicsFormat m_DefaultHDRFormat;
         bool m_UseRGBM;
         readonly GraphicsFormat m_GaussianCoCFormat;
@@ -59,7 +61,9 @@ namespace UnityEngine.Rendering.Universal.Internal
         Vector4[] m_BokehKernel;
         int m_BokehHash;
         bool m_IsStereo;
-        Vector4[] m_AmbientOcclusionSampleKernel;
+        Vector4[] m_AmbientOcclusionSampleKernel = new Vector4[k_MaxAOKernelSize];
+        int m_AmbientOcclusionSampleKernelCount = 0;
+        Texture2D m_AmbientOcclusionNoise;
 
         // True when this is the very last pass in the pipeline
         bool m_IsFinalPass;
@@ -106,10 +110,12 @@ namespace UnityEngine.Rendering.Universal.Internal
                 ShaderConstants._BloomMipDown[i] = Shader.PropertyToID("_BloomMipDown" + i);
             }
 
-            ShaderConstants._AmbientOcclusionMipDown = Shader.PropertyToID("_AmbientOcclusionMipDown");
-            ShaderConstants._AmbientOcclusionMipUp = Shader.PropertyToID("_AmbientOcclusionMipUp");
+            var ambientOcclusionNoiseData = new Color[k_AONoiseWidth * k_AONoiseHeight];
+            RandomizeAONoise(ambientOcclusionNoiseData);
 
-            m_AmbientOcclusionSampleKernel = new Vector4[k_MaxAOKernelSize];
+            m_AmbientOcclusionNoise = new Texture2D(k_AONoiseWidth, k_AONoiseHeight);
+            m_AmbientOcclusionNoise.SetPixels(ambientOcclusionNoiseData);
+            m_AmbientOcclusionNoise.Apply();
 
             m_MRT2 = new RenderTargetIdentifier[2];
             m_ResetHistory = true;
@@ -835,8 +841,8 @@ namespace UnityEngine.Rendering.Universal.Internal
         private void SetupAmbientOcclusion(CommandBuffer cmd, int source, Material uberMaterial)
         {
             // Start at half-res
-            int tw = m_Descriptor.width >> 1;
-            int th = m_Descriptor.height >> 1;
+            int tw = m_Descriptor.width;// >> 1;
+            int th = m_Descriptor.height;// >> 1;
 
             // Material setup
             var ambientOcclusionMaterial = m_Materials.ambientOcclusion;
@@ -849,8 +855,15 @@ namespace UnityEngine.Rendering.Universal.Internal
 
             ambientOcclusionMaterial.SetVector(ShaderConstants._AOParams, aoParams);
             ambientOcclusionMaterial.SetColor(ShaderConstants._AOColor, m_AmbientOcclusion.color.value);
+            ambientOcclusionMaterial.SetVector(ShaderConstants._AORenderTargetSize, new Vector4(tw, th, 0, 0));
 
-            RandomizeAOKernel(m_AmbientOcclusionSampleKernel, m_AmbientOcclusion.sampleCount.value);
+            ambientOcclusionMaterial.SetTexture(ShaderConstants._AONoise, m_AmbientOcclusionNoise);
+
+            if (m_AmbientOcclusionSampleKernelCount != m_AmbientOcclusion.sampleCount.value)
+            {
+                m_AmbientOcclusionSampleKernelCount = m_AmbientOcclusion.sampleCount.value;
+                RandomizeAOKernel(m_AmbientOcclusionSampleKernel, m_AmbientOcclusionSampleKernelCount);
+            }
             ambientOcclusionMaterial.SetVectorArray(ShaderConstants._AOSampleKernel, m_AmbientOcclusionSampleKernel);
 
             var desc = GetStereoCompatibleDescriptor(tw, th, GraphicsFormat.R16G16B16A16_SFloat);
@@ -873,6 +886,20 @@ namespace UnityEngine.Rendering.Universal.Internal
             uberMaterial.EnableKeyword(ShaderKeywordStrings.AmbientOcclusion);
         }
 
+        private void RandomizeAONoise(Color[] noise)
+        {
+            for (int i = 0; i < noise.Length; ++i)
+            {
+                // First create a random point on a unit-radius hemisphere oriented around z.
+                var randomX = UnityEngine.Random.Range(0.0f, 1.0f);
+                var randomY = UnityEngine.Random.Range(0.0f, 1.0f);
+                var randomPoint = new Vector3(randomX, randomY, 0.0f).normalized;
+
+                // Then store in Vector4 for transfer to shader.
+                noise[i] = new Color(randomPoint.x, randomPoint.y, randomPoint.z);
+            }
+        }
+
         private void RandomizeAOKernel(Vector4[] kernel, int maxSize)
         {
             maxSize = Mathf.Min(kernel.Length, maxSize);
@@ -883,7 +910,7 @@ namespace UnityEngine.Rendering.Universal.Internal
                 // First create a random point on a unit-radius hemisphere oriented around z.
                 var randomX = UnityEngine.Random.Range(-1.0f, 1.0f);
                 var randomY = UnityEngine.Random.Range(-1.0f, 1.0f);
-                var randomZ = UnityEngine.Random.Range(0.0f, 1.0f);
+                var randomZ = UnityEngine.Random.Range(0.15f, 1.0f);
                 var randomHemispherePoint = new Vector3(randomX, randomY, randomZ).normalized;
 
                 // Then scale with an accelerating multiplier to distribute points throughout the hemisphere.
@@ -1164,14 +1191,15 @@ namespace UnityEngine.Rendering.Universal.Internal
             public static readonly int _UserLut                    = Shader.PropertyToID("_UserLut");
             public static readonly int _AOParams                   = Shader.PropertyToID("_AOParams");
             public static readonly int _AOColor                    = Shader.PropertyToID("_AOColor");
+            public static readonly int _AORenderTargetSize         = Shader.PropertyToID("_AORenderTargetSize");
+            public static readonly int _AONoise                    = Shader.PropertyToID("_AONoise");
             public static readonly int _AOSampleKernel             = Shader.PropertyToID("_AOSampleKernel");
             public static readonly int _AmbientOcclusion_Texture   = Shader.PropertyToID("_AmbientOcclusion_Texture");
+            public static readonly int _AmbientOcclusionMipDown    = Shader.PropertyToID("_AmbientOcclusionMipDown");
+            public static readonly int _AmbientOcclusionMipUp      = Shader.PropertyToID("_AmbientOcclusionMipUp");
 
             public static int[] _BloomMipUp;
             public static int[] _BloomMipDown;
-
-            public static int _AmbientOcclusionMipUp;
-            public static int _AmbientOcclusionMipDown;
         }
 
         #endregion
