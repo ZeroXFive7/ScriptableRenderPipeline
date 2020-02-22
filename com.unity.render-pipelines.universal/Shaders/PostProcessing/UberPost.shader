@@ -31,7 +31,7 @@ Shader "Hidden/Universal Render Pipeline/UberPost"
         TEXTURE2D(_InternalLut);
         TEXTURE2D(_UserLut);
         TEXTURE2D(_BlueNoise_Texture);
-        TEXTURE2D(_AmbientOcclusion_Texture);
+        TEXTURE2D(_AmbientOcclusionTexture);
 
         float4 _Lut_Params;
         float4 _UserLut_Params;
@@ -149,8 +149,8 @@ Shader "Hidden/Universal Render Pipeline/UberPost"
 
             #if defined(_AMBIENT_OCCLUSION)
             {
-                half4 ambientOcclusion = SAMPLE_TEXTURE2D_X(_AmbientOcclusion_Texture, sampler_LinearClamp, uvDistorted);
-                color *= ambientOcclusion.xyz;
+                half4 ambientOcclusion = SAMPLE_TEXTURE2D_X(_AmbientOcclusionTexture, sampler_LinearClamp, uvDistorted);
+                color *= ambientOcclusion.x;
             }
             #endif
 
