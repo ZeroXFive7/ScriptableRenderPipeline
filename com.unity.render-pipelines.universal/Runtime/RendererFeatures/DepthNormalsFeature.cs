@@ -12,8 +12,7 @@ namespace UnityEngine.Experimental.Rendering.Universal
         public override void Create()
         {
             depthNormalsMaterial = CoreUtils.CreateEngineMaterial("Hidden/Internal-DepthNormalsTexture");
-            depthNormalsPass = new DepthNormalsPass(RenderQueueRange.opaque, -1, depthNormalsMaterial);
-            depthNormalsPass.renderPassEvent = RenderPassEvent.AfterRenderingPrePasses;
+            depthNormalsPass = new DepthNormalsPass(RenderPassEvent.AfterRenderingPrePasses, RenderQueueRange.opaque, -1, depthNormalsMaterial);
             depthNormalsTexture.Init("_CameraDepthNormalsTexture");
         }
 

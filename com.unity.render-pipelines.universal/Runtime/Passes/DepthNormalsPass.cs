@@ -1,22 +1,19 @@
-using UnityEngine.Rendering.Universal;
-using UnityEngine.Rendering;
-
-namespace UnityEngine.Experimental.Rendering.Universal
+namespace UnityEngine.Rendering.Universal
 {
-    public class DepthNormalsPass : ScriptableRenderPass
+    public class DepthNormalsPass : BaseForwardPass
     {
         int kDepthBufferBits = 32;
+
         private RenderTargetHandle depthAttachmentHandle { get; set; }
         internal RenderTextureDescriptor descriptor { get; private set; }
 
         private Material depthNormalsMaterial = null;
-        private FilteringSettings m_FilteringSettings;
-        string m_ProfilerTag = "DepthNormals Prepass";
-        ShaderTagId m_ShaderTagId = new ShaderTagId("DepthOnly");
 
-        public DepthNormalsPass(RenderQueueRange renderQueueRange, LayerMask layerMask, Material material)
+        public DepthNormalsPass(RenderPassEvent evt, RenderQueueRange renderQueueRange, LayerMask layerMask, Material material)
+                        : base("DepthNormals Prepass", true, evt, renderQueueRange, layerMask)
         {
-            m_FilteringSettings = new FilteringSettings(renderQueueRange, layerMask);
+            m_ShaderTagIdList.Add(new ShaderTagId("DepthOnly"));
+
             depthNormalsMaterial = material;
         }
 
@@ -35,37 +32,20 @@ namespace UnityEngine.Experimental.Rendering.Universal
             ConfigureClear(ClearFlag.All, Color.black);
         }
 
-        public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
+        protected override void RenderFiltered(ScriptableRenderContext context, CommandBuffer cmd, Camera camera, ref RenderingData renderingData, ref DrawingSettings drawSettings, ref FilteringSettings filteringSettings, ref RenderStateBlock renderStateBlock)
         {
-            CommandBuffer cmd = CommandBufferPool.Get(m_ProfilerTag);
-
-            using (new ProfilingSample(cmd, m_ProfilerTag))
+            ref CameraData cameraData = ref renderingData.cameraData;
+            if (cameraData.isStereoEnabled)
             {
-                context.ExecuteCommandBuffer(cmd);
-                cmd.Clear();
-
-                var sortFlags = renderingData.cameraData.defaultOpaqueSortFlags;
-                var drawSettings = CreateDrawingSettings(m_ShaderTagId, ref renderingData, sortFlags);
-                drawSettings.perObjectData = PerObjectData.None;
-
-
-                ref CameraData cameraData = ref renderingData.cameraData;
-                Camera camera = cameraData.camera;
-                if (cameraData.isStereoEnabled)
-                    context.StartMultiEye(camera);
-
-
-                drawSettings.overrideMaterial = depthNormalsMaterial;
-
-
-                context.DrawRenderers(renderingData.cullResults, ref drawSettings,
-                    ref m_FilteringSettings);
-
-                cmd.SetGlobalTexture("_CameraDepthNormalsTexture", depthAttachmentHandle.id);
+                context.StartMultiEye(camera);
             }
 
-            context.ExecuteCommandBuffer(cmd);
-            CommandBufferPool.Release(cmd);
+            drawSettings.perObjectData = PerObjectData.None;
+            drawSettings.overrideMaterial = depthNormalsMaterial;
+
+            context.DrawRenderers(renderingData.cullResults, ref drawSettings, ref filteringSettings, ref renderStateBlock);
+
+            cmd.SetGlobalTexture("_CameraDepthNormalsTexture", depthAttachmentHandle.id);
         }
 
         public override void FrameCleanup(CommandBuffer cmd)

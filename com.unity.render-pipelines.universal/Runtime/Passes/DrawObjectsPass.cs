@@ -18,7 +18,7 @@ namespace UnityEngine.Rendering.Universal.Internal
             m_ShaderTagIdList.Add(new ShaderTagId("SRPDefaultUnlit"));
         }
 
-        protected override void RenderFiltered(ScriptableRenderContext context, Camera camera, ref RenderingData renderingData, ref DrawingSettings drawSettings, ref FilteringSettings filteringSettings, ref RenderStateBlock renderStateBlock)
+        protected override void RenderFiltered(ScriptableRenderContext context, CommandBuffer cmd, Camera camera, ref RenderingData renderingData, ref DrawingSettings drawSettings, ref FilteringSettings filteringSettings, ref RenderStateBlock renderStateBlock)
         {
             context.DrawRenderers(renderingData.cullResults, ref drawSettings, ref filteringSettings, ref renderStateBlock);
 

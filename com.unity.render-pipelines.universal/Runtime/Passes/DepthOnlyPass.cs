@@ -60,7 +60,7 @@ namespace UnityEngine.Rendering.Universal.Internal
             }
         }
 
-        protected override void RenderFiltered(ScriptableRenderContext context, Camera camera, ref RenderingData renderingData, ref DrawingSettings drawSettings, ref FilteringSettings filteringSettings, ref RenderStateBlock renderStateBlock)
+        protected override void RenderFiltered(ScriptableRenderContext context, CommandBuffer cmd, Camera camera, ref RenderingData renderingData, ref DrawingSettings drawSettings, ref FilteringSettings filteringSettings, ref RenderStateBlock renderStateBlock)
         {
             ref CameraData cameraData = ref renderingData.cameraData;
             if (cameraData.isStereoEnabled)

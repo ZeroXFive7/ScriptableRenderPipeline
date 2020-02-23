@@ -12,8 +12,8 @@ namespace UnityEngine.Experimental.Rendering.Universal
 
         public float intensity { get; set; }
         public float sampleRadius { get; set; }
-        public float downsample { get; set; }
-        public float sampleCount { get; set; }
+        public int sampleCount { get; set; }
+        public bool downsample { get; set; }
 
         public AmbientOcclusionPass()
         {
@@ -41,17 +41,22 @@ namespace UnityEngine.Experimental.Rendering.Universal
                 context.ExecuteCommandBuffer(cmd);
                 cmd.Clear();
 
-                // Start at half-res
-                int tw = m_Descriptor.width >> 1;
-                int th = m_Descriptor.height >> 1;
-
-                // Prefilter
+                // First setup material parameters.
                 var aoParams = new Vector4(intensity,
                     sampleRadius,
-                    downsample,
+                    downsample ? 0.5f : 1.0f,
                     sampleCount);
 
                 m_Material.SetVector(ShaderConstants._AOParams, aoParams);
+
+                // Then create render targets.
+                int tw = m_Descriptor.width;
+                int th = m_Descriptor.height;
+                if (downsample)
+                {
+                    tw /= 2;
+                    th /= 2;
+                }
 
                 var intermediateDesc = GetStereoCompatibleDescriptor(tw, th, GraphicsFormat.R16G16B16A16_SFloat);
                 cmd.GetTemporaryRT(ShaderConstants._AmbientOcclusionMipDown, intermediateDesc, FilterMode.Bilinear);
@@ -62,7 +67,7 @@ namespace UnityEngine.Experimental.Rendering.Universal
                 //   First pass does 2x downsampling + 9-tap gaussian
                 //   Second pass does 9-tap gaussian using a 5-tap filter + bilinear filtering
                 cmd.Blit(ShaderConstants._AmbientOcclusionMipDown, ShaderConstants._AmbientOcclusionMipUp, m_Material, 1);
-                cmd.Blit(ShaderConstants._AmbientOcclusionMipUp, ShaderConstants._AmbientOcclusionMipDown, m_Material, 2);
+                    cmd.Blit(ShaderConstants._AmbientOcclusionMipUp, ShaderConstants._AmbientOcclusionMipDown, m_Material, 2);
 
                 // Final texture is single-channel.
                 cmd.Blit(ShaderConstants._AmbientOcclusionMipDown, ShaderConstants._AmbientOcclusionTexture, m_Material, 3);

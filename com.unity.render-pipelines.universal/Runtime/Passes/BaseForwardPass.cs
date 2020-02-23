@@ -2,7 +2,7 @@ using System.Collections.Generic;
 
 namespace UnityEngine.Rendering.Universal
 {
-    internal abstract class BaseForwardPass : ScriptableRenderPass
+    public abstract class BaseForwardPass : ScriptableRenderPass
     {
         private const int FIRST_PERSON_MASK_STENCIL_REFERENCE = 255;
 
@@ -112,7 +112,7 @@ namespace UnityEngine.Rendering.Universal
                 m_FilteringSettings.renderingLayerMask = uint.MaxValue;
 
                 // Then render world geometry.
-                RenderFiltered(context, camera, ref renderingData, ref drawSettings, ref m_FilteringSettings, ref m_DefaultRenderStateBlock);
+                RenderFiltered(context, cmd, camera, ref renderingData, ref drawSettings, ref m_FilteringSettings, ref m_DefaultRenderStateBlock);
             }
 
             context.ExecuteCommandBuffer(cmd);
@@ -136,7 +136,7 @@ namespace UnityEngine.Rendering.Universal
 
                 // Render first person objects.
                 m_FilteringSettings.renderingLayerMask = renderingData.cameraData.firstPersonViewModelRenderingLayerMask;
-                RenderFiltered(context, camera, ref renderingData, ref drawSettings, ref m_FilteringSettings, ref m_FirstPersonRenderStateBlock);
+                RenderFiltered(context, cmd, camera, ref renderingData, ref drawSettings, ref m_FilteringSettings, ref m_FirstPersonRenderStateBlock);
             }
 
             context.ExecuteCommandBuffer(cmd);
@@ -156,13 +156,13 @@ namespace UnityEngine.Rendering.Universal
 
                 // Draw third person renderers.
                 m_FilteringSettings.renderingLayerMask = renderingData.cameraData.thirdPersonRenderingLayerMask;
-                RenderFiltered(context, camera, ref renderingData, ref drawSettings, ref m_FilteringSettings, ref m_ThirdPersonRenderStateBlock);
+                RenderFiltered(context, cmd, camera, ref renderingData, ref drawSettings, ref m_FilteringSettings, ref m_ThirdPersonRenderStateBlock);
             }
 
             context.ExecuteCommandBuffer(cmd);
             CommandBufferPool.Release(cmd);
         }
 
-        protected abstract void RenderFiltered(ScriptableRenderContext context, Camera camera, ref RenderingData renderingData, ref DrawingSettings drawSettings, ref FilteringSettings filteringSettings, ref RenderStateBlock renderStateBlock);
+        protected abstract void RenderFiltered(ScriptableRenderContext context, CommandBuffer cmd, Camera camera, ref RenderingData renderingData, ref DrawingSettings drawSettings, ref FilteringSettings filteringSettings, ref RenderStateBlock renderStateBlock);
     }
 }
